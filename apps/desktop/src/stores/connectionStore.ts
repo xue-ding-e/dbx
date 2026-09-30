@@ -110,8 +110,7 @@ import {
   parseConnectionConfigObject,
   prepareConnectionConfigImport,
   selectConnectionConfigBundle,
-  scrubConnectionForPlaintextExport,
-  scrubTunnelProfileForPlaintextExport,
+  serializePlaintextConnectionConfigBundle,
   snapshotConnectionsForExport,
   type ConnectionConfigBundle,
   type ConnectionExportProtection,
@@ -196,7 +195,7 @@ import { normalizeRedisKeyTemplates } from "@/lib/redis/redisKeyTemplates";
 import { appendAgentDriverUpdateHint, connectionUsesSsh, hasAgentDriverUpdate, hasInstalledAgentVersion, type AgentDriverInstallState } from "@/lib/connection/agentDriverInstallHint";
 import { appendConnectionErrorHints, isMysqlMissingPasswordFailure, isSqliteMissingEncryptionPasswordFailure } from "@/lib/connection/connectionErrorHints";
 import { connectionNeedsPasswordPrompt, pluginConnectionNeedsPasswordPrompt } from "@/lib/connection/connectionPassword";
-import { isSavedCredential } from "@/lib/security/passwordViewer";
+import { isSavedCredential, passwordViewerEnabled } from "@/lib/security/passwordViewer";
 import { createFrontendPluginRegistry } from "@/lib/plugins/frontendPlugin";
 import { appendVisibleDatabaseSelection } from "@/lib/connection/connectionVisibleDatabases";
 import { buildXuguTypeMemberNodes, isXuguTypeMemberContainer } from "@/lib/sidebar/xuguTypeMembers";
@@ -10855,6 +10854,11 @@ export const useConnectionStore = defineStore("connection", () => {
 
   async function exportConnectionsToFile(protection: ConnectionExportProtection, selectedConnectionIds?: Iterable<string>) {
     if (protection.mode === "encrypted" && !protection.passphrase) throw new Error("passphrase_required");
+    const includeCredentials = protection.mode === "plaintext" && protection.includeCredentials === true;
+    const ensureCredentialExportAllowed = () => {
+      if (includeCredentials && !passwordViewerEnabled.value) throw new Error("credential_export_disabled");
+    };
+    ensureCredentialExportAllowed();
 
     const tunnelProfileStore = useTunnelProfileStore();
     await tunnelProfileStore.init();
@@ -10865,19 +10869,14 @@ export const useConnectionStore = defineStore("connection", () => {
       queryTimeoutSecs: () => settingsStore.editorSettings.globalQueryTimeoutSecs,
     });
     const exportData = buildConnectionConfigBundle(exportedConnections, sidebarLayout.value, tunnelProfileStore.profiles, selectedConnectionIds);
-    const json = JSON.stringify(exportData);
     let content: string;
     if (protection.mode === "encrypted") {
       const { encryptConfig } = await import("@/lib/backend/configCrypto");
-      const payload = await encryptConfig(json, protection.passphrase);
+      const payload = await encryptConfig(JSON.stringify(exportData), protection.passphrase);
       content = JSON.stringify(payload, null, 2);
     } else {
-      const scrubbedData = {
-        ...exportData,
-        connections: exportData.connections.map(scrubConnectionForPlaintextExport),
-        tunnelProfiles: exportData.tunnelProfiles?.map(scrubTunnelProfileForPlaintextExport),
-      };
-      content = JSON.stringify(scrubbedData, null, 2);
+      ensureCredentialExportAllowed();
+      content = serializePlaintextConnectionConfigBundle(exportData, protection.includeCredentials);
     }
 
     if (isTauriRuntime()) {
@@ -10888,6 +10887,8 @@ export const useConnectionStore = defineStore("connection", () => {
         defaultPath: "dbx-connections.json",
       });
       if (!path) return "cancelled" as const;
+      // Re-check after the native picker: capabilities may change while it is open.
+      ensureCredentialExportAllowed();
       await writeTextFile(path, content);
     } else {
       const blob = new Blob([content], { type: "application/json" });

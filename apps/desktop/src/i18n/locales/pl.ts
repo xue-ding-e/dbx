@@ -3464,6 +3464,12 @@ export default withEnglishFallback({
     errors: "Wystąpiły błędy w części tabel",
   },
   configExport: {
+    plaintextDefaultDescription: "Eksport w postaci zwykłego tekstu domyślnie pomija hasła i inne dane uwierzytelniające.",
+    credentialsUnavailable: "Ten serwer nie zezwala na eksport danych uwierzytelniających.",
+    includeCredentials: "Uwzględnij hasła i inne dane uwierzytelniające (zwykły tekst)",
+    plaintextCredentialsWarning: "Po uwzględnieniu hasła baz danych, dane uwierzytelniające SSH/proxy, tokeny i ciągi połączenia będą czytelne dla każdego, kto ma ten plik. Używaj tej opcji tylko do tymczasowej migracji w zaufanym środowisku; przechowuj plik bezpiecznie i usuń go po zakończeniu.",
+    exportWithCredentials: "Eksportuj z danymi uwierzytelniającymi",
+    exportWithoutCredentials: "Eksportuj bez danych uwierzytelniających",
     passphraseTitle: "Zaszyfruj i wyeksportuj",
     passphraseImportTitle: "Odszyfruj plik",
     passphraseExportHint: "Aby wyeksportować także hasła połączeń, ustaw hasło szyfrowania. To samo hasło będzie potrzebne przy imporcie.",
