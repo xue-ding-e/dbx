@@ -1763,6 +1763,7 @@ export default withEnglishFallback({
     searchDatabasePlaceholder: "ค้นหาชนิดฐานข้อมูล",
     searchResults: "ผลการค้นหา",
     databaseCategories: "หมวดหมู่",
+    databaseCategoryAll: "ทั้งหมด",
     databaseCategorySql: "เชิงสัมพันธ์",
     databaseCategoryAnalytics: "การวิเคราะห์",
     databaseCategoryDomestic: "ฐานข้อมูลจีน",

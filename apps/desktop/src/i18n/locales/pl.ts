@@ -1429,6 +1429,7 @@ export default withEnglishFallback({
     searchDatabasePlaceholder: "Wyszukaj typy baz danych",
     searchResults: "Wyniki wyszukiwania",
     databaseCategories: "Kategorie",
+    databaseCategoryAll: "Wszystkie",
     databaseCategorySql: "Relacyjne",
     databaseCategoryAnalytics: "Analityczne",
     databaseCategoryDomestic: "Chińskie bazy danych",

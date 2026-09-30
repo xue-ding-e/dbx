@@ -1116,6 +1116,7 @@ export default withEnglishFallback({
     searchDatabasePlaceholder: "Verilənlər bazası növlərini axtar",
     searchResults: "Axtarış nəticələri",
     databaseCategories: "Kateqoriyalar",
+    databaseCategoryAll: "Hamısı",
     databaseCategorySql: "Relyasiyalı",
     databaseCategoryAnalytics: "Analitika",
     databaseCategoryDomestic: "Çin verilənlər bazaları",
