@@ -1,0 +1,44 @@
+name: Compatible Linux MCP service
+on:
+  push:
+    branches: [build/linux-service-compatible]
+permissions:
+  contents: read
+jobs:
+  linux-service:
+    if: github.repository == 'xue-ding-e/dbx'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 297c2c75875488c70643e2a9dcaccacbcfd1d199
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify exact integrated source
+        run: test "$(git rev-parse HEAD)" = 297c2c75875488c70643e2a9dcaccacbcfd1d199
+      - name: Build optimized service
+        run: cargo build --locked --release -p dbx-cli -p dbx-mcp --no-default-features --features dbx-cli/duckdb-sidecar,dbx-mcp/sqlite-bundled
+      - name: Stage clean service and record ABI
+        run: |
+          mkdir -p staging/bin
+          cp target/release/dbx target/release/dbx-mcp staging/bin/
+          staging/bin/dbx --version
+          staging/bin/dbx-mcp --version
+          cp LICENSE staging/
+          cp -R deploy/mcp staging/deploy
+          git rev-parse HEAD > staging/SOURCE_COMMIT
+          ldd staging/bin/dbx-mcp > staging/RUNTIME_DEPENDENCIES.txt
+          objdump -T staging/bin/dbx-mcp | grep -o 'GLIBC_[0-9.]*' | sort -Vu > staging/GLIBC_SYMBOL_VERSIONS.txt
+          sha256sum staging/bin/dbx staging/bin/dbx-mcp > staging/BINARY_SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dbx-linux-x86_64-glibc235-service
+          path: staging/
+          if-no-files-found: error
+          retention-days: 7
