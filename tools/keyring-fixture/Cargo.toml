@@ -1,0 +1,7 @@
+[package]
+name = "dbx-ci-keyring-fixture"
+version = "0.0.0"
+edition = "2021"
+[workspace]
+[dependencies]
+keyring = { version = "=3.6.3", default-features = false, features = ["windows-native", "crypto-rust"] }

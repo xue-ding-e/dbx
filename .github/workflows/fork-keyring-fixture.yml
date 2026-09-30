@@ -1,0 +1,28 @@
+name: Isolated Windows native keyring fixture
+on:
+  push:
+    branches: [verify/windows-keyring-fixture]
+permissions:
+  contents: read
+jobs:
+  keyring-fixture:
+    if: github.repository == 'xue-ding-e/dbx'
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify uniquely named synthetic keyring entry and cleanup
+        shell: pwsh
+        run: |
+          cargo run --manifest-path tools/keyring-fixture/Cargo.toml | Out-File -Encoding utf8 WINDOWS_KEYRING_FIXTURE.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dbx-windows-native-keyring-fixture-report
+          path: WINDOWS_KEYRING_FIXTURE.json
+          if-no-files-found: warn
+          retention-days: 7
