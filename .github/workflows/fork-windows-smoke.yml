@@ -1,0 +1,55 @@
+name: Windows remote MCP artifact smoke
+on:
+  push:
+    branches: [verify/windows-remote-mcp]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  smoke:
+    if: github.repository == 'xue-ding-e/dbx'
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test-only JWT signing dependency
+        run: python -m pip install cryptography==50.0.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: dbx-windows-x86_64-desktop-and-service
+          run-id: 36779438935
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: downloaded
+      - name: Verify binary source and native x64 architecture
+        shell: python
+        run: |
+          import pathlib,struct,hashlib,json
+          p=pathlib.Path('downloaded/service')
+          assert (p/'SOURCE_COMMIT').read_text().strip()=='297c2c75875488c70643e2a9dcaccacbcfd1d199'
+          result={}
+          for name in ['dbx.exe','dbx-mcp.exe']:
+              b=(p/'bin'/name).read_bytes()
+              assert b[:2]==b'MZ'
+              off=struct.unpack_from('<I',b,0x3c)[0]
+              assert b[off:off+4]==b'PE\0\0'
+              assert struct.unpack_from('<H',b,off+4)[0]==0x8664
+              result[name]={'sha256':hashlib.sha256(b).hexdigest(),'bytes':len(b),'machine':'AMD64'}
+          pathlib.Path('WINDOWS_BINARY_MANIFEST.json').write_text(json.dumps(result,indent=2))
+      - name: Exercise CLI, stdio and authenticated HTTP on Windows
+        shell: pwsh
+        run: |
+          python scripts/verify-remote-mcp-artifact.py downloaded/service/bin/dbx-mcp.exe downloaded/service/bin/dbx.exe | Out-File -Encoding utf8 WINDOWS_SMOKE.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dbx-windows-service-smoke-report
+          path: |
+            WINDOWS_SMOKE.json
+            WINDOWS_BINARY_MANIFEST.json
+          if-no-files-found: error
+          retention-days: 7
