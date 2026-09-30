@@ -1,0 +1,44 @@
+name: Fork Fault Lab review package
+on:
+  push:
+    branches: [build/fault-lab-release]
+permissions:
+  contents: read
+jobs:
+  package-linux:
+    if: github.repository == 'xue-ding-e/dbx'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 297c2c75875488c70643e2a9dcaccacbcfd1d199
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: plugins/pg-fault-lab/backend/go.mod
+          cache-dependency-path: plugins/pg-fault-lab/backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test synthetic Go backend
+        working-directory: plugins/pg-fault-lab/backend
+        run: go test ./...
+      - name: Test plugin UI
+        working-directory: plugins/pg-fault-lab
+        run: |
+          npm ci --ignore-scripts
+          npm test
+      - name: Package with the checked-out project packager
+        env:
+          DBX_PLUGIN_SDK_ROOT: ${{ github.workspace }}
+        run: cargo run --locked --manifest-path plugins/sdk/cli/Cargo.toml -- package plugins/pg-fault-lab --target linux-x64
+      - name: Record source
+        run: git rev-parse HEAD > plugins/pg-fault-lab/dist/SOURCE_COMMIT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dbx-pg-fault-lab-linux-x64-unsigned
+          path: plugins/pg-fault-lab/dist/
+          if-no-files-found: error
+          retention-days: 7
