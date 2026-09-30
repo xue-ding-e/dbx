@@ -8703,6 +8703,8 @@ export default withEnglishFallback({
     mcpToolCustomAdd: "Ekle",
     mcpToolCustomRemove: "Girdiyi kaldır",
     mcpToolCustomHint: "Eklenti araçları çalışma zamanında keşfedilir, burada listelenemez: tek bir eklenti için dbx_<önek>__*, tüm eklenti araçları için dbx_*__* kullanın. Yukarıdaki onay kutularının dışında kayıtlı girdiler aşağıda görünür ve kaldırılabilir.",
+    mcpToolGetConnection: "Bağlantı ayrıntılarını getir",
+    mcpToolUpdateConnection: "Bağlantıyı güncelle",
     mcpToolListConnections: "Bağlantıları listele",
     mcpToolListDatabases: "Veritabanlarını listele",
     mcpToolListTables: "Tabloları listele",
