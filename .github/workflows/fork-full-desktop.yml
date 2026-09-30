@@ -1,0 +1,85 @@
+name: Full-feature fork desktop builds
+on:
+  push:
+    branches: [build/full-feature-desktops]
+permissions:
+  contents: read
+jobs:
+  desktop:
+    if: github.repository == 'xue-ding-e/dbx'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: linux-x86_64-ubuntu22.04
+          - os: windows-2022
+            label: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 297c2c75875488c70643e2a9dcaccacbcfd1d199
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux standard release prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libfontconfig1-dev libsecret-1-dev xdg-utils
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: full-desktop-${{ matrix.label }}
+          cache-on-failure: true
+      - name: Install locked frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build with the project's standard Desktop feature defaults
+        env:
+          CXXFLAGS: ${{ runner.os == 'Windows' && '/std:c++17 /EHsc' || '' }}
+        run: pnpm tauri build --no-bundle --ci -- --locked
+      - name: Stage full-feature desktop
+        shell: bash
+        run: |
+          mkdir -p staging/desktop
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp target/release/dbx.exe staging/desktop/DBX.exe
+          else
+            cp target/release/dbx staging/desktop/DBX
+            objdump -T staging/desktop/DBX | grep -o 'GLIBC_[0-9.]*' | sort -Vu > staging/desktop/GLIBC_SYMBOL_VERSIONS.txt
+          fi
+          cp LICENSE staging/desktop/
+          git rev-parse HEAD > staging/desktop/SOURCE_COMMIT
+          printf '%s\n' 'Standard src-tauri default features: duckdb-sidecar,dynamodb,mq-admin,sqlite-multiple-ciphers,system-fonts,os-keyring' > staging/desktop/FEATURES.txt
+      - name: Build native Windows services with standard MCP defaults and OS-keyring
+        if: runner.os == 'Windows'
+        run: cargo build --locked --release -p dbx-cli -p dbx-mcp --features dbx-mcp/os-keyring
+      - name: Stage Windows keyring-compatible services
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p staging/service/bin
+          target/release/dbx.exe --version
+          target/release/dbx-mcp.exe --version
+          cp target/release/dbx.exe target/release/dbx-mcp.exe staging/service/bin/
+          cp -R deploy/mcp staging/service/deploy
+          cp LICENSE staging/service/
+          git rev-parse HEAD > staging/service/SOURCE_COMMIT
+          printf '%s\n' 'CLI/MCP default features plus dbx-mcp/os-keyring' > staging/service/FEATURES.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dbx-${{ matrix.label }}-full-features
+          path: staging/
+          if-no-files-found: error
+          retention-days: 7
