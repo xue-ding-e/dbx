@@ -9638,6 +9638,7 @@ export default withEnglishFallback({
     mcpToolCustomAdd: "Dodaj",
     mcpToolCustomRemove: "Usuń wpis",
     mcpToolCustomHint: "Narzędzia wtyczek są wykrywane dynamicznie, więc nie można ich wylistować tutaj: zezwól na jedną wtyczkę przez dbx_<prefiks>__* lub na wszystkie narzędzia wtyczek przez dbx_*__*. Zapisane wpisy poza powyższymi polami wyboru pozostają widoczne i można je usunąć poniżej.",
+    mcpToolImportConnections: "Importuj pakiet połączeń (tylko lokalnie)",
     mcpToolGetConnection: "Pobierz szczegóły połączenia",
     mcpToolUpdateConnection: "Zaktualizuj połączenie",
     mcpToolListConnections: "Lista połączeń",

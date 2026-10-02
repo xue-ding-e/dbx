@@ -8792,6 +8792,7 @@ export default withEnglishFallback({
     mcpToolCustomAdd: "Əlavə et",
     mcpToolCustomRemove: "Girişi sil",
     mcpToolCustomHint: "Pləgin alətləri iş vaxtı aşkarlanır, burada sadala bilməz: bir pləgin üçün dbx_<prefiks>__*, bütün pləgin alətləri üçün dbx_*__* istifadə edin. Yuxarıdakı qutuların xaricində saxlanan girişlər aşağıda görünür və silinə bilər.",
+    mcpToolImportConnections: "Bağlantı paketini idxal et (yalnız lokal)",
     mcpToolGetConnection: "Bağlantı təfərrüatlarını al",
     mcpToolUpdateConnection: "Bağlantını yenilə",
     mcpToolListConnections: "Əlaqələri siyahıla",

@@ -9611,6 +9611,7 @@ export default withEnglishFallback({
     mcpToolSalesforceApplyWrite: "Applica scrittura Salesforce",
     mcpToolPeekMessages: "Leggi messaggi Kafka",
     mcpToolSendMessage: "Invia messaggio in coda",
+    mcpToolImportConnections: "Importa pacchetto connessioni (solo locale)",
     mcpToolAddConnection: "Aggiungi connessione",
     mcpToolGetConnection: "Visualizza dettagli connessione",
     mcpToolUpdateConnection: "Aggiorna connessione",

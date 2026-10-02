@@ -11612,6 +11612,7 @@ export default withEnglishFallback({
     mcpToolCustomAdd: "เพิ่ม",
     mcpToolCustomRemove: "นำรายการออก",
     mcpToolCustomHint: "ค้นพบเครื่องมือ Plugin ขณะ Runtime จึงไม่สามารถแสดงรายการที่นี่ได้ อนุญาต Plugin หนึ่งรายการด้วย dbx_<prefix>__* หรือเครื่องมือ Plugin ทั้งหมดด้วย dbx_*__* รายการที่บันทึกไว้นอกเหนือจาก Checkbox ด้านบนยังแสดงและนำออกได้ด้านล่าง",
+    mcpToolImportConnections: "นำเข้าชุดการเชื่อมต่อ (เฉพาะในเครื่อง)",
     mcpToolGetConnection: "ดูรายละเอียดการเชื่อมต่อ",
     mcpToolUpdateConnection: "อัปเดตการเชื่อมต่อ",
     mcpToolListConnections: "แสดงรายการการเชื่อมต่อ",

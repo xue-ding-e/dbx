@@ -9611,6 +9611,7 @@ export default withEnglishFallback({
     mcpToolCustomAdd: "Tambah",
     mcpToolCustomRemove: "Hapus entri",
     mcpToolCustomHint: "Alat plugin ditemukan saat runtime, sehingga tidak dapat ditampilkan di sini: izinkan satu plugin dengan dbx_<prefix>__*, atau semua alat plugin dengan dbx_*__*. Entri tersimpan di luar kotak centang di atas tetap terlihat dan dapat dihapus di bawah.",
+    mcpToolImportConnections: "Impor paket koneksi (hanya lokal)",
     mcpToolGetConnection: "Dapatkan detail koneksi",
     mcpToolUpdateConnection: "Perbarui koneksi",
     mcpToolListConnections: "Daftar koneksi",
