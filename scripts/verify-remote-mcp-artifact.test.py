@@ -15,6 +15,7 @@ import textwrap
 import unittest
 from unittest.mock import patch
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 import base64
@@ -60,6 +61,20 @@ class SmokeTests(unittest.TestCase):
                                         padding.PKCS1v15(), hashes.SHA256())
         self.assertNotIn("d", fixture.jwks()["keys"][0])
         self.assertEqual(fixture.tokens, [token])
+
+    def test_wrong_key_token_has_valid_claims_but_invalid_signature(self):
+        trusted = smoke.SigningFixture()
+        foreign = smoke.SigningFixture()
+        token = foreign.token()
+        header, payload, signature = token.split(".")
+        decode = lambda value: base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        self.assertEqual(json.loads(decode(header))["kid"], trusted.jwks()["keys"][0]["kid"])
+        self.assertEqual(json.loads(decode(payload))["iss"], trusted.issuer)
+        self.assertEqual(json.loads(decode(payload))["aud"], trusted.resource)
+        self.assertEqual(json.loads(decode(payload))["sub"], "owner")
+        with self.assertRaises(InvalidSignature):
+            trusted.key.public_key().verify(decode(signature), (header + "." + payload).encode(),
+                                            padding.PKCS1v15(), hashes.SHA256())
 
     def test_json_and_sse_responses_match_request_id(self):
         value = {"jsonrpc": "2.0", "id": 7, "result": {"tools": []}}
