@@ -6418,9 +6418,9 @@ mod tests {
         let tools = server.tool_router.list_all();
         let names = tools.iter().map(|tool| tool.name.as_ref()).collect::<Vec<_>>();
         #[cfg(feature = "mq-admin")]
-        assert_eq!(tools.len(), 27);
+        assert_eq!(tools.len(), 28);
         #[cfg(not(feature = "mq-admin"))]
-        assert_eq!(tools.len(), 25);
+        assert_eq!(tools.len(), 26);
         #[cfg(feature = "mq-admin")]
         assert!(names.contains(&"dbx_peek_messages"));
         #[cfg(not(feature = "mq-admin"))]
@@ -6437,6 +6437,7 @@ mod tests {
         assert!(names.contains(&"dbx_commit_transaction"));
         assert!(names.contains(&"dbx_rollback_transaction"));
         assert!(names.contains(&"dbx_add_connection"));
+        assert!(names.contains(&"dbx_import_connections"));
         assert!(names.contains(&"dbx_get_connection"));
         assert!(names.contains(&"dbx_update_connection"));
         assert!(names.contains(&"dbx_duplicate_connection"));
