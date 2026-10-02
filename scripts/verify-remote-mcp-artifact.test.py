@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import textwrap
 import unittest
 from unittest.mock import patch
@@ -99,9 +100,16 @@ class SmokeTests(unittest.TestCase):
 
     def test_failed_check_reaps_child_and_drains_large_logs(self):
         with tempfile.TemporaryDirectory() as directory:
-            command = [sys.executable, "-c", "import sys,time; sys.stderr.write('x'*1000000); sys.stderr.flush(); time.sleep(60)"]
+            marker = Path(directory) / "logs-flushed"
+            script = "import sys,time,pathlib; sys.stderr.write('x'*1000000); sys.stderr.flush(); pathlib.Path('logs-flushed').touch(); time.sleep(60)"
+            command = [sys.executable, "-c", script]
             with self.assertRaisesRegex(smoke.SmokeFailure, "deliberate failure"):
                 with smoke.managed_process(command, os.environ, directory) as (process, _, _):
+                    deadline = time.monotonic() + 5
+                    while not marker.exists():
+                        self.assertIsNone(process.poll())
+                        self.assertLess(time.monotonic(), deadline, "child log pipe blocked")
+                        time.sleep(0.01)
                     raise smoke.SmokeFailure("deliberate failure")
             self.assertIsNotNone(process.poll())
 
@@ -163,6 +171,19 @@ class SmokeTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(b"SmokeFailure: expected", result.stderr)
+
+    def test_failed_smoke_removes_temporary_profile_and_key(self):
+        captured = []
+        def failing_http(binary, root, env, signing):
+            captured.append(root)
+            self.assertTrue(Path(env["DBX_SECRET_KEY_FILE"]).is_file())
+            raise smoke.SmokeFailure("fixture failure")
+        with patch.object(smoke, "binary_manifest", return_value={}), \
+             patch.object(smoke, "check_http", side_effect=failing_http):
+            with self.assertRaisesRegex(smoke.SmokeFailure, "fixture failure"):
+                smoke.run(Path("unused"), Path("unused"))
+        self.assertEqual(len(captured), 1)
+        self.assertFalse(captured[0].exists())
 
     def test_main_does_not_log_sensitive_exception_content(self):
         with patch.object(sys, "argv", ["smoke", __file__, __file__]), \
