@@ -9552,6 +9552,7 @@ export default withEnglishFallback({
     mcpToolExecuteRedisCommand: "Выполнить команду Redis",
     mcpToolPeekMessages: "Читать сообщения Kafka",
     mcpToolSendMessage: "Отправить сообщение в очередь",
+    mcpToolImportConnections: "Импорт пакета подключений (только локально)",
     mcpToolAddConnection: "Добавить подключение",
     mcpToolGetConnection: "Сведения о подключении",
     mcpToolUpdateConnection: "Изменить подключение",

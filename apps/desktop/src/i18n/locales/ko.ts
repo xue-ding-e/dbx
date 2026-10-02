@@ -8055,6 +8055,7 @@ export default withEnglishFallback({
     mcpToolSalesforceApplyWrite: "Salesforce 쓰기 적용",
     mcpToolPeekMessages: "Kafka 메시지 읽기",
     mcpToolSendMessage: "메시지 큐 메시지 전송",
+    mcpToolImportConnections: "연결 번들 가져오기 (로컬 전용)",
     mcpToolAddConnection: "연결 추가",
     mcpToolGetConnection: "연결 세부 정보 보기",
     mcpToolUpdateConnection: "연결 업데이트",

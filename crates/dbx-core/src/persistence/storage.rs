@@ -5812,6 +5812,29 @@ impl Storage {
 
 // Connections
 
+fn check_import_timeout_migration(conn: &Connection) -> Result<(), String> {
+    let has_connections: bool = conn
+        .query_row("SELECT EXISTS(SELECT 1 FROM connections)", [], |row| row.get(0))
+        .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+    if !has_connections {
+        return Ok(());
+    }
+    let settings: Option<String> = conn
+        .query_row("SELECT value_json FROM app_state WHERE key=?1", [APP_STATE_EDITOR_SETTINGS_KEY], |row| row.get(0))
+        .optional()
+        .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+    let settings: serde_json::Value = settings
+        .map(|value| serde_json::from_str(&value).map_err(|_| "CONNECTION_STORE_ERROR".to_string()))
+        .transpose()?
+        .unwrap_or(serde_json::Value::Null);
+    // The legacy queryTimeoutInheritanceMigrationVersion maps to version 1,
+    // even if its numeric value is greater. Only the current field proves v2.
+    if settings["timeoutInheritanceMigrationVersion"].as_f64().is_some_and(|version| version >= 2.0) {
+        return Ok(());
+    }
+    Err("TIMEOUT_MIGRATION_REQUIRED: Open this profile in DBX desktop to finish timeout-inheritance migration before importing explicit timeout flags.".into())
+}
+
 fn load_mcp_global_policy_in_tx(tx: &rusqlite::Transaction<'_>) -> Result<McpGlobalPolicy, String> {
     let settings_json: Option<String> = tx
         .query_row("SELECT settings_json FROM app_settings WHERE id = 1", [], |row| row.get(0))
@@ -6362,6 +6385,172 @@ impl Storage {
                     .map_err(|e| e.to_string())?;
             }
             tx.commit().map_err(|e| e.to_string())
+        })
+        .await
+    }
+
+    /// Atomically add a validated export, without replacing any existing configuration.
+    /// Preview does not write connection rows, layout, profiles, or secret-key material.
+    pub async fn import_connections_for_mcp(
+        &self,
+        input: serde_json::Value,
+        dry_run: bool,
+    ) -> Result<super::connection_import::ConnectionImportReport, String> {
+        use super::connection_import::{parse_bundle, plan_import};
+        let bundle = parse_bundle(input)?;
+        let check_policy = move |policy: &McpGlobalPolicy| -> Result<(), String> {
+            if policy
+                .allowed_tool_names
+                .as_ref()
+                .is_some_and(|names| !names.iter().any(|name| name == "dbx_import_connections"))
+            {
+                return Err("TOOL_OUT_OF_SCOPE: Import is not allowed by MCP policy.".into());
+            }
+            if policy.allowed_connection_ids.is_some() || !policy.allowed_group_ids.is_empty() {
+                return Err("CONNECTION_OUT_OF_SCOPE: Import is disabled in scoped sessions.".into());
+            }
+            if !dry_run && policy.read_only {
+                return Err("MCP_READ_ONLY: Global MCP read-only mode blocks connection imports.".into());
+            }
+            Ok(())
+        };
+        check_policy(&self.load_mcp_global_policy().await?.policy())?;
+        let has_timeout_flags = !bundle.timeout_inheritance.is_empty();
+        // Fail before provisioning key material, and recheck inside the write
+        // transaction below. Desktop migration can also recover localStorage
+        // backups, which a headless importer must not guess or supersede.
+        if has_timeout_flags {
+            self.with_conn(|conn| check_import_timeout_migration(conn)).await?;
+        }
+        let needs_key = bundle.connections.iter().any(connection_config_has_inline_secrets)
+            || bundle.profiles.iter().any(|profile| {
+                let mut clean = profile.clone();
+                clean.scrub_secrets();
+                clean != *profile
+            });
+        let codec = if dry_run { None } else { Some(self.secret_codec_for_write(needs_key).await?) };
+        let secret_storage = self.clone();
+        self.with_conn(move |conn| {
+            let tx = conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+            check_policy(&load_mcp_global_policy_in_tx(&tx)?)?;
+            if has_timeout_flags {
+                check_import_timeout_migration(&tx)?;
+            }
+            let existing = {
+                let mut stmt = tx
+                    .prepare("SELECT config_json FROM connections ORDER BY rowid")
+                    .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                let rows = stmt
+                    .query_map([], |row| row.get::<_, String>(0))
+                    .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                let mut configs = Vec::new();
+                for row in rows {
+                    let mut config = serde_json::from_str::<ConnectionConfig>(
+                            &row.map_err(|_| "CONNECTION_STORE_ERROR".to_string())?,
+                        )
+                        .map_err(|_| "CONNECTION_STORE_ERROR: Invalid existing configuration.".to_string())?;
+                    // DSNs can contain the entire target and are stored apart from
+                    // public config JSON. Read only this field in the same snapshot
+                    // so distinct JDBC/URI targets never collapse into one identity.
+                    let dsn: Option<(String, Option<String>)> = tx.query_row(
+                        "SELECT secret, secret_enc FROM connection_secrets WHERE connection_id=?1 AND key='connection_string'",
+                        [&config.id], |row| Ok((row.get(0)?, row.get(1)?)),
+                    ).optional().map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                    if let Some((legacy, encrypted)) = dsn {
+                        config.connection_string = Some(match encrypted.filter(|value| !value.is_empty()) {
+                            Some(value) => secret_storage.secret_codec(false)?
+                                .decrypt(&config.id, "connection_string", &value)?,
+                            None => legacy,
+                        });
+                    }
+                    configs.push(config);
+                }
+                configs
+            };
+            let current: Option<String> = tx
+                .query_row("SELECT layout_json FROM sidebar_layout WHERE id=1", [], |row| row.get(0))
+                .optional()
+                .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+            let layout = current
+                .map(|value| serde_json::from_str(&value).map_err(|_| "CONNECTION_STORE_ERROR".to_string()))
+                .transpose()?;
+            let plan = plan_import(bundle, &existing, layout, dry_run)?;
+            if !dry_run && !plan.connections.is_empty() {
+                let codec = codec.as_ref().expect("apply codec");
+                for config in &plan.connections {
+                    persist_connection_in_tx(&tx, codec, config)?;
+                }
+                // New profile IDs are always remapped, so existing profiles and their secrets remain untouched.
+                for profile in &plan.profiles {
+                    let mut clean = profile.clone();
+                    clean.scrub_secrets();
+                    let json = serde_json::to_string(&clean).map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                    tx.execute(
+                        "INSERT INTO tunnel_profiles (id, config_json) VALUES (?1, ?2)",
+                        params![profile.id(), json],
+                    )
+                    .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                    if clean != *profile {
+                        persist_secret_in_tx(
+                            &tx,
+                            codec,
+                            &format!("{TUNNEL_SECRET_NAMESPACE_PREFIX}{}", profile.id()),
+                            CONFIG_SECRET_BLOB_KEY,
+                            &serde_json::to_string(profile).map_err(|_| "CONNECTION_STORE_ERROR".to_string())?,
+                        )?;
+                    }
+                }
+                let json = serde_json::to_string(&plan.layout).map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                tx.execute("INSERT OR REPLACE INTO sidebar_layout (id,layout_json) VALUES (1,?1)", [json])
+                    .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                if !plan.timeout_inheritance.is_empty() {
+                    let previous: Option<String> = tx
+                        .query_row(
+                            "SELECT value_json FROM app_state WHERE key=?1",
+                            [APP_STATE_EDITOR_SETTINGS_KEY],
+                            |row| row.get(0),
+                        )
+                        .optional()
+                        .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                    let mut settings: serde_json::Value = previous
+                        .map(|json| serde_json::from_str(&json).map_err(|_| "CONNECTION_STORE_ERROR".to_string()))
+                        .transpose()?
+                        .unwrap_or_else(|| serde_json::json!({}));
+                    if !settings.is_object() {
+                        return Err("CONNECTION_STORE_ERROR: Invalid editor settings.".into());
+                    }
+                    for (field, is_connect) in
+                        [("connectTimeoutInheritConnectionIds", true), ("queryTimeoutInheritConnectionIds", false)]
+                    {
+                        if settings.get(field).is_none() {
+                            settings[field] = serde_json::json!([]);
+                        }
+                        let ids = settings[field]
+                            .as_array_mut()
+                            .ok_or_else(|| "CONNECTION_STORE_ERROR: Invalid timeout settings.".to_string())?;
+                        for (id, connect, query) in &plan.timeout_inheritance {
+                            if (if is_connect { *connect } else { *query })
+                                && !ids.iter().any(|value| value.as_str() == Some(id))
+                            {
+                                ids.push(serde_json::json!(id));
+                            }
+                        }
+                    }
+                    // No existing profile's migration state is advanced implicitly.
+                    if existing.is_empty() {
+                        settings["timeoutInheritanceMigrationVersion"] = serde_json::json!(2);
+                    }
+                    tx.execute(
+                        "INSERT OR REPLACE INTO app_state (key,value_json) VALUES (?1,?2)",
+                        params![APP_STATE_EDITOR_SETTINGS_KEY, settings.to_string()],
+                    )
+                    .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                }
+                tx.commit().map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+            }
+            Ok(plan.report)
         })
         .await
     }
