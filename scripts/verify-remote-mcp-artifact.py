@@ -216,7 +216,12 @@ def check_http(binary, root, env, signing):
         status, _, data = client.request("GET", path="/.well-known/oauth-protected-resource/mcp")
         require(status == 200 and json.loads(data)["resource"] == signing.resource, "resource metadata mismatch")
         report["resource_metadata"] = True
+        # Valid claims and the expected kid, but a different private key. This
+        # catches verifiers that parse claims without verifying the signature.
+        wrong_signature = SigningFixture().token()
+        signing.tokens.append(wrong_signature)
         cases = [("missing", None, 401), ("malformed", "synthetic-invalid", 401),
+                 ("signature", wrong_signature, 401),
                  ("expired", signing.token(exp=int(time.time()) - 1), 401),
                  ("audience", signing.token(aud="https://other.example.test/mcp"), 401),
                  ("issuer", signing.token(iss="https://other.example.test"), 401),

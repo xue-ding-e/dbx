@@ -40,7 +40,7 @@ Checks include:
 
 - CLI empty-profile output, stdio initialization, tool listing and EOF shutdown
 - HTTP metadata, authenticated initialization, tool listing and empty-profile call
-- Missing, malformed, expired, wrong-issuer and wrong-audience token rejection
+- Missing, malformed, wrong-signature, expired, wrong-issuer and wrong-audience token rejection
 - Disallowed subject/scope, cross-owner session access, foreign Origin and body limits
 - Session DELETE and invalidation, bounded process cleanup, and synthetic token redaction
 
