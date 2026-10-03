@@ -82,7 +82,7 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
     let policy = McpGlobalPolicy { read_only: false, allowed_connection_ids: Some(allowed_ids), ..Default::default() };
     storage.save_mcp_global_policy(&policy).await.unwrap();
     let config:ConnectionConfig=serde_json::from_value(json!({"id":"fixture","name":"Synthetic","db_type":"postgres",
-        "host":"db.invalid","port":5432,"database":"before","username":"fixture","password":"SYNTHETIC_DB",
+        "host":"db.invalid","port":5432,"database":"before","username":"fixture","password":"SYNTHETIC_DB","url_params":"sslmode=verify-full",
         "transport_layers":[
             {"id":"first","type":"ssh","host":"192.0.2.1","port":22,"user":"fixture","auth_method":"key","key_path":"/synthetic/key","key_passphrase":"SYNTHETIC_PASSPHRASE"},
             {"id":"second","type":"ssh","host":"192.0.2.2","port":22,"user":"fixture","auth_method":"password","password":"SYNTHETIC_OLD"}]})).unwrap();
@@ -109,7 +109,7 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(plan_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::set_permissions(&plan_path, std::fs::Permissions::from_mode(0o600)).unwrap();
     }
     let output = invoke(command(dir.path()), &export);
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
@@ -144,6 +144,7 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(report["connection_id"], "fixture");
     assert_eq!(report["updated"], true);
+    assert!(report.get("postgres_sslmode_changed").is_none());
     for stream in [&output.stdout, &output.stderr] {
         assert!(!String::from_utf8_lossy(stream).contains("SYNTHETIC_"));
     }
@@ -160,4 +161,49 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
         storage.get_secret("fixture", "transport_layers.second.ssh_password").await.unwrap().as_deref(),
         Some("SYNTHETIC_NEW_SECRET")
     );
+
+    // The opt-in TLS correction uses only nonsecret route metadata; it does not
+    // replace any SSH/DB password or touch the four excluded connections.
+    let mut tls_plan = plan.clone();
+    tls_plan["expected"]["database"] = json!("after");
+    tls_plan["expected"]["transport_layers"][1]["host"] = json!("192.0.2.3");
+    tls_plan["changes"] = json!({"ssl":false});
+    tls_plan["postgres_sslmode_cas"] = json!({"expected":"verify-full","replacement":"disable"});
+    export["route"][1].as_object_mut().unwrap().remove("password");
+    std::fs::write(&plan_path, serde_json::to_vec(&tls_plan).unwrap()).unwrap();
+    let output = invoke(command(dir.path()), &export);
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["postgres_sslmode_changed"], false);
+    assert_eq!(report["target_password_changed"], false);
+    assert_eq!(storage.load_connections().await.unwrap(), loaded);
+    for apply in [false, true] {
+        let mut wrong_cmd = command(dir.path());
+        wrong_cmd.env("DBX_SECRET_KEY_FILE", managed_key_path(wrong.path()));
+        if apply {
+            wrong_cmd.arg("--yes");
+        }
+        assert_eq!(code(&invoke(wrong_cmd, &export)), "ROUTE_SECRET_UNAVAILABLE");
+        assert_eq!(storage.load_connections().await.unwrap(), loaded);
+        let mut scoped = command(dir.path());
+        scoped.env("DBX_MCP_SCOPE_CONNECTION_ID", "fixture");
+        if apply {
+            scoped.arg("--yes");
+        }
+        assert_eq!(code(&invoke(scoped, &export)), "CONNECTION_OUT_OF_SCOPE");
+        assert_eq!(storage.load_connections().await.unwrap(), loaded);
+    }
+    let mut cmd = command(dir.path());
+    cmd.arg("--yes");
+    let output = invoke(cmd, &export);
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["postgres_sslmode_changed"], true);
+    assert_eq!(report["target_password_changed"], false);
+    assert_eq!(report["database_connection_attempted"], false);
+    let mut expected = loaded.clone();
+    expected.iter_mut().find(|connection| connection.id == "fixture").unwrap().url_params =
+        Some("sslmode=disable".into());
+    assert_eq!(storage.load_connections().await.unwrap(), expected);
+    assert_eq!(storage.load_mcp_global_policy().await.unwrap().policy(), policy);
 }

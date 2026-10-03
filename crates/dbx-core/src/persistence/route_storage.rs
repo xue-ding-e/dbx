@@ -36,6 +36,7 @@ const SELECT_ROUTE: &str = r#"SELECT json_object(
 impl Storage {
     /// Update only one existing ID and its second-hop password, preserving all
     /// other JSON fields, secret ciphertext, profiles, layout and global policy.
+    /// Explicit TLS-only CAS changes just the selected encrypted URL parameters.
     /// Failed validation, encryption or persistence rolls back the transaction.
     pub async fn update_route(&self, request: RouteUpdateRequest, dry_run: bool) -> Result<RouteUpdateReport, String> {
         request.validate()?;
@@ -79,8 +80,26 @@ impl Storage {
                 connection_id: plan.connection_id.clone(),
                 updated: false,
                 target_password_changed: false,
+                postgres_sslmode_changed: None,
                 database_connection_attempted: false,
             };
+            if plan.postgres_sslmode_cas.is_some() {
+                // Validate only the selected encrypted URL parameters. In this
+                // explicit mode preview reads that secret, never SSH/DB passwords.
+                let codec = storage.secret_codec(false).map_err(|_| route_update::secret_error())?;
+                validate_postgres_sslmode(&tx, &codec, &plan.connection_id)?;
+                report.postgres_sslmode_changed = Some(false);
+                if !dry_run {
+                    persist_secret_in_tx(&tx, &codec, &plan.connection_id, URL_PARAMS_SECRET_KEY, "sslmode=disable")
+                        .map_err(|_| route_update::store_error())?;
+                    tx.commit().map_err(|_| route_update::store_error())?;
+                    report.updated = true;
+                    report.postgres_sslmode_changed = Some(true);
+                }
+                // Do not execute even an idempotent config_json UPDATE: retain
+                // its original bytes and every unrelated ciphertext unchanged.
+                return Ok(report);
+            }
             if dry_run {
                 return Ok(report);
             }
@@ -175,6 +194,44 @@ impl Storage {
             _ => route_update::store_error(),
         })
     }
+}
+
+fn validate_postgres_sslmode(tx: &Transaction<'_>, codec: &SecretCodec, connection_id: &str) -> Result<(), String> {
+    let inline_absent: bool = tx
+        .query_row(
+            "SELECT json_type(config_json,'$.url_params') IS NULL
+             OR json_type(config_json,'$.url_params')='null'
+             OR (json_type(config_json,'$.url_params')='text' AND json_extract(config_json,'$.url_params')='')
+             FROM connections WHERE id=?1",
+            [connection_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| route_update::store_error())?;
+    if !inline_absent {
+        return Err(route_update::mismatch());
+    }
+    let row: Option<(bool, Option<String>)> = tx
+        .query_row(
+            "SELECT secret='',secret_enc FROM connection_secrets WHERE connection_id=?1 AND key=?2",
+            params![connection_id, URL_PARAMS_SECRET_KEY],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(|_| route_update::store_error())?;
+    let ciphertext = row
+        .filter(|(no_plaintext, _)| *no_plaintext)
+        .and_then(|(_, ciphertext)| ciphertext)
+        .filter(|ciphertext| !ciphertext.is_empty())
+        .ok_or_else(route_update::secret_error)?;
+    let current = zeroize::Zeroizing::new(
+        codec.decrypt(connection_id, URL_PARAMS_SECRET_KEY, &ciphertext).map_err(|_| route_update::secret_error())?,
+    );
+    // Exact single-item syntax deliberately rejects aliases, duplicate/conflicting
+    // modes, encodings and additional parameters rather than parse/rewrite them.
+    if current.as_str() != "sslmode=verify-full" {
+        return Err(route_update::mismatch());
+    }
+    Ok(())
 }
 
 fn authenticate_target_key(

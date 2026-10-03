@@ -472,7 +472,9 @@ pub(super) async fn run_route_update(flags: &Flags) -> Result<String, CliError> 
     if flags.format == OutputFormat::Json {
         return json_string(&report);
     }
-    Ok(if report.dry_run {
+    Ok(if report.dry_run && report.postgres_sslmode_changed.is_some() {
+        "Preview: selected encrypted PostgreSQL TLS mode validated. No SSH or database passwords were read and no configuration changed. Repeat with --yes to apply.\n".into()
+    } else if report.dry_run {
         "Preview: existing connection route validated. No credentials were read and no configuration changed. Repeat with --yes to apply.\n".into()
     } else {
         format!("Updated route for existing connection {}. No database connection was made.\n", report.connection_id)
