@@ -32,7 +32,7 @@ dbx-types = { path = "../dbx-types", default-features = false }
 dbx-ai-provider = { path = "../dbx-ai-provider" }
 dbx-platform = { path = "../dbx-platform", features = ["host-prompts", "downloads"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order"] }
+serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order", "raw_value"] }
 serde_yaml_ng = "0.10"
 regex = "1"
 rayon = "1"

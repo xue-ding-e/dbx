@@ -6437,6 +6437,7 @@ mod tests {
         assert!(names.contains(&"dbx_commit_transaction"));
         assert!(names.contains(&"dbx_rollback_transaction"));
         assert!(names.contains(&"dbx_add_connection"));
+        assert!(names.contains(&"dbx_import_connections"));
         assert!(names.contains(&"dbx_get_connection"));
         assert!(names.contains(&"dbx_update_connection"));
         assert!(names.contains(&"dbx_duplicate_connection"));

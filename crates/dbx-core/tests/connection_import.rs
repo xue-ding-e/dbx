@@ -370,7 +370,7 @@ async fn timeout_inheritance_flags_follow_new_ids_and_preserve_existing_editor_s
                 .await
                 .unwrap();
             json!({"fontSize":17, "connectTimeoutInheritConnectionIds":["existing"],
-                "queryTimeoutInheritConnectionIds":["existing"], "timeoutInheritanceMigrationVersion":1})
+                "queryTimeoutInheritConnectionIds":["existing"], "timeoutInheritanceMigrationVersion":2})
         } else {
             json!({"fontSize":17})
         };
@@ -406,7 +406,7 @@ async fn timeout_inheritance_flags_follow_new_ids_and_preserve_existing_editor_s
             assert!(query_ids.contains(&json!("existing")));
         }
         assert_eq!(settings["fontSize"], 17);
-        assert_eq!(settings["timeoutInheritanceMigrationVersion"], if existing_profile { 1 } else { 2 });
+        assert_eq!(settings["timeoutInheritanceMigrationVersion"], 2);
         assert_report(storage.import_connections_for_mcp(bundle, false).await.unwrap(), false, 3, 0, 3);
         assert_eq!(storage.load_editor_settings().await.unwrap(), Some(settings));
     }
@@ -422,4 +422,150 @@ async fn invalid_timeout_inheritance_fails_without_partial_changes() {
     assert!(storage.import_connections_for_mcp(bundle, false).await.is_err());
     assert!(storage.load_connections().await.unwrap().is_empty());
     assert!(storage.load_editor_settings().await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn hostless_targets_remain_distinct_and_repeated_imports_skip_exact_dsns() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("dbx.db");
+    let storage = writable_storage(&path).await;
+    let target = |id: &str, kind: &str, dsn: Option<&str>, database: Option<&str>| {
+        json!({
+            "id":id, "name":"Hostless fixture", "db_type":kind, "host":"", "port":0,
+            "username":"", "password":"", "database":database, "connection_string":dsn
+        })
+    };
+    let bundle = json!({"connections":[
+        target("jdbc-a", "jdbc", Some("jdbc:h2:mem:synthetic-a"), None),
+        target("jdbc-b", "jdbc", Some("jdbc:h2:mem:synthetic-b"), None),
+        target("mongo", "mongodb", Some("mongodb://fixture:synthetic-password@fixture.invalid/test"), None),
+        target("spanner", "spanner", None, Some("projects/synthetic/instances/test/databases/fixture")),
+    ]});
+    let preview = storage.import_connections_for_mcp(bundle.clone(), true).await.unwrap();
+    assert_report(&preview, true, 4, 4, 0);
+    assert!(!serde_json::to_string(&preview).unwrap().contains("synthetic-password"));
+    assert!(storage.load_connections().await.unwrap().is_empty());
+    assert_report(storage.import_connections_for_mcp(bundle.clone(), false).await.unwrap(), false, 4, 4, 0);
+    let reopened = test_storage::open(&path).await.unwrap();
+    let saved = reopened.load_connections().await.unwrap();
+    assert_eq!(saved.len(), 4);
+    let dsns: Vec<_> = saved.iter().filter_map(|config| config.connection_string.as_deref()).collect();
+    assert!(dsns.contains(&"jdbc:h2:mem:synthetic-a"));
+    assert!(dsns.contains(&"jdbc:h2:mem:synthetic-b"));
+    for dry_run in [true, false] {
+        assert_report(reopened.import_connections_for_mcp(bundle.clone(), dry_run).await.unwrap(), dry_run, 4, 0, 4);
+        for invalid in [target("bad-tcp", "postgres", None, None), target("bad-jdbc", "jdbc", None, None)] {
+            assert!(reopened.import_connections_for_mcp(json!({"connections":[invalid]}), dry_run).await.is_err());
+        }
+    }
+    assert_eq!(reopened.load_connections().await.unwrap(), saved);
+}
+
+#[tokio::test]
+async fn colliding_transport_ids_are_remapped_without_losing_independent_hop_credentials() {
+    for ids in [["same", "same"], [" spaced ", "spaced"], ["", "0"]] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("dbx.db");
+        let storage = writable_storage(&path).await;
+        let mut source = connection("source", "Two hops");
+        source["transport_layers"] = json!([
+            {"type":"ssh", "id":ids[0], "enabled":true, "host":"first.invalid", "port":22,
+                "user":"fixture", "password":"first-hop-synthetic-password"},
+            {"type":"ssh", "id":ids[1], "enabled":true, "host":"second.invalid", "port":22,
+                "user":"fixture", "password":"second-hop-synthetic-password"}
+        ]);
+        assert_report(
+            storage.import_connections_for_mcp(json!({"connections":[source]}), false).await.unwrap(),
+            false,
+            1,
+            1,
+            0,
+        );
+        let reopened = test_storage::open(&path).await.unwrap();
+        let saved = reopened.load_connections().await.unwrap();
+        let layers = &saved[0].transport_layers;
+        assert_ne!(layers[0].id().trim(), layers[1].id().trim());
+        for (index, expected) in
+            ["first-hop-synthetic-password", "second-hop-synthetic-password"].into_iter().enumerate()
+        {
+            let TransportLayerConfig::Ssh(layer) = &layers[index] else { panic!("expected SSH layer") };
+            assert_eq!(layer.password, expected);
+            assert!(!layer.id.trim().is_empty());
+        }
+    }
+}
+
+#[tokio::test]
+async fn explicit_timeout_flags_require_completed_migration_in_existing_profiles() {
+    for initial_settings in [
+        json!({"fontSize":17}),
+        json!({"fontSize":17,"timeoutInheritanceMigrationVersion":1}),
+        json!({"fontSize":17,"queryTimeoutInheritanceMigrationVersion":2}),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("dbx.db");
+        let storage = writable_storage(&path).await;
+        let existing: ConnectionConfig = serde_json::from_value(connection("existing", "Existing")).unwrap();
+        storage.add_connection_for_mcp(existing.clone()).await.unwrap();
+        storage.save_editor_settings(&initial_settings).await.unwrap();
+        let mut source = connection("imported", "Explicit defaults");
+        source["connect_timeout_secs"] = json!(10);
+        source["query_timeout_secs"] = json!(30);
+        source["connect_timeout_inherit"] = json!(false);
+        source["query_timeout_inherit"] = json!(false);
+        let bundle = json!({"connections":[source]});
+        for dry_run in [true, false] {
+            let error = storage.import_connections_for_mcp(bundle.clone(), dry_run).await.unwrap_err();
+            assert!(error.starts_with("TIMEOUT_MIGRATION_REQUIRED:"));
+            assert_eq!(storage.load_connections().await.unwrap(), vec![existing.clone()]);
+            assert_eq!(storage.load_editor_settings().await.unwrap(), Some(initial_settings.clone()));
+            assert!(storage.load_sidebar_layout().await.unwrap().is_none());
+        }
+        let migrated = json!({"fontSize":17,"timeoutInheritanceMigrationVersion":2});
+        storage.save_editor_settings(&migrated).await.unwrap();
+        assert_report(storage.import_connections_for_mcp(bundle, false).await.unwrap(), false, 1, 1, 0);
+        let reopened = test_storage::open(&path).await.unwrap();
+        let settings = reopened.load_editor_settings().await.unwrap().unwrap();
+        assert_eq!(settings["timeoutInheritanceMigrationVersion"], 2);
+        assert_eq!(settings["connectTimeoutInheritConnectionIds"], json!([]));
+        assert_eq!(settings["queryTimeoutInheritConnectionIds"], json!([]));
+    }
+}
+
+#[tokio::test]
+async fn empty_connection_strings_and_legacy_saved_targets_have_stable_identities() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("dbx.db");
+    let storage = writable_storage(&path).await;
+    let mut empty_dsn = connection("empty-dsn", "Empty DSN");
+    empty_dsn["connection_string"] = json!("");
+    let bundle = json!({"connections":[empty_dsn]});
+    assert_report(storage.import_connections_for_mcp(bundle.clone(), false).await.unwrap(), false, 1, 1, 0);
+    assert_report(storage.import_connections_for_mcp(bundle, false).await.unwrap(), false, 1, 0, 1);
+
+    // A legacy row can retain a driver alias until the desktop next saves it.
+    // Ordinary reads canonicalize in memory, so import compares that same target.
+    let mut legacy = connection("legacy", "Legacy target");
+    legacy["db_type"] = json!("mysql");
+    legacy["driver_profile"] = json!("tdengine");
+    legacy["host"] = json!("synthetic.invalid");
+    legacy["port"] = json!(6030);
+    legacy["password"] = json!("");
+    legacy["connection_string"] = Value::Null;
+    let database = rusqlite::Connection::open(&path).unwrap();
+    database
+        .execute("INSERT INTO connections(id,config_json) VALUES (?1,?2)", ["legacy", &legacy.to_string()])
+        .unwrap();
+    let before: String =
+        database.query_row("SELECT config_json FROM connections WHERE id='legacy'", [], |row| row.get(0)).unwrap();
+    assert_report(
+        storage.import_connections_for_mcp(json!({"connections":[legacy]}), false).await.unwrap(),
+        false,
+        1,
+        0,
+        1,
+    );
+    let after: String =
+        database.query_row("SELECT config_json FROM connections WHERE id='legacy'", [], |row| row.get(0)).unwrap();
+    assert_eq!(before, after, "deduplication must not rewrite the existing legacy row");
 }

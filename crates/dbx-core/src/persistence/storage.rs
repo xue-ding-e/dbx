@@ -40,6 +40,11 @@ use crate::persistence::secret_codec::{
 use crate::prompt_template::PromptTemplate;
 use crate::saved_sql::{SavedSqlFile, SavedSqlFolder, SavedSqlLibrary};
 
+#[path = "meatshell_storage.rs"]
+mod meatshell_storage;
+#[path = "route_storage.rs"]
+mod route_storage;
+
 const SSH_TUNNEL_SECRET_PREFIX: &str = "ssh_tunnels.";
 const TRANSPORT_LAYER_SECRET_PREFIX: &str = "transport_layers.";
 const URL_PARAMS_SECRET_KEY: &str = "url_params";
@@ -5812,6 +5817,29 @@ impl Storage {
 
 // Connections
 
+fn check_import_timeout_migration(conn: &Connection) -> Result<(), String> {
+    let has_connections: bool = conn
+        .query_row("SELECT EXISTS(SELECT 1 FROM connections)", [], |row| row.get(0))
+        .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+    if !has_connections {
+        return Ok(());
+    }
+    let settings: Option<String> = conn
+        .query_row("SELECT value_json FROM app_state WHERE key=?1", [APP_STATE_EDITOR_SETTINGS_KEY], |row| row.get(0))
+        .optional()
+        .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+    let settings: serde_json::Value = settings
+        .map(|value| serde_json::from_str(&value).map_err(|_| "CONNECTION_STORE_ERROR".to_string()))
+        .transpose()?
+        .unwrap_or(serde_json::Value::Null);
+    // The legacy queryTimeoutInheritanceMigrationVersion maps to version 1,
+    // even if its numeric value is greater. Only the current field proves v2.
+    if settings["timeoutInheritanceMigrationVersion"].as_f64().is_some_and(|version| version >= 2.0) {
+        return Ok(());
+    }
+    Err("TIMEOUT_MIGRATION_REQUIRED: Open this profile in DBX desktop to finish timeout-inheritance migration before importing explicit timeout flags.".into())
+}
+
 fn load_mcp_global_policy_in_tx(tx: &rusqlite::Transaction<'_>) -> Result<McpGlobalPolicy, String> {
     let settings_json: Option<String> = tx
         .query_row("SELECT settings_json FROM app_settings WHERE id = 1", [], |row| row.get(0))
@@ -6392,6 +6420,13 @@ impl Storage {
             Ok(())
         };
         check_policy(&self.load_mcp_global_policy().await?.policy())?;
+        let has_timeout_flags = !bundle.timeout_inheritance.is_empty();
+        // Fail before provisioning key material, and recheck inside the write
+        // transaction below. Desktop migration can also recover localStorage
+        // backups, which a headless importer must not guess or supersede.
+        if has_timeout_flags {
+            self.with_conn(|conn| check_import_timeout_migration(conn)).await?;
+        }
         let needs_key = bundle.connections.iter().any(connection_config_has_inline_secrets)
             || bundle.profiles.iter().any(|profile| {
                 let mut clean = profile.clone();
@@ -6399,11 +6434,15 @@ impl Storage {
                 clean != *profile
             });
         let codec = if dry_run { None } else { Some(self.secret_codec_for_write(needs_key).await?) };
+        let secret_storage = self.clone();
         self.with_conn(move |conn| {
             let tx = conn
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
             check_policy(&load_mcp_global_policy_in_tx(&tx)?)?;
+            if has_timeout_flags {
+                check_import_timeout_migration(&tx)?;
+            }
             let existing = {
                 let mut stmt = tx
                     .prepare("SELECT config_json FROM connections ORDER BY rowid")
@@ -6413,12 +6452,25 @@ impl Storage {
                     .map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
                 let mut configs = Vec::new();
                 for row in rows {
-                    configs.push(
-                        serde_json::from_str::<ConnectionConfig>(
+                    let mut config = serde_json::from_str::<ConnectionConfig>(
                             &row.map_err(|_| "CONNECTION_STORE_ERROR".to_string())?,
                         )
-                        .map_err(|_| "CONNECTION_STORE_ERROR: Invalid existing configuration.".to_string())?,
-                    );
+                        .map_err(|_| "CONNECTION_STORE_ERROR: Invalid existing configuration.".to_string())?;
+                    // DSNs can contain the entire target and are stored apart from
+                    // public config JSON. Read only this field in the same snapshot
+                    // so distinct JDBC/URI targets never collapse into one identity.
+                    let dsn: Option<(String, Option<String>)> = tx.query_row(
+                        "SELECT secret, secret_enc FROM connection_secrets WHERE connection_id=?1 AND key='connection_string'",
+                        [&config.id], |row| Ok((row.get(0)?, row.get(1)?)),
+                    ).optional().map_err(|_| "CONNECTION_STORE_ERROR".to_string())?;
+                    if let Some((legacy, encrypted)) = dsn {
+                        config.connection_string = Some(match encrypted.filter(|value| !value.is_empty()) {
+                            Some(value) => secret_storage.secret_codec(false)?
+                                .decrypt(&config.id, "connection_string", &value)?,
+                            None => legacy,
+                        });
+                    }
+                    configs.push(config);
                 }
                 configs
             };

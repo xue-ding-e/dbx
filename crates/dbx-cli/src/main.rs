@@ -102,6 +102,7 @@ struct Flags {
     timeout_ms: Option<u64>,
     file: Option<PathBuf>,
     passphrase_file: Option<PathBuf>,
+    plan: Option<PathBuf>,
     initialize: bool,
     out: Option<PathBuf>,
     notes: Option<PathBuf>,
@@ -213,6 +214,20 @@ async fn run(argv: Vec<String>) -> Result<String, (CliError, bool)> {
     if flags.args[0] == "agent" {
         return agent_skill::run(&flags.args, flags.format, flags.skills_dir.as_deref(), flags.force)
             .map_err(|error| (error, json_output));
+    }
+
+    // This local-only path must run before LocalBackend::open, which hydrates
+    // every saved connection. The bridge has its own narrow native transaction.
+    if flags.args.first().is_some_and(|arg| arg == "connections")
+        && flags.args.get(1).is_some_and(|arg| arg == "import-meatshell")
+    {
+        return connections::run_meatshell_import(&flags).await.map_err(|error| (error, json_output));
+    }
+
+    if flags.args.first().is_some_and(|arg| arg == "connections")
+        && flags.args.get(1).is_some_and(|arg| arg == "update-route")
+    {
+        return connections::run_route_update(&flags).await.map_err(|error| (error, json_output));
     }
 
     let backend: Arc<dyn DbxBackend> = if let Ok(base_url) = env::var("DBX_WEB_URL") {
@@ -604,6 +619,7 @@ fn parse_flags(argv: &[String]) -> Result<Flags, CliError> {
         timeout_ms: None,
         file: None,
         passphrase_file: None,
+        plan: None,
         initialize: false,
         out: None,
         notes: None,
@@ -658,6 +674,7 @@ fn parse_flags(argv: &[String]) -> Result<Flags, CliError> {
             "--passphrase-file" => {
                 flags.passphrase_file = Some(PathBuf::from(option_value(argv, &mut index, "--passphrase-file")?))
             }
+            "--plan" => flags.plan = Some(PathBuf::from(option_value(argv, &mut index, "--plan")?)),
             "--file" => flags.file = Some(PathBuf::from(option_value(argv, &mut index, "--file")?)),
             "--out" => flags.out = Some(PathBuf::from(option_value(argv, &mut index, "--out")?)),
             "--notes" => flags.notes = Some(PathBuf::from(option_value(argv, &mut index, "--notes")?)),
@@ -719,6 +736,15 @@ fn duration_ms(value: &str, option: &'static str) -> Result<u64, CliError> {
 }
 
 fn validate_agent_only_flags(flags: &Flags) -> Result<(), CliError> {
+    if flags.plan.is_some()
+        && !(flags.args.first().is_some_and(|arg| arg == "connections")
+            && flags.args.get(1).is_some_and(|arg| matches!(arg.as_str(), "import-meatshell" | "update-route")))
+    {
+        return Err(CliError::new(
+            "INVALID_OPTION",
+            "--plan is only supported by connections import-meatshell/update-route.",
+        ));
+    }
     if (flags.passphrase_file.is_some() || flags.initialize)
         && !(flags.args.first().is_some_and(|arg| arg == "connections")
             && flags.args.get(1).is_some_and(|arg| arg == "import"))
@@ -1071,7 +1097,7 @@ fn csv_cell(value: &str) -> String {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  dbx doctor [--json]\n  dbx capabilities [--json]\n  dbx agent setup [--skills-dir path] [--force] [--json]\n  dbx agent status [--skills-dir path] [--json]\n  dbx connections list [--json]\n  dbx connections get <id-or-name> [--json]\n  dbx connections import --file <path|-> [--passphrase-file <path|->] [--initialize] [--yes] [--json]\n  dbx connections add --file <path|-> [--json]\n  dbx connections update <id-or-name> --file <path|-> [--json]\n  dbx connections remove <id-or-name> --yes [--json]\n  dbx schema list <connection> [--schema name] [--json]\n  dbx schema describe <connection> <table> [--schema name] [--json]\n  dbx query <connection> <sql> [--file path] [--limit n] [--timeout 10s] [--allow-writes] [--allow-dangerous-sql] [--json]\n  dbx context <connection> [--schema name] [--tables a,b] [--max-tables n] [--json]\n  dbx dbml <connection> [--out path] [--notes path] [--schema name] [--database name] [--tables a,b]\n  dbx docs <connection> [--out path] [--notes path] [--lang code] [--schema name] [--database name] [--tables a,b]\n  dbx open <connection> <table> [--schema name] [--database name] [--json]"
+    "Usage:\n  dbx doctor [--json]\n  dbx capabilities [--json]\n  dbx agent setup [--skills-dir path] [--force] [--json]\n  dbx agent status [--skills-dir path] [--json]\n  dbx connections list [--json]\n  dbx connections get <id-or-name> [--json]\n  dbx connections import --file <path|-> [--passphrase-file <path|->] [--initialize] [--yes] [--json]\n  dbx connections import-meatshell --file - --plan <owner-only-plan.json> [--yes] [--json]\n  dbx connections add --file <path|-> [--json]\n  dbx connections update <id-or-name> --file <path|-> [--json]\n  dbx connections update-route --plan <owner-only.json> --file - [--yes] [--json]\n  dbx connections remove <id-or-name> --yes [--json]\n  dbx schema list <connection> [--schema name] [--json]\n  dbx schema describe <connection> <table> [--schema name] [--json]\n  dbx query <connection> <sql> [--file path] [--limit n] [--timeout 10s] [--allow-writes] [--allow-dangerous-sql] [--json]\n  dbx context <connection> [--schema name] [--tables a,b] [--max-tables n] [--json]\n  dbx dbml <connection> [--out path] [--notes path] [--schema name] [--database name] [--tables a,b]\n  dbx docs <connection> [--out path] [--notes path] [--lang code] [--schema name] [--database name] [--tables a,b]\n  dbx open <connection> <table> [--schema name] [--database name] [--json]"
 }
 
 #[cfg(test)]
