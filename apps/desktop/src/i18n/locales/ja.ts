@@ -8274,6 +8274,7 @@ export default withEnglishFallback({
     mcpToolSalesforceApplyWrite: "Salesforce 書き込みを適用",
     mcpToolPeekMessages: "Kafka メッセージを読み取る",
     mcpToolSendMessage: "メッセージキューのメッセージを送信",
+    mcpToolImportConnections: "接続バンドルをインポート（ローカルのみ）",
     mcpToolAddConnection: "接続を追加",
     mcpToolGetConnection: "接続の詳細を表示",
     mcpToolUpdateConnection: "接続を更新",

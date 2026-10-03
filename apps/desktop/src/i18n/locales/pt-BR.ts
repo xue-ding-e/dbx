@@ -8280,6 +8280,7 @@ export default withEnglishFallback({
     mcpToolSalesforceApplyWrite: "Aplicar gravação no Salesforce",
     mcpToolPeekMessages: "Ler mensagens Kafka",
     mcpToolSendMessage: "Enviar mensagem da fila",
+    mcpToolImportConnections: "Importar pacote de conexões (somente local)",
     mcpToolAddConnection: "Adicionar conexão",
     mcpToolGetConnection: "Ver detalhes da conexão",
     mcpToolUpdateConnection: "Atualizar conexão",

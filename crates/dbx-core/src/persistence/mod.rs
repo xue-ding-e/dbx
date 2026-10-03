@@ -3,6 +3,8 @@ pub mod config;
 pub mod connection_import;
 pub mod connection_management;
 pub mod history;
+pub mod meatshell_import;
+pub mod route_update;
 pub mod saved_sql;
 pub mod secret_codec;
 pub mod state_persistence;

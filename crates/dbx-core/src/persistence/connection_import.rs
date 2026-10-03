@@ -1,5 +1,5 @@
 //! Add-only, offline DBX connection bundle import. Never connect to imported endpoints.
-use crate::models::connection::{ConnectionConfig, TransportLayerConfig};
+use crate::models::connection::{ConnectionConfig, DatabaseType, TransportLayerConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -202,7 +202,23 @@ pub(crate) fn parse_bundle(mut value: Value) -> Result<ImportBundle, String> {
         if config.id.trim().is_empty() || !ids.insert(config.id.clone()) {
             return Err(invalid());
         }
-        super::connection_management::validate_connection_patch(&json!({"name":config.name,"host":config.host}))?;
+        super::connection_management::validate_connection_patch(&json!({"name":config.name}))?;
+        // Desktop JDBC/URI and Cloud Spanner exports can legitimately have no
+        // host field. Their target is represented by a DSN or resource path.
+        if config.host.trim().is_empty() {
+            let supported_hostless = match config.db_type {
+                DatabaseType::Jdbc => config.connection_string.as_deref().is_some_and(|s| s.starts_with("jdbc:")),
+                DatabaseType::MongoDb => config
+                    .connection_string
+                    .as_deref()
+                    .is_some_and(|s| s.starts_with("mongodb://") || s.starts_with("mongodb+srv://")),
+                DatabaseType::Spanner => config.database.as_deref().is_some_and(|s| !s.trim().is_empty()),
+                _ => false,
+            };
+            if !supported_hostless {
+                return Err(invalid());
+            }
+        }
         // Device-bound envelopes are not portable passwords. Never persist them as plaintext credentials.
         if config.password.starts_with("enc:") || config.password.starts_with("dbx-secret:") {
             return Err(
@@ -236,7 +252,9 @@ fn identity(config: &ConnectionConfig) -> String {
         config.host,
         config.port,
         config.database,
-        config.username
+        config.username,
+        config.driver_profile,
+        config.connection_string.as_deref().filter(|value| !value.is_empty())
     ])
     .to_string()
 }
@@ -276,7 +294,8 @@ pub(crate) fn plan_import(
     dry_run: bool,
 ) -> Result<ImportPlan, String> {
     let input_count = bundle.connections.len();
-    let mut identities: HashSet<String> = existing.iter().map(identity).collect();
+    let mut identities: HashSet<String> =
+        existing.iter().map(|config| identity(&config.clone().canonicalized())).collect();
     let mut new_ids = HashMap::new();
     let mut connections = Vec::new();
     let mut skipped_count = 0;
@@ -311,6 +330,10 @@ pub(crate) fn plan_import(
     }
     for config in &mut connections {
         for layer in &mut config.transport_layers {
+            // Secret-store keys use the trimmed layer ID (or its index when
+            // empty). Remap every layer, including duplicate and legacy IDs,
+            // so distinct hops cannot overwrite one another's credentials.
+            remap_profile(layer, Some(uuid::Uuid::new_v4().to_string()), None);
             if let Some(id) = profile_ids.get(layer.profile_id()) {
                 remap_profile(layer, None, Some(id.clone()));
             }

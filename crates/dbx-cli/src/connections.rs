@@ -48,6 +48,7 @@ fn management_error(message: String) -> CliError {
     let message = safe_connection_error(&message);
     for code in [
         "INVALID_CONNECTION_IMPORT",
+        "TIMEOUT_MIGRATION_REQUIRED",
         "ENCRYPTED_IMPORT_UNSUPPORTED",
         "IMPORT_PASSPHRASE_REQUIRED",
         "IMPORT_DECRYPT_FAILED",
@@ -334,6 +335,187 @@ pub(super) async fn run(backend: &dyn DbxBackend, flags: &Flags) -> Result<Strin
     } else {
         Ok(format!("Removed saved connection {}\n", safe_connection_text(&config.id)))
     }
+}
+
+/// Local-only bridge; deliberately bypasses DbxBackend/MCP and any broad loader.
+pub(super) async fn run_meatshell_import(flags: &Flags) -> Result<String, CliError> {
+    use dbx_core::persistence::{meatshell_import, storage::Storage};
+    ensure_arg_count(&flags.args, 2, "dbx connections import-meatshell")?;
+    if flags.format == OutputFormat::Csv
+        || flags.schema.is_some()
+        || flags.database.is_some()
+        || !flags.tables.is_empty()
+        || flags.max_tables.is_some()
+        || flags.max_rows.is_some()
+        || flags.timeout_ms.is_some()
+        || flags.out.is_some()
+        || flags.notes.is_some()
+        || flags.lang.is_some()
+        || flags.allow_writes
+        || flags.allow_dangerous
+        || flags.passphrase_file.is_some()
+        || flags.initialize
+    {
+        return Err(CliError::new(
+            "INVALID_OPTION",
+            "Use --file -, --plan, --yes, and --json for the local MeatShell import.",
+        ));
+    }
+    if std::env::var_os("DBX_WEB_URL").is_some() {
+        return Err(CliError::new("CONNECTION_IMPORT_UNSUPPORTED", "MeatShell import is local-only."));
+    }
+    // Preserve the same run-scoped write prohibition as the normal backend.
+    if flags.yes
+        && std::env::var("DBX_MCP_ALLOW_WRITES")
+            .ok()
+            .is_some_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "0" | "false"))
+    {
+        return Err(CliError::new("MCP_READ_ONLY", "Run-scoped MCP policy blocks connection imports."));
+    }
+    let scope = dbx_mcp::McpScope::from_env();
+    if !scope.connection_ids.is_empty()
+        || scope.connection_name.is_some()
+        || scope.database.is_some()
+        || scope.schema.is_some()
+    {
+        return Err(CliError::new("CONNECTION_OUT_OF_SCOPE", "Import is disabled in scoped sessions."));
+    }
+    let plan = flags
+        .plan
+        .as_deref()
+        .ok_or_else(|| CliError::new("INVALID_INPUT", "Provide an owner-only nonsecret --plan file."))?;
+    let file = flags.file.as_deref().filter(|path| *path == Path::new("-")).ok_or_else(|| {
+        CliError::new("INVALID_INPUT", "Use --file - with an anonymous pipe from the selected exporter.")
+    })?;
+    let data_dir = std::env::var_os("DBX_DATA_DIR")
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.is_absolute() && path.is_dir())
+        .ok_or_else(|| {
+            CliError::new("INVALID_INPUT", "Set DBX_DATA_DIR to the explicit existing absolute profile directory.")
+        })?;
+    let request = meatshell_import::read_request(plan, file).map_err(meatshell_error)?;
+    let storage = Storage::open_for_meatshell_import(&data_dir.join("dbx.db")).await.map_err(meatshell_error)?;
+    let report = storage.import_meatshell(request, !flags.yes).await.map_err(meatshell_error)?;
+    if flags.format == OutputFormat::Json {
+        return json_string(&report);
+    }
+    if report.dry_run {
+        Ok("Preview: one new production connection planned. Source credentials were not read and no configuration changed. Repeat with --yes to apply.\n".into())
+    } else {
+        Ok(format!(
+            "Imported one new production connection ({}). No database connection was made.\n",
+            report.connection_id.as_deref().unwrap_or("")
+        ))
+    }
+}
+
+/// Local-only route repair; never open the broad backend or hydrate credentials.
+pub(super) async fn run_route_update(flags: &Flags) -> Result<String, CliError> {
+    use dbx_core::persistence::{route_update, storage::Storage};
+    ensure_arg_count(&flags.args, 2, "dbx connections update-route")?;
+    if flags.format == OutputFormat::Csv
+        || flags.schema.is_some()
+        || flags.database.is_some()
+        || !flags.tables.is_empty()
+        || flags.max_tables.is_some()
+        || flags.max_rows.is_some()
+        || flags.timeout_ms.is_some()
+        || flags.out.is_some()
+        || flags.notes.is_some()
+        || flags.lang.is_some()
+        || flags.allow_writes
+        || flags.allow_dangerous
+        || flags.passphrase_file.is_some()
+        || flags.initialize
+    {
+        return Err(CliError::new(
+            "INVALID_OPTION",
+            "Use --file -, --plan, --yes, and --json for the local route update.",
+        ));
+    }
+    if std::env::var_os("DBX_WEB_URL").is_some() {
+        return Err(CliError::new("ROUTE_UPDATE_UNSUPPORTED", "Route updates are local-only."));
+    }
+    if flags.yes
+        && std::env::var("DBX_MCP_ALLOW_WRITES")
+            .ok()
+            .is_some_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "0" | "false"))
+    {
+        return Err(CliError::new("MCP_READ_ONLY", "Run-scoped MCP policy blocks route updates."));
+    }
+    let scope = dbx_mcp::McpScope::from_env();
+    if !scope.connection_ids.is_empty()
+        || scope.connection_name.is_some()
+        || scope.database.is_some()
+        || scope.schema.is_some()
+    {
+        return Err(CliError::new("CONNECTION_OUT_OF_SCOPE", "Route updates are disabled in scoped sessions."));
+    }
+    let plan = flags
+        .plan
+        .as_deref()
+        .ok_or_else(|| CliError::new("INVALID_INPUT", "Provide an owner-only nonsecret --plan file."))?;
+    let file = flags.file.as_deref().filter(|path| *path == Path::new("-")).ok_or_else(|| {
+        CliError::new("INVALID_INPUT", "Use --file - with an anonymous pipe from the selected exporter.")
+    })?;
+    let data_dir = std::env::var_os("DBX_DATA_DIR")
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.is_absolute() && path.is_dir())
+        .ok_or_else(|| {
+            CliError::new("INVALID_INPUT", "Set DBX_DATA_DIR to the explicit existing absolute profile directory.")
+        })?;
+    let request = route_update::read_request(plan, file).map_err(route_error)?;
+    let storage = Storage::open_for_meatshell_import(&data_dir.join("dbx.db"))
+        .await
+        .map_err(|_| route_error(route_update_store_error()))?;
+    let report = storage.update_route(request, !flags.yes).await.map_err(route_error)?;
+    if flags.format == OutputFormat::Json {
+        return json_string(&report);
+    }
+    Ok(if report.dry_run {
+        "Preview: existing connection route validated. No credentials were read and no configuration changed. Repeat with --yes to apply.\n".into()
+    } else {
+        format!("Updated route for existing connection {}. No database connection was made.\n", report.connection_id)
+    })
+}
+
+fn route_update_store_error() -> String {
+    "ROUTE_STORE_ERROR: The route update could not be completed.".into()
+}
+
+fn route_error(message: String) -> CliError {
+    for (code, text) in [
+        ("INVALID_ROUTE_UPDATE", "Invalid or unsupported route update."),
+        ("ROUTE_SOURCE_MISMATCH", "The saved route no longer matches the approved plan."),
+        ("ROUTE_SECRET_UNAVAILABLE", "The selected target credential is unavailable or invalid."),
+        ("TOOL_OUT_OF_SCOPE", "Route updates are not allowed by MCP policy."),
+        ("CONNECTION_OUT_OF_SCOPE", "Route updates are disabled in scoped sessions."),
+        ("MCP_READ_ONLY", "MCP read-only policy blocks route updates."),
+    ] {
+        if message.starts_with(&format!("{code}:")) {
+            return CliError::new(code, text);
+        }
+    }
+    CliError::new("ROUTE_STORE_ERROR", "The route update could not be completed.")
+}
+
+fn meatshell_error(message: String) -> CliError {
+    for code in [
+        "INVALID_MEATSHELL_IMPORT",
+        "MEATSHELL_SOURCE_MISMATCH",
+        "MEATSHELL_STORE_ERROR",
+        "MEATSHELL_SECRET_UNAVAILABLE",
+        "TOOL_OUT_OF_SCOPE",
+        "CONNECTION_OUT_OF_SCOPE",
+        "MCP_READ_ONLY",
+        "CONNECTION_ALREADY_EXISTS",
+        "INSECURE_INPUT",
+    ] {
+        if message.starts_with(&format!("{code}:")) {
+            return CliError::new(code, message);
+        }
+    }
+    CliError::new("MEATSHELL_STORE_ERROR", "Native selected import could not be completed.")
 }
 
 #[cfg(test)]
