@@ -1,5 +1,6 @@
 //! Restricted same-ID, two-hop SSH route repair. Plans contain metadata only;
 //! the selected target credential arrives through the existing anonymous pipe.
+//! An explicit TLS-only CAS may instead validate one encrypted PostgreSQL mode.
 use super::meatshell_import::{decode_password_json, read_inputs, valid_host, valid_id, valid_label};
 use serde::{Deserialize, Serialize};
 use serde_json::{value::RawValue, Value};
@@ -28,6 +29,21 @@ pub(crate) struct UpdatePlan {
     pub(crate) expected: ExpectedConnection,
     pub(crate) changes: Value,
     pub(crate) expected_export: ExportMetadata,
+    #[serde(default, deserialize_with = "present_sslmode_cas")]
+    pub(crate) postgres_sslmode_cas: Option<PostgresSslmodeCas>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PostgresSslmodeCas {
+    expected: String,
+    replacement: String,
+}
+
+fn present_sslmode_cas<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<PostgresSslmodeCas>, D::Error> {
+    PostgresSslmodeCas::deserialize(deserializer).map(Some)
 }
 
 #[derive(Deserialize, Serialize, PartialEq)]
@@ -107,6 +123,9 @@ pub struct RouteUpdateReport {
     pub connection_id: String,
     pub updated: bool,
     pub target_password_changed: bool,
+    /// Present only after the explicitly selected encrypted TLS mode was checked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub postgres_sslmode_changed: Option<bool>,
     pub database_connection_attempted: bool,
 }
 
@@ -207,6 +226,22 @@ impl RouteUpdateRequest {
                 _ => false,
             };
             if !valid {
+                return Err(invalid());
+            }
+        }
+        if let Some(patch) = &plan.postgres_sslmode_cas {
+            // This is a TLS-only correction for an already disabled JSON flag.
+            // No credential-bearing payload or simultaneous route edit is allowed.
+            if patch.expected != "verify-full"
+                || patch.replacement != "disable"
+                || expected.ssl
+                || changes.len() != 1
+                || changes.get("ssl") != Some(&Value::Bool(false))
+                || self.password.is_some()
+                || second.host != target.host
+                || second.port != target.port
+                || second.user != target.user
+            {
                 return Err(invalid());
             }
         }
