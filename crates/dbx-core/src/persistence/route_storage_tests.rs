@@ -61,7 +61,7 @@ async fn fixture() -> (tempfile::TempDir, Storage) {
     (dir, storage)
 }
 
-type Snapshot = (Vec<(String, String)>, Vec<(String, String, String, Option<String>)>, Vec<(String, String)>);
+type Snapshot = (Vec<(String, String)>, Vec<(String, String, String, Option<String>)>, Vec<(String, String)>, String);
 async fn snapshot(storage: &Storage) -> Snapshot {
     storage
         .with_conn(|conn| {
@@ -87,7 +87,9 @@ async fn snapshot(storage: &Storage) -> Snapshot {
                 .unwrap()
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap();
-            Ok((configs, secrets, profiles))
+            let settings =
+                conn.query_row("SELECT settings_json FROM app_settings WHERE id=1", [], |row| row.get(0)).unwrap();
+            Ok((configs, secrets, profiles, settings))
         })
         .await
         .unwrap()
@@ -149,6 +151,7 @@ async fn route_apply_preserves_original_id_unknown_fields_and_unselected_ciphert
     }
     assert_eq!(before.1.len(), after.1.len());
     assert_eq!(before.2, after.2);
+    assert_eq!(before.3, after.3);
     assert_eq!(std::fs::read(managed_key_path(dir.path())).unwrap(), key);
     assert_eq!(storage.get_secret(ID, KEY).await.unwrap().as_deref(), Some(PASSWORD));
     // The approved old route is an optimistic concurrency guard, not a reusable overwrite.
@@ -323,25 +326,102 @@ fn route_contract_rejects_unknown_fields_secret_plan_and_invalid_empty_values() 
 }
 
 #[tokio::test]
-async fn route_apply_enforces_read_only_and_tool_policy_without_mutation() {
-    let (_dir, storage) = fixture().await;
-    for policy in [
-        McpGlobalPolicy { read_only: true, ..Default::default() },
-        McpGlobalPolicy { allowed_connection_ids: Some(vec![ID.into()]), ..Default::default() },
-        McpGlobalPolicy {
-            allowed_connection_ids: Some(vec![]),
-            allowed_group_ids: vec!["synthetic-group".into()],
-            ..Default::default()
-        },
-        McpGlobalPolicy {
+async fn route_global_id_allowlist_permits_listed_target_without_changing_policy() {
+    for allowed_tool_names in [None, Some(vec!["dbx_update_connection".into()])] {
+        let (_dir, storage) = fixture().await;
+        let policy = McpGlobalPolicy {
             read_only: false,
-            allowed_tool_names: Some(vec!["dbx_list_connections".into()]),
+            allowed_connection_ids: Some(vec![ID.into(), "permitted-peer".into()]),
+            allowed_tool_names,
+            query_timeout_secs: Some(45),
             ..Default::default()
-        },
+        };
+        storage.save_mcp_global_policy(&policy).await.unwrap();
+        let before = snapshot(&storage).await;
+        let preview = storage.update_route(request(&plan(), None), true).await.unwrap();
+        assert!(preview.dry_run && !preview.updated && !preview.database_connection_attempted);
+        assert_eq!(snapshot(&storage).await, before);
+
+        let report = storage.update_route(request(&plan(), Some(json!(PASSWORD))), false).await.unwrap();
+        assert!(report.updated && report.target_password_changed && !report.database_connection_attempted);
+        assert_eq!(report.connection_id, ID);
+        let after = snapshot(&storage).await;
+        assert_eq!(config(&after)["database"], "synthetic_release");
+        assert_eq!(storage.load_mcp_global_policy().await.unwrap().policy(), policy.normalized());
+        assert_eq!(before.3, after.3);
+        assert_eq!(before.2, after.2);
+        assert_eq!(before.0.len(), after.0.len());
+        assert_eq!(before.1.len(), after.1.len());
+        for row in &before.0 {
+            if row.0 != ID {
+                assert!(after.0.contains(row));
+            }
+        }
+        for row in &before.1 {
+            if row.0 != ID || row.1 != KEY {
+                assert!(after.1.contains(row));
+            }
+        }
+        assert_eq!(storage.get_secret(ID, KEY).await.unwrap().as_deref(), Some(PASSWORD));
+    }
+}
+
+#[tokio::test]
+async fn route_preview_and_apply_reject_excluded_ids_empty_allowlists_groups_and_forbidden_tools() {
+    let (_dir, storage) = fixture().await;
+    for (policy, expected) in [
+        (
+            McpGlobalPolicy { allowed_connection_ids: Some(vec!["other".into()]), ..Default::default() },
+            "CONNECTION_OUT_OF_SCOPE:",
+        ),
+        (McpGlobalPolicy { allowed_connection_ids: Some(vec![]), ..Default::default() }, "CONNECTION_OUT_OF_SCOPE:"),
+        (
+            McpGlobalPolicy {
+                allowed_connection_ids: Some(vec![ID.into()]),
+                allowed_group_ids: vec!["synthetic-group".into()],
+                ..Default::default()
+            },
+            "CONNECTION_OUT_OF_SCOPE:",
+        ),
+        (
+            McpGlobalPolicy {
+                allowed_connection_ids: Some(vec![ID.into()]),
+                allowed_tool_names: Some(vec!["dbx_list_connections".into()]),
+                ..Default::default()
+            },
+            "TOOL_OUT_OF_SCOPE:",
+        ),
+        (
+            McpGlobalPolicy {
+                allowed_connection_ids: Some(vec![ID.into()]),
+                allowed_tool_names: Some(vec![]),
+                ..Default::default()
+            },
+            "TOOL_OUT_OF_SCOPE:",
+        ),
     ] {
         storage.save_mcp_global_policy(&policy).await.unwrap();
         let before = snapshot(&storage).await;
-        assert!(storage.update_route(request(&plan(), Some(json!(PASSWORD))), false).await.is_err());
+        for dry_run in [true, false] {
+            let password = (!dry_run).then(|| json!(PASSWORD));
+            let error = storage.update_route(request(&plan(), password), dry_run).await.unwrap_err();
+            assert!(error.starts_with(expected), "{error}");
+            assert_eq!(snapshot(&storage).await, before);
+        }
+    }
+}
+
+#[tokio::test]
+async fn route_apply_enforces_global_read_only_even_for_listed_target_without_mutation() {
+    let (_dir, storage) = fixture().await;
+    for allowed_connection_ids in [None, Some(vec![ID.into()])] {
+        let policy = McpGlobalPolicy { read_only: true, allowed_connection_ids, ..Default::default() };
+        storage.save_mcp_global_policy(&policy).await.unwrap();
+        let before = snapshot(&storage).await;
+        // Read-only mode permits metadata preview, but never route mutation.
+        assert!(storage.update_route(request(&plan(), None), true).await.unwrap().dry_run);
+        let error = storage.update_route(request(&plan(), Some(json!(PASSWORD))), false).await.unwrap_err();
+        assert!(error.starts_with("MCP_READ_ONLY:"), "{error}");
         assert_eq!(snapshot(&storage).await, before);
     }
 }

@@ -43,14 +43,26 @@ fn route_cli_rejects_remote_scope_and_run_write_prohibition_before_opening_profi
     for (name, value, expected) in [
         ("DBX_WEB_URL", "http://127.0.0.1:1", "ROUTE_UPDATE_UNSUPPORTED"),
         ("DBX_MCP_SCOPE_CONNECTION_ID", "synthetic", "CONNECTION_OUT_OF_SCOPE"),
+        ("DBX_MCP_SCOPE_CONNECTION_IDS", "synthetic,other", "CONNECTION_OUT_OF_SCOPE"),
+        ("DBX_MCP_SCOPE_CONNECTION_NAME", "synthetic", "CONNECTION_OUT_OF_SCOPE"),
+        ("DBX_MCP_SCOPE_DATABASE", "synthetic", "CONNECTION_OUT_OF_SCOPE"),
+        ("DBX_MCP_SCOPE_SCHEMA", "synthetic", "CONNECTION_OUT_OF_SCOPE"),
         ("DBX_MCP_ALLOW_WRITES", "false", "MCP_READ_ONLY"),
     ] {
-        let dir = tempfile::tempdir().unwrap();
-        let mut cmd = command(dir.path());
-        cmd.env(name, value).arg("--yes");
-        let output = invoke(cmd, &json!({}));
-        assert_eq!(code(&output), expected);
-        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+        for apply in [false, true] {
+            if name == "DBX_MCP_ALLOW_WRITES" && !apply {
+                continue;
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let mut cmd = command(dir.path());
+            cmd.env(name, value);
+            if apply {
+                cmd.arg("--yes");
+            }
+            let output = invoke(cmd, &json!({}));
+            assert_eq!(code(&output), expected, "{name}, apply={apply}");
+            assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+        }
     }
 }
 
@@ -64,13 +76,26 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     }
     let storage = test_storage::open(&dir.path().join("dbx.db")).await.unwrap();
-    storage.save_mcp_global_policy(&McpGlobalPolicy { read_only: false, ..Default::default() }).await.unwrap();
+    let allowed_ids = std::iter::once("fixture".to_string())
+        .chain((1..=26).map(|index| format!("peer-{index:02}")))
+        .collect::<Vec<_>>();
+    let policy = McpGlobalPolicy { read_only: false, allowed_connection_ids: Some(allowed_ids), ..Default::default() };
+    storage.save_mcp_global_policy(&policy).await.unwrap();
     let config:ConnectionConfig=serde_json::from_value(json!({"id":"fixture","name":"Synthetic","db_type":"postgres",
         "host":"db.invalid","port":5432,"database":"before","username":"fixture","password":"SYNTHETIC_DB",
         "transport_layers":[
             {"id":"first","type":"ssh","host":"192.0.2.1","port":22,"user":"fixture","auth_method":"key","key_path":"/synthetic/key","key_passphrase":"SYNTHETIC_PASSPHRASE"},
             {"id":"second","type":"ssh","host":"192.0.2.2","port":22,"user":"fixture","auth_method":"password","password":"SYNTHETIC_OLD"}]})).unwrap();
-    storage.save_connections(std::slice::from_ref(&config)).await.unwrap();
+    // Mirror a 31-connection profile with 27 explicitly allowed IDs. The four
+    // excluded peers and every unselected credential must remain unchanged.
+    let mut configs = vec![config.clone()];
+    for index in 1..=30 {
+        let mut peer = config.clone();
+        peer.id = format!("peer-{index:02}");
+        configs.push(peer);
+    }
+    storage.save_connections(&configs).await.unwrap();
+    let before = storage.load_connections().await.unwrap();
     let mut export = json!({"schema_version":1,"target_session_id":"target","route":[
         {"session_id":"outer","host":"192.0.2.1","port":22,"user":"fixture","auth":"key"},
         {"session_id":"target","host":"192.0.2.3","port":22,"user":"fixture","auth":"password"}]});
@@ -91,7 +116,19 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(report["dry_run"], true);
     assert_eq!(report["updated"], false);
-    assert_eq!(storage.load_connections().await.unwrap(), vec![config]);
+    assert_eq!(storage.load_connections().await.unwrap(), before);
+    assert_eq!(storage.load_mcp_global_policy().await.unwrap().policy(), policy);
+    // A run-scoped invocation is rejected even if its target is globally allowed.
+    for apply in [false, true] {
+        let mut scoped = command(dir.path());
+        scoped.env("DBX_MCP_SCOPE_CONNECTION_ID", "fixture");
+        if apply {
+            scoped.arg("--yes");
+        }
+        assert_eq!(code(&invoke(scoped, &export)), "CONNECTION_OUT_OF_SCOPE");
+        assert_eq!(storage.load_connections().await.unwrap(), before);
+        assert_eq!(storage.load_mcp_global_policy().await.unwrap().policy(), policy);
+    }
     export["route"][1]["password"] = json!("SYNTHETIC_NEW_SECRET");
     let wrong = tempfile::tempdir().unwrap();
     let _wrong_storage = test_storage::open(&wrong.path().join("dbx.db")).await.unwrap();
@@ -99,7 +136,7 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
     wrong_cmd.arg("--yes").env("DBX_SECRET_KEY_FILE", managed_key_path(wrong.path()));
     let wrong_output = invoke(wrong_cmd, &export);
     assert_eq!(code(&wrong_output), "ROUTE_SECRET_UNAVAILABLE");
-    assert_eq!(storage.load_connections().await.unwrap()[0].database.as_deref(), Some("before"));
+    assert_eq!(storage.load_connections().await.unwrap(), before);
     let mut cmd = command(dir.path());
     cmd.arg("--yes");
     let output = invoke(cmd, &export);
@@ -111,9 +148,14 @@ async fn route_cli_defaults_to_preview_then_updates_original_id_with_no_secret_o
         assert!(!String::from_utf8_lossy(stream).contains("SYNTHETIC_"));
     }
     let loaded = storage.load_connections().await.unwrap();
-    assert_eq!(loaded.len(), 1);
-    assert_eq!(loaded[0].database.as_deref(), Some("after"));
-    assert_eq!(loaded[0].password, "SYNTHETIC_DB");
+    assert_eq!(loaded.len(), 31);
+    let updated = loaded.iter().find(|connection| connection.id == "fixture").unwrap();
+    assert_eq!(updated.database.as_deref(), Some("after"));
+    assert_eq!(updated.password, "SYNTHETIC_DB");
+    for peer in before.iter().filter(|connection| connection.id != "fixture") {
+        assert!(loaded.contains(peer));
+    }
+    assert_eq!(storage.load_mcp_global_policy().await.unwrap().policy(), policy);
     assert_eq!(
         storage.get_secret("fixture", "transport_layers.second.ssh_password").await.unwrap().as_deref(),
         Some("SYNTHETIC_NEW_SECRET")

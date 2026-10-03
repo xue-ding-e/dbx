@@ -54,8 +54,12 @@ impl Storage {
             {
                 return Err("TOOL_OUT_OF_SCOPE: Route updates are not allowed by MCP policy.".into());
             }
-            if policy.allowed_connection_ids.is_some() || !policy.allowed_group_ids.is_empty() {
-                return Err("CONNECTION_OUT_OF_SCOPE: Route updates are disabled in scoped sessions.".into());
+            // A persistent ID allowlist permits only this exact target. Group
+            // scopes remain unsupported; the CLI rejects run-scoped sessions.
+            if policy.allowed_connection_ids.as_ref().is_some_and(|ids| !ids.contains(&request.plan.connection_id))
+                || !policy.allowed_group_ids.is_empty()
+            {
+                return Err("CONNECTION_OUT_OF_SCOPE: Route update target is outside the allowed scope.".into());
             }
             if !dry_run && policy.read_only {
                 return Err("MCP_READ_ONLY: Global MCP read-only mode blocks route updates.".into());
