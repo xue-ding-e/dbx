@@ -40,6 +40,11 @@ use crate::persistence::secret_codec::{
 use crate::prompt_template::PromptTemplate;
 use crate::saved_sql::{SavedSqlFile, SavedSqlFolder, SavedSqlLibrary};
 
+#[path = "meatshell_storage.rs"]
+mod meatshell_storage;
+#[path = "route_storage.rs"]
+mod route_storage;
+
 const SSH_TUNNEL_SECRET_PREFIX: &str = "ssh_tunnels.";
 const TRANSPORT_LAYER_SECRET_PREFIX: &str = "transport_layers.";
 const URL_PARAMS_SECRET_KEY: &str = "url_params";
