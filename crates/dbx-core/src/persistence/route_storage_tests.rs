@@ -425,3 +425,271 @@ async fn route_apply_enforces_global_read_only_even_for_listed_target_without_mu
         assert_eq!(snapshot(&storage).await, before);
     }
 }
+
+fn tls_plan() -> Value {
+    let mut plan = plan();
+    plan["expected"]["ssl"] = json!(false);
+    plan["changes"] = json!({"ssl":false});
+    plan["expected_export"]["route"][1]["host"] = plan["expected"]["transport_layers"][1]["host"].clone();
+    plan["postgres_sslmode_cas"] = json!({"expected":"verify-full","replacement":"disable"});
+    plan
+}
+
+async fn tls_fixture(params: &str) -> (tempfile::TempDir, Storage) {
+    let (dir, storage) = fixture().await;
+    let codec = storage.secret_codec(false).unwrap();
+    let params = params.to_owned();
+    storage
+        .with_conn(move |conn| {
+            let tx = conn.transaction().unwrap();
+            tx.execute(
+                "UPDATE connections SET config_json=json_set(config_json,'$.ssl',json('false')) WHERE id=?1",
+                [ID],
+            )
+            .unwrap();
+            persist_secret_in_tx(&tx, &codec, ID, URL_PARAMS_SECRET_KEY, &params).unwrap();
+            tx.commit().unwrap();
+            Ok(())
+        })
+        .await
+        .unwrap();
+    (dir, storage)
+}
+
+#[tokio::test]
+async fn route_tls_cas_preview_and_apply_preserve_json_policy_and_all_other_ciphertext() {
+    let (_dir, storage) = tls_fixture("sslmode=verify-full").await;
+    storage
+        .save_mcp_global_policy(&McpGlobalPolicy {
+            allowed_connection_ids: Some(vec![ID.into()]),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    // Corrupt even the selected connection's other credentials: neither preview
+    // nor apply may load, authenticate, migrate or re-encrypt any of them.
+    storage
+        .with_conn(|conn| {
+            conn.execute(
+                "UPDATE connection_secrets SET secret_enc='SYNTHETIC_UNREADABLE' WHERE connection_id!=?1 OR key!=?2",
+                params![ID, URL_PARAMS_SECRET_KEY],
+            )
+            .unwrap();
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let before = snapshot(&storage).await;
+    let preview = storage.update_route(request(&tls_plan(), None), true).await.unwrap();
+    assert!(preview.dry_run && !preview.updated && !preview.target_password_changed);
+    assert_eq!(preview.postgres_sslmode_changed, Some(false));
+    assert!(!preview.database_connection_attempted);
+    assert_eq!(snapshot(&storage).await, before);
+
+    let report = storage.update_route(request(&tls_plan(), None), false).await.unwrap();
+    assert!(report.updated && !report.target_password_changed && !report.database_connection_attempted);
+    assert_eq!(report.postgres_sslmode_changed, Some(true));
+    let after = snapshot(&storage).await;
+    assert_eq!(before.0, after.0);
+    assert_eq!(before.2, after.2);
+    assert_eq!(before.3, after.3);
+    assert_eq!(before.1.len(), after.1.len());
+    for row in &before.1 {
+        if row.0 != ID || row.1 != URL_PARAMS_SECRET_KEY {
+            assert!(after.1.contains(row));
+        }
+    }
+    assert_eq!(storage.get_secret(ID, URL_PARAMS_SECRET_KEY).await.unwrap().as_deref(), Some("sslmode=disable"));
+    for dry_run in [true, false] {
+        assert_eq!(
+            storage.update_route(request(&tls_plan(), None), dry_run).await.unwrap_err(),
+            route_update::mismatch()
+        );
+        assert_eq!(snapshot(&storage).await, after);
+    }
+}
+
+#[tokio::test]
+async fn route_tls_cas_rejects_nonexact_duplicate_conflicting_aliased_and_malformed_params() {
+    for params in [
+        "sslmode=disable",
+        "sslmode=require",
+        "sslmode=verify-full&sslmode=verify-full",
+        "sslmode=verify-full&sslmode=disable",
+        "sslmode=verify-full&token=SYNTHETIC_KEEP",
+        "token=SYNTHETIC_KEEP&sslmode=verify-full",
+        "sslMode=verify-full",
+        "ssl=true",
+        "sslmode%3Dverify-full",
+        "sslmode=verify%2Dfull",
+        "?sslmode=verify-full",
+        "sslmode=verify-full ",
+        " sslmode=verify-full",
+        "sslmode=verify-full&",
+        "sslmode",
+        "{}",
+    ] {
+        let (_dir, storage) = tls_fixture(params).await;
+        let before = snapshot(&storage).await;
+        for dry_run in [true, false] {
+            let error = storage.update_route(request(&tls_plan(), None), dry_run).await.unwrap_err();
+            assert_eq!(error, route_update::mismatch());
+            assert!(!error.contains("SYNTHETIC_KEEP"));
+            assert_eq!(snapshot(&storage).await, before);
+        }
+    }
+}
+
+#[tokio::test]
+async fn route_tls_cas_rejects_unsupported_driver_and_inline_or_wrong_type_url_params() {
+    for (path, value) in [
+        ("$.db_type", json!("mysql")),
+        ("$.db_type", json!("sqlite")),
+        ("$.url_params", json!("sslmode=verify-full")),
+        ("$.url_params", json!(false)),
+        ("$.url_params", json!({"sslmode":"verify-full"})),
+        ("$.url_params", json!([])),
+    ] {
+        let (_dir, storage) = tls_fixture("sslmode=verify-full").await;
+        storage
+            .with_conn(move |conn| {
+                conn.execute(
+                    "UPDATE connections SET config_json=json_set(config_json,?1,json(?2)) WHERE id=?3",
+                    params![path, value.to_string(), ID],
+                )
+                .unwrap();
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let before = snapshot(&storage).await;
+        for dry_run in [true, false] {
+            assert_eq!(
+                storage.update_route(request(&tls_plan(), None), dry_run).await.unwrap_err(),
+                route_update::mismatch()
+            );
+            assert_eq!(snapshot(&storage).await, before);
+        }
+    }
+}
+
+#[tokio::test]
+async fn route_tls_cas_wrong_master_key_and_missing_or_plaintext_secret_fail_without_writes() {
+    for mutation in 0..5 {
+        let (dir, storage) = tls_fixture("sslmode=verify-full").await;
+        if mutation == 0 {
+            let (other_dir, _other) = fixture().await;
+            std::fs::write(managed_key_path(dir.path()), std::fs::read(managed_key_path(other_dir.path())).unwrap())
+                .unwrap();
+        } else {
+            storage.with_conn(move |conn| {
+                let sql = match mutation {
+                    1 => "DELETE FROM connection_secrets WHERE connection_id=?1 AND key='url_params'",
+                    2 => "UPDATE connection_secrets SET secret='sslmode=verify-full',secret_enc=NULL WHERE connection_id=?1 AND key='url_params'",
+                    3 => "UPDATE connection_secrets SET secret_enc='SYNTHETIC_INVALID' WHERE connection_id=?1 AND key='url_params'",
+                    _ => "UPDATE connection_secrets SET secret='sslmode=verify-full' WHERE connection_id=?1 AND key='url_params'",
+                };
+                conn.execute(sql, [ID]).unwrap(); Ok(())
+            }).await.unwrap();
+        }
+        let before = snapshot(&storage).await;
+        for dry_run in [true, false] {
+            assert_eq!(
+                storage.update_route(request(&tls_plan(), None), dry_run).await.unwrap_err(),
+                route_update::secret_error()
+            );
+            assert_eq!(snapshot(&storage).await, before);
+        }
+    }
+}
+
+#[test]
+fn route_tls_cas_contract_rejects_wrong_expectation_nulls_passwords_and_combined_changes() {
+    for (key, value) in [
+        ("postgres_sslmode_cas", json!({"expected":"require","replacement":"disable"})),
+        ("postgres_sslmode_cas", json!({"expected":"verify-full","replacement":"require"})),
+        ("postgres_sslmode_cas", Value::Null),
+        ("postgres_sslmode_cas", json!("verify-full")),
+        ("postgres_sslmode_cas", json!({"expected":"verify-full","replacement":"disable","extra":true})),
+        ("changes", json!({})),
+        ("changes", json!({"ssl":true})),
+        ("changes", json!({"ssl":false,"database":"different"})),
+    ] {
+        let mut plan = tls_plan();
+        plan[key] = value;
+        assert_eq!(
+            parse_request(&serde_json::to_vec(&plan).unwrap(), &serde_json::to_vec(&plan["expected_export"]).unwrap())
+                .err()
+                .unwrap(),
+            route_update::invalid()
+        );
+    }
+    for password in [Value::Null, json!(""), json!(PASSWORD)] {
+        let plan = tls_plan();
+        let mut export = plan["expected_export"].clone();
+        export["route"][1]["password"] = password;
+        assert_eq!(
+            parse_request(&serde_json::to_vec(&plan).unwrap(), &serde_json::to_vec(&export).unwrap()).err().unwrap(),
+            route_update::invalid()
+        );
+    }
+    for field in ["ssl", "route"] {
+        let mut plan = tls_plan();
+        if field == "ssl" {
+            plan["expected"]["ssl"] = json!(true);
+        } else {
+            plan["expected_export"]["route"][1]["host"] = json!("different.invalid");
+        }
+        assert_eq!(
+            parse_request(&serde_json::to_vec(&plan).unwrap(), &serde_json::to_vec(&plan["expected_export"]).unwrap())
+                .err()
+                .unwrap(),
+            route_update::invalid()
+        );
+    }
+}
+
+#[tokio::test]
+async fn route_tls_cas_preserves_scope_tool_and_read_only_denials_without_mutation() {
+    let (_dir, storage) = tls_fixture("sslmode=verify-full").await;
+    for (policy, expected) in [
+        (
+            McpGlobalPolicy { allowed_connection_ids: Some(vec!["other".into()]), ..Default::default() },
+            "CONNECTION_OUT_OF_SCOPE:",
+        ),
+        (McpGlobalPolicy { allowed_connection_ids: Some(vec![]), ..Default::default() }, "CONNECTION_OUT_OF_SCOPE:"),
+        (
+            McpGlobalPolicy {
+                allowed_connection_ids: Some(vec![ID.into()]),
+                allowed_group_ids: vec!["group".into()],
+                ..Default::default()
+            },
+            "CONNECTION_OUT_OF_SCOPE:",
+        ),
+        (McpGlobalPolicy { allowed_tool_names: Some(vec![]), ..Default::default() }, "TOOL_OUT_OF_SCOPE:"),
+        (McpGlobalPolicy { read_only: true, ..Default::default() }, "MCP_READ_ONLY:"),
+    ] {
+        storage.save_mcp_global_policy(&policy).await.unwrap();
+        let before = snapshot(&storage).await;
+        for dry_run in [true, false] {
+            if dry_run && policy.read_only {
+                continue;
+            }
+            let error = storage.update_route(request(&tls_plan(), None), dry_run).await.unwrap_err();
+            assert!(error.starts_with(expected), "{error}");
+            assert_eq!(snapshot(&storage).await, before);
+        }
+    }
+}
+
+#[tokio::test]
+async fn route_tls_cas_persistence_failure_rolls_back_without_echo() {
+    let (_dir, storage) = tls_fixture("sslmode=verify-full").await;
+    storage.with_conn(|conn| {
+        conn.execute_batch("CREATE TRIGGER reject_tls_secret BEFORE INSERT ON connection_secrets BEGIN SELECT RAISE(ABORT,'SYNTHETIC_SENSITIVE_FAILURE'); END;").unwrap(); Ok(())
+    }).await.unwrap();
+    let before = snapshot(&storage).await;
+    let error = storage.update_route(request(&tls_plan(), None), false).await.unwrap_err();
+    assert_eq!(error, route_update::store_error());
+    assert_eq!(snapshot(&storage).await, before);
+}
