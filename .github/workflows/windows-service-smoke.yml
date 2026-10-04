@@ -1,0 +1,85 @@
+name: Windows CLI and MCP smoke
+
+on:
+  push:
+    paths:
+      - '.github/workflows/windows-service-smoke.yml'
+      - 'scripts/verify-remote-mcp-artifact*'
+      - 'scripts/remote-mcp-requirements.txt'
+      - 'tools/keyring-fixture/**'
+      - 'crates/dbx-cli/**'
+      - 'crates/dbx-mcp/**'
+      - 'crates/dbx-core/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  pull_request:
+    paths:
+      - '.github/workflows/windows-service-smoke.yml'
+      - 'scripts/verify-remote-mcp-artifact*'
+      - 'scripts/remote-mcp-requirements.txt'
+      - 'tools/keyring-fixture/**'
+      - 'crates/dbx-cli/**'
+      - 'crates/dbx-mcp/**'
+      - 'crates/dbx-core/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch:
+
+# No publishing, mirror synchronization, secrets, or cross-run artifact access.
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-service-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier-tests:
+    name: Verifier helpers (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -r scripts/remote-mcp-requirements.txt
+      - run: python scripts/verify-remote-mcp-artifact.test.py -v
+      - run: python -O scripts/verify-remote-mcp-artifact.test.py
+      - run: cargo test --locked --manifest-path tools/keyring-fixture/Cargo.toml
+      - name: Exercise native Windows Credential Manager with synthetic entry
+        if: runner.os == 'Windows'
+        run: cargo run --locked --manifest-path tools/keyring-fixture/Cargo.toml
+
+  windows-binaries:
+    name: Native Windows CLI, stdio and OAuth
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -r scripts/remote-mcp-requirements.txt
+      - name: Build CLI and MCP from this exact checkout
+        # Default package features plus the native backend, no desktop bundle.
+        run: cargo build --locked -p dbx-cli -p dbx-mcp --features dbx-mcp/os-keyring
+      - name: Record tested source and feature selection
+        run: |
+          git rev-parse HEAD
+          Write-Output 'Profile: dev; features: package defaults + dbx-mcp/os-keyring'
+      - name: Verify local AMD64 binaries and isolated protocols
+        run: python scripts/verify-remote-mcp-artifact.py target/debug/dbx-mcp.exe target/debug/dbx.exe --require-windows-amd64

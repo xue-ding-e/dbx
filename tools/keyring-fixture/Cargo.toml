@@ -1,0 +1,11 @@
+[package]
+name = "dbx-ci-keyring-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Keep this small test tool independent from the application workspace.
+[workspace]
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "=3.6.3", default-features = false, features = ["windows-native", "crypto-rust"] }
