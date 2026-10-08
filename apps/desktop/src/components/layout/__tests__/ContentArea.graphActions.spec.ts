@@ -32,8 +32,9 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useQueryStore } from "@/stores/queryStore";
 import { useProductionSafetyStore } from "@/stores/productionSafetyStore";
 
+let databaseType: "nebula" | "neo4j" = "nebula";
 function node(): GraphNode {
-  return { id: "shared", vid: { type: "string", value: "shared" }, labels: ["Person"], properties: [{ owner: "Person", name: "age", type: "int", value: "20" }] };
+  return { id: "shared", vid: { type: databaseType === "nebula" ? "string" : "neo4j-element-id", value: "shared" }, labels: ["Person"], properties: [{ owner: databaseType === "nebula" ? "Person" : "", name: "age", type: "int", value: "20" }] };
 }
 
 function result(count = 1): QueryResult {
@@ -69,7 +70,7 @@ async function mountContentArea(production = false) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const connectionStore = useConnectionStore();
-  connectionStore.connections = ["a", "b"].map((id): ConnectionConfig => ({ id, name: `Synthetic ${id}`, db_type: "nebula", driver_profile: "nebula-v3", host: "localhost", port: 9669, username: "", password: "", is_production: production }));
+  connectionStore.connections = ["a", "b"].map((id): ConnectionConfig => ({ id, name: `Synthetic ${id}`, db_type: databaseType, driver_profile: databaseType === "nebula" ? "nebula-v3" : "neo4j", host: "localhost", port: 9669, username: "", password: "", is_production: production }));
   const queryStore = useQueryStore();
   queryStore.tabs = ["a", "b"].map((id): QueryTab => ({ id, title: id, connectionId: id, database: `space_${id}`, mode: "query", sql: "MATCH (v) RETURN v", isExecuting: false, isCancelling: false, isExplaining: false, resultViewGeneration: `generation-${id}`, result: result(id === "a" ? 1 : 2) }));
   const state = reactive({ activeTab: queryStore.tabs[0] });
@@ -118,12 +119,15 @@ afterEach(() => {
   }
 });
 
-describe("ContentArea graph actions", () => {
+describe.each(["nebula", "neo4j"] as const)("ContentArea %s graph actions", (type) => {
+  beforeEach(() => {
+    databaseType = type;
+  });
   it("rejects a conditional update that returns a different stored value", async () => {
     const execute = vi.spyOn(api, "executeQuery").mockResolvedValue(response("21"));
     const { state } = await mountContentArea();
     await expect(save(graphViews[0])).rejects.toThrow("graph.conflict");
-    expect(execute).toHaveBeenCalledWith("a", "space_a", expect.stringContaining("WHEN `age` == 20"), undefined, undefined, { maxRows: 1 });
+    expect(execute).toHaveBeenCalledWith("a", "space_a", expect.stringContaining(type === "nebula" ? "WHEN `age` == 20" : "WITH n WHERE n.`age` = 20"), undefined, undefined, { maxRows: 1 });
     expect(state.activeTab.result!.graph_data!.nodes[0].properties[0].value).toBe("20");
     expect(state.activeTab.result!.rows[0][0]).toBe("original");
   });
@@ -133,7 +137,7 @@ describe("ContentArea graph actions", () => {
     const { state } = await mountContentArea();
     await expect(save(graphViews[0])).resolves.toEqual(expect.objectContaining({ value: "22" }));
     expect(state.activeTab.result!.graph_data!.nodes[0].properties[0].value).toBe("22");
-    expect(state.activeTab.result!.rows[0][0]).toContain("age: 22");
+    expect(state.activeTab.result!.rows[0][0]).toContain(type === "nebula" ? "age: 22" : '"age":22');
   });
 
   it("discards an expansion when switching to a tab with a superset of the same IDs", async () => {
@@ -197,6 +201,21 @@ describe("ContentArea graph actions", () => {
     await flush();
     pending.resolve(response("22"));
     await expect(saved).resolves.toEqual(expect.objectContaining({ value: "22" }));
-    expect(state.activeTab.result!.rows.every((row) => String(row[0]).includes("age: 22"))).toBe(true);
+    expect(state.activeTab.result!.rows.every((row) => String(row[0]).includes(type === "nebula" ? "age: 22" : '"age":22'))).toBe(true);
+  });
+
+  it("uses the adapter's precision when validating a saved float", async () => {
+    vi.spyOn(api, "executeQuery").mockResolvedValue(response("3.1500000948905659"));
+    const { state } = await mountContentArea();
+    const property = state.activeTab.result!.graph_data!.nodes[0].properties[0];
+    property.type = "float";
+    property.value = "3.14";
+    const saved = save(graphViews[0], "3.15");
+    if (type === "nebula") {
+      await expect(saved).resolves.toEqual(expect.objectContaining({ value: "3.1500000948905659" }));
+    } else {
+      await expect(saved).rejects.toThrow("graph.conflict");
+      expect(property.value).toBe("3.14");
+    }
   });
 });

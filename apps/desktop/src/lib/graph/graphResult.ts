@@ -21,6 +21,7 @@ export interface GraphNode {
 
 export interface GraphEdge {
   id: string;
+  vid?: GraphVid;
   source: string;
   target: string;
   sourceVid?: GraphVid;
@@ -48,7 +49,7 @@ export interface GraphResult {
 }
 
 interface GraphCellEnvelope {
-  __dbx_graph_cell: "nebula-v1";
+  __dbx_graph_cell: "nebula-v1" | "neo4j-v1";
   kind: string;
   display: string;
   nodes: GraphNode[];
@@ -56,10 +57,10 @@ interface GraphCellEnvelope {
   displayParts?: GraphDisplayPart[];
 }
 
-function graphCellEnvelope(value: unknown): value is GraphCellEnvelope {
+export function isGraphCellEnvelope(value: unknown): value is GraphCellEnvelope {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const cell = value as Partial<GraphCellEnvelope>;
-  return cell.__dbx_graph_cell === "nebula-v1" && typeof cell.display === "string" && typeof cell.kind === "string" && Array.isArray(cell.nodes) && Array.isArray(cell.edges);
+  return (cell.__dbx_graph_cell === "nebula-v1" || cell.__dbx_graph_cell === "neo4j-v1") && typeof cell.display === "string" && typeof cell.kind === "string" && Array.isArray(cell.nodes) && Array.isArray(cell.edges);
 }
 
 function mergeProperties(left: GraphProperty[], right: GraphProperty[]): GraphProperty[] {
@@ -117,7 +118,7 @@ export function extractGraphCells(result: QueryResult): QueryResult {
   const cells: GraphCellRef[] = [];
   result.rows.forEach((row, rowIndex) => {
     row.forEach((value, columnIndex) => {
-      if (!graphCellEnvelope(value)) return;
+      if (!isGraphCellEnvelope(value)) return;
       rows ??= result.rows.map((original) => [...original]);
       rows[rowIndex][columnIndex] = value.display;
       for (const node of value.nodes) {
@@ -130,6 +131,28 @@ export function extractGraphCells(result: QueryResult): QueryResult {
   if (rows) result.rows = rows;
   if (cells.length) result.graph_data = mergeGraphResults(result.graph_data, { nodes: [...nodes.values()], edges: [...edges.values()], cells });
   return result;
+}
+
+export function graphPropertyFromUpdateResult(result: QueryResult, property: GraphProperty): GraphProperty {
+  if (result.execution_error) throw new Error(result.error?.detail ?? "Graph property update failed");
+  const value = result.rows[0]?.[0];
+  if (result.rows.length !== 1 || value === null || value === undefined) throw new Error("The graph property was not updated");
+  if (property.type === "int" && typeof value === "number" && !Number.isSafeInteger(value)) throw new Error("Inexact returned graph integer");
+  if (property.type === "bool") {
+    if (value !== true && value !== false && value !== "true" && value !== "false") throw new Error("Invalid boolean property returned by the database");
+    return { ...property, value: value === true || value === "true" };
+  }
+  return { ...property, value: String(value) };
+}
+
+export function graphPropertyMatchesValue(property: GraphProperty, value: string | boolean): boolean {
+  if (property.type === "int" && typeof property.value === "string" && typeof value === "string") {
+    return /^-?\d+$/u.test(property.value) && /^-?\d+$/u.test(value) && BigInt(property.value) === BigInt(value);
+  }
+  if (property.type === "float" && typeof property.value === "string" && typeof value === "string") {
+    return property.value.trim() !== "" && value.trim() !== "" && Number.isFinite(Number(property.value)) && Number(property.value) === Number(value);
+  }
+  return property.value === value;
 }
 
 export function updateGraphResultProperty(result: QueryResult, entity: GraphNode | GraphEdge, property: GraphProperty, updated: GraphProperty, formatNode: (node: GraphNode) => string, formatEdge: (edge: GraphEdge) => string, formatCell?: (cell: GraphCellRef) => string | undefined): void {

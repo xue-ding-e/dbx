@@ -6,8 +6,8 @@ import { canReloadUnavailableDataTab, restoredDataTabReloadFilters } from "@/lib
 import { defaultViewForResult } from "@/lib/query/queryResultDefaultView";
 import { extractNeo4jNodeCells, projectNeo4jNodeResult } from "@/lib/neo4j/neo4jNodeResult";
 import { useNeo4jNodeTableResult } from "@/composables/useNeo4jNodeTableResult";
-import { extractGraphCells, type GraphEdge, type GraphNode, type GraphProperty, type GraphResult } from "@/lib/graph/graphResult";
-import { applyGraphPropertyToResult, buildNebulaGraphExpand, buildNebulaGraphPropertyUpdate, graphPropertyFromUpdateResult, graphPropertyMatchesValue } from "@/lib/graph/nebulaGraph";
+import { extractGraphCells, graphPropertyFromUpdateResult, type GraphEdge, type GraphNode, type GraphProperty, type GraphResult } from "@/lib/graph/graphResult";
+import { graphAdapterForDatabase } from "@/lib/graph/graphAdapters";
 import { queryResultMessages } from "@/lib/query/queryResultMessages";
 import { isQueryExecutionErrorResult } from "@/lib/query/queryResultError";
 import { hasQueryOutput as tabHasQueryOutput } from "@/lib/query/queryOutput";
@@ -643,6 +643,7 @@ async function fetchGridResultForExport(onProgress?: (info: { rowsExported: numb
   const result = await queryStore.fetchTabResultForExport(props.activeTab.id, onProgress);
   if (!result || !isNeo4j) return result;
   extractNeo4jNodeCells(result);
+  extractGraphCells(result);
   return projectNeo4jNodeResult(result);
 }
 const activeResultSql = computed(() => resultSqlForGrid(props.activeTab));
@@ -745,7 +746,8 @@ const redisConsoleResults = computed(() => (props.activeTab.results?.length ? pr
 const canShowRedisConsoleOutput = computed(() => activeEffectiveDatabaseType.value === "redis" && (props.activeTab.isExecuting || redisConsoleResults.value.some((result) => result.execution_error === true || typeof result.redis_console_output === "string")));
 const redisResultViewMode = computed<RedisResultViewMode>(() => (activeEffectiveDatabaseType.value === "redis" ? (props.activeTab.uiState?.redisResultViewMode ?? "grid") : "grid"));
 const canShowResultOutput = computed(() => hasTabularResult.value || props.activeTab.isExecuting);
-const canShowGraphOutput = computed(() => activeEffectiveDatabaseType.value === "nebula" && !!props.activeTab.result?.graph_data?.nodes.length);
+const activeGraphAdapter = computed(() => graphAdapterForDatabase(activeEffectiveDatabaseType.value));
+const canShowGraphOutput = computed(() => !!activeGraphAdapter.value && !!props.activeTab.result?.graph_data?.nodes.length);
 const canShowExplainOutput = computed(() => !!props.activeTab.explainPlan || !!props.activeTab.explainError || !!props.activeTab.explainTableResult || !!props.activeTab.explainTableError || props.activeTab.isExplaining === true);
 // A batch can attach server messages to more than one statement result (for
 // example a `DO $$ RAISE NOTICE $$` block followed by a SELECT). The messages
@@ -761,9 +763,10 @@ const canShowMessagesOutput = computed(() => resultMessageCount.value > 0);
 const showStandaloneResultToolbar = computed(() => activeElasticsearchJsonResponse.value || props.activeOutputView !== "result" || (redisResultViewMode.value === "console" && canShowRedisConsoleOutput.value) || !props.activeTab.result || !hasTabularResult.value);
 const standaloneResultToolbarCompact = computed(() => isDataGridToolbarCompact(standaloneResultToolbarWidth.value, standaloneResultToolbarViewportWidth.value));
 
-async function saveNebulaGraphProperty(entity: GraphNode | GraphEdge, property: GraphProperty, value: string | boolean): Promise<GraphProperty | undefined> {
+async function saveGraphProperty(entity: GraphNode | GraphEdge, property: GraphProperty, value: string | boolean): Promise<GraphProperty | undefined> {
   const connection = activeResultConnection.value;
-  if (activeEffectiveDatabaseType.value !== "nebula" || connectionIsEffectivelyReadOnly(connection)) throw new Error(t("graph.unavailable"));
+  const adapter = activeGraphAdapter.value;
+  if (!adapter || connectionIsEffectivelyReadOnly(connection)) throw new Error(t("graph.unavailable"));
   const tab = props.activeTab;
   const result = tab.result;
   const connectionId = activeResultConnectionId.value;
@@ -772,7 +775,7 @@ async function saveNebulaGraphProperty(entity: GraphNode | GraphEdge, property: 
   const generation = tab.resultViewGeneration;
   const sourceKey = graphViewKey.value;
   const isCurrent = () => props.activeTab === tab && graphViewKey.value === sourceKey && (generation !== undefined ? !!tab.result?.graph_data : tab.result === result);
-  const statement = buildNebulaGraphPropertyUpdate(entity, property, value);
+  const statement = adapter.buildPropertyUpdate(entity, property, value);
   const production = productionContextForDatabase(connection, database);
   if (production.active) {
     const confirmed = await productionSafetyStore.requestConfirmation({ sql: statement, connectionName: connection?.name, database, productionDatabases: production.databases, source: t("graph.title") });
@@ -786,20 +789,21 @@ async function saveNebulaGraphProperty(entity: GraphNode | GraphEdge, property: 
   if (response.rows.length === 0) throw new Error(t("graph.conflict"));
   const updated = graphPropertyFromUpdateResult(response, property);
   // A failed WHEN condition may still yield the stored value.
-  if (!graphPropertyMatchesValue(updated, value)) throw new Error(t("graph.conflict"));
-  applyGraphPropertyToResult(tab.result!, entity, property, updated);
+  if (!adapter.matchesPropertyValue(updated, value)) throw new Error(t("graph.conflict"));
+  adapter.applyPropertyUpdate(tab.result!, entity, property, updated);
   return updated;
 }
 
-async function expandNebulaGraphNode(node: GraphNode): Promise<GraphResult | undefined> {
+async function expandGraphNode(node: GraphNode): Promise<GraphResult | undefined> {
+  const adapter = activeGraphAdapter.value;
   const tab = props.activeTab;
   const result = tab.result;
   const connectionId = activeResultConnectionId.value;
   const database = activeResultDatabase.value;
   const generation = tab.resultViewGeneration;
   const sourceKey = graphViewKey.value;
-  if (activeEffectiveDatabaseType.value !== "nebula" || !connectionId || !database) return undefined;
-  const response = await api.executeQuery(connectionId, database, buildNebulaGraphExpand(node), undefined, undefined, { maxRows: 200 });
+  if (!adapter || !connectionId || !database) return undefined;
+  const response = await api.executeQuery(connectionId, database, adapter.buildExpand(node), undefined, undefined, { maxRows: 200 });
   if (props.activeTab !== tab || graphViewKey.value !== sourceKey || (generation === undefined && tab.result !== result)) return undefined;
   if (response.execution_error) throw new Error(response.error?.detail ?? t("graph.unavailable"));
   return extractGraphCells(response).graph_data;
@@ -2472,8 +2476,8 @@ defineExpose({
               :rows="activeTab.result.rows"
               :columns="activeTab.result.columns"
               :read-only="connectionIsEffectivelyReadOnly(activeResultConnection)"
-              :save-property="saveNebulaGraphProperty"
-              :expand-node="expandNebulaGraphNode"
+              :save-property="saveGraphProperty"
+              :expand-node="expandGraphNode"
             />
 
             <div v-else-if="activeOutputView === 'summary'" class="flex flex-1 min-h-0 min-w-0 overflow-auto bg-background">
