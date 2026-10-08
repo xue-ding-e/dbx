@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseDocument } from "yaml";
 
 const UPSTREAM_REPOSITORY = "t8y2/dbx";
 // Normalize CRLF so line-based matching is checkout-independent.
@@ -32,6 +33,11 @@ function mirrorJobLines(source: string, jobId: string): string[] {
 }
 
 describe("sync-mirrors workflow contract (#10944)", () => {
+  it("parses as valid YAML without duplicate mapping keys", () => {
+    const document = parseDocument(workflow, { uniqueKeys: true });
+    expect(document.errors).toEqual([]);
+  });
+
   it("keeps the fixed mirror publication jobs", () => {
     expect(mirrorJobIds(workflow)).toEqual(["sync-cnb", "sync-atomgit", "sync-gitee"]);
   });

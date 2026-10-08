@@ -2805,6 +2805,12 @@ export default withEnglishFallback({
     passphraseTooShort: "Parola ifadesi en az 4 karakter olmalıdır",
     exportEncrypted: "Şifreli dışa aktar",
     exportUnencrypted: "Şifresiz dışa aktar",
+    plaintextDefaultDescription: "Düz metin olarak dışa aktarılan dosyalar varsayılan olarak parolaları ve diğer kimlik bilgilerini içermez.",
+    includeCredentials: "Parolaları ve diğer kimlik bilgilerini dâhil et (düz metin)",
+    plaintextCredentialsWarning:
+      "Bu bilgileri dâhil ederseniz dosyaya erişebilen herkes veritabanı parolalarını, SSH ve proxy kimlik bilgilerini, belirteçleri ve bağlantı dizelerini okuyabilir. Dosyayı yalnızca güvenilir bir ortamda geçici taşıma için kullanın; güvenli bir şekilde saklayın ve işiniz bittiğinde silin.",
+    exportWithCredentials: "Kimlik bilgileriyle dışa aktar",
+    exportWithoutCredentials: "Kimlik bilgileri olmadan dışa aktar",
     unencryptedWarningTitle: "Şifresiz dışa aktarılsın mı?",
     unencryptedWarningDescription: "Şifresiz bir yapılandırma dosyası veritabanı parolalarını, SSH Tünel kimlik bilgilerini ve diğer hassas bilgileri içerebilir. Dosyaya erişebilen herkes bu kimlik bilgilerini okuyabilir. Bunu yalnızca güvenilir bir ortamda geçici taşıma için kullanın.",
     confirmUnencryptedExport: "Şifresiz dışa aktar",

@@ -20,6 +20,7 @@ test("every mirror publication job is restricted to the upstream repository", ()
     const content = job(definition[1], mirrors);
     // Job-level gating prevents checkout, secret access, and forced mirror pushes
     // for every trigger in a fork, including manually dispatched runs.
+    assert.equal([...content.matchAll(/^    if:/gm)].length, 1, `${definition[1]} must have exactly one job-level condition`);
     assert.match(content, /^    if: github\.repository == 't8y2\/dbx'\s*$/m);
     assert.ok(content.indexOf("    if:") < content.indexOf("    steps:"));
   }
