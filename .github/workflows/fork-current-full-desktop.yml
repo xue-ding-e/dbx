@@ -1,0 +1,82 @@
+name: Current fork full-feature desktop builds
+
+on:
+  push:
+    branches: [integration/upstream-sync-20261008]
+  workflow_dispatch:
+
+# Build review artifacts only. No release, deployment, signing, or mirror writes.
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-current-full-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    if: github.repository == 'xue-ding-e/dbx'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x86_64
+          - os: ubuntu-24.04
+            label: linux-x86_64-ubuntu24.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.13.0'
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.27.0
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Linux standard desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libfontconfig1-dev libsecret-1-dev xdg-utils
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: current-full-desktop-${{ matrix.label }}
+          cache-on-failure: true
+      - name: Install locked frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build this exact commit with standard desktop feature defaults
+        env:
+          CXXFLAGS: ${{ runner.os == 'Windows' && '/std:c++17 /EHsc' || '' }}
+        run: pnpm tauri build --no-bundle --ci -- --locked
+      - name: Stage desktop and source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir -p staging/desktop
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp target/release/dbx.exe staging/desktop/DBX.exe
+          else
+            cp target/release/dbx staging/desktop/DBX
+          fi
+          cp LICENSE staging/desktop/
+          git rev-parse HEAD > staging/desktop/SOURCE_COMMIT
+          # Preserve the real feature declaration rather than a stale handwritten list.
+          sed -n '/^\[features\]/,/^\[/p' src-tauri/Cargo.toml > staging/desktop/FEATURES.txt
+          printf '%s\n' 'Unbundled review build; standard desktop features; no signing or deployment.' > staging/desktop/BUILD_MODE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dbx-${{ matrix.label }}-current-full-features-${{ github.sha }}
+          path: staging/desktop/
+          if-no-files-found: error
+          retention-days: 7
