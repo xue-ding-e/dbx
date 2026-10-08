@@ -10112,7 +10112,7 @@ export default withEnglishFallback({
     validate: "Yoxla",
     validationPassed: "Konfiqurasiyanın sintaksisi düzgündür",
     validationErrorTitle: "Konfiqurasiya sintaksisi xətası",
-    validationErrorDescription: "Bu konfiqurasiyanı dərc etməzdən əvvəl sintaksis xətalarını düzəldin.",
+    validationErrorDescription: "Sintaksis diaqnostikası məlumat xarakterlidir və dərc etməni bloklamır. Məzmunun onu istifadə edən tətbiqlərin tələblərinə uyğun olduğunu yoxlayın.",
     validationLine: "Sətir: {line}",
     validationColumn: "Sütun: {column}",
     validationLocate: "Xətanın yerini tap",

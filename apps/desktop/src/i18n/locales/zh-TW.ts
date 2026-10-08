@@ -8346,7 +8346,7 @@ export default withEnglishFallback({
     validate: "校驗",
     validationPassed: "配置內容校驗通過",
     validationErrorTitle: "配置內容語法錯誤",
-    validationErrorDescription: "請修正語法錯誤後再發布配置。",
+    validationErrorDescription: "語法檢查僅供參考，不會阻止發布。請確認配置內容符合使用方要求。",
     validationLine: "行號：{line}",
     validationColumn: "列號：{column}",
     validationLocate: "定位錯誤",

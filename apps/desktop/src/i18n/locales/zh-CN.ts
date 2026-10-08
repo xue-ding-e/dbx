@@ -11206,7 +11206,7 @@ export default withEnglishFallback({
     validate: "校验",
     validationPassed: "配置内容校验通过",
     validationErrorTitle: "配置内容语法有误",
-    validationErrorDescription: "请修正语法错误后再发布配置。",
+    validationErrorDescription: "语法检测仅供参考，不会阻止发布。请确认配置内容符合使用方要求。",
     validationLine: "行号：{line}",
     validationColumn: "列号：{column}",
     validationLocate: "定位错误",

@@ -10978,7 +10978,7 @@ export default withEnglishFallback({
     validate: "Validasi",
     validationPassed: "Sintaks konfigurasi valid",
     validationErrorTitle: "Galat sintaks konfigurasi",
-    validationErrorDescription: "Perbaiki galat sintaks sebelum menerbitkan konfigurasi ini.",
+    validationErrorDescription: "Diagnostik sintaks hanya sebagai panduan dan tidak menghalangi penerbitan. Pastikan konten memenuhi persyaratan aplikasi yang menggunakannya.",
     validationLine: "Baris: {line}",
     validationColumn: "Kolom: {column}",
     validationLocate: "Temukan galat",

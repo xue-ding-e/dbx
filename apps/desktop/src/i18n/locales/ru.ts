@@ -11527,7 +11527,7 @@ export default withEnglishFallback({
     validate: "Проверить",
     validationPassed: "Синтаксис конфигурации корректен",
     validationErrorTitle: "Ошибка синтаксиса конфигурации",
-    validationErrorDescription: "Исправьте синтаксические ошибки перед публикацией этой конфигурации.",
+    validationErrorDescription: "Диагностика синтаксиса носит рекомендательный характер и не блокирует публикацию. Убедитесь, что содержимое соответствует требованиям использующих его приложений.",
     validationLine: "Строка: {line}",
     validationColumn: "Столбец: {column}",
     validationLocate: "Перейти к ошибке",

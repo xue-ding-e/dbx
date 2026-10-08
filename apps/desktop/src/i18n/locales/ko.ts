@@ -9890,7 +9890,7 @@ export default withEnglishFallback({
     validate: "검증",
     validationPassed: "구성 구문이 올바릅니다",
     validationErrorTitle: "구성 구문 오류",
-    validationErrorDescription: "게시하기 전에 구문 오류를 수정하세요.",
+    validationErrorDescription: "구문 진단은 참고용이며 게시를 차단하지 않습니다. 내용을 사용하는 애플리케이션의 요구 사항을 충족하는지 확인하세요.",
     validationLine: "줄: {line}",
     validationColumn: "열: {column}",
     validationLocate: "오류 위치",

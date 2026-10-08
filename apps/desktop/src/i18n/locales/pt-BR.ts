@@ -9000,7 +9000,7 @@ export default withEnglishFallback({
     validate: "Validar",
     validationPassed: "A sintaxe da configuração é válida",
     validationErrorTitle: "Erro de sintaxe da configuração",
-    validationErrorDescription: "Corrija os erros de sintaxe antes de publicar.",
+    validationErrorDescription: "O diagnóstico de sintaxe é apenas informativo e não bloqueia a publicação. Verifique se o conteúdo atende aos requisitos de quem o utiliza.",
     validationLine: "Linha: {line}",
     validationColumn: "Coluna: {column}",
     validationLocate: "Localizar erro",

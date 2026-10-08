@@ -9029,7 +9029,7 @@ export default withEnglishFallback({
     validate: "検証",
     validationPassed: "設定の構文は有効です",
     validationErrorTitle: "設定の構文エラー",
-    validationErrorDescription: "公開する前に構文エラーを修正してください。",
+    validationErrorDescription: "構文診断は参考情報であり、公開をブロックしません。利用側の要件を満たす内容であることを確認してください。",
     validationLine: "行: {line}",
     validationColumn: "列: {column}",
     validationLocate: "エラーに移動",

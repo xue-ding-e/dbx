@@ -11225,7 +11225,7 @@ export default {
     validate: "Validate",
     validationPassed: "Configuration syntax is valid",
     validationErrorTitle: "Configuration syntax error",
-    validationErrorDescription: "Fix the syntax errors before publishing this configuration.",
+    validationErrorDescription: "Syntax diagnostics are advisory and do not block publishing. Check that the content meets the requirements of its consumers.",
     validationLine: "Line: {line}",
     validationColumn: "Column: {column}",
     validationLocate: "Locate error",

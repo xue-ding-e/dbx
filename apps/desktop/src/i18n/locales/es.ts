@@ -9256,7 +9256,7 @@ export default withEnglishFallback({
     validate: "Validar",
     validationPassed: "La sintaxis de la configuración es válida",
     validationErrorTitle: "Error de sintaxis de configuración",
-    validationErrorDescription: "Corrige los errores de sintaxis antes de publicar.",
+    validationErrorDescription: "Los diagnósticos de sintaxis son orientativos y no bloquean la publicación. Comprueba que el contenido cumpla los requisitos de quienes lo utilizan.",
     validationLine: "Línea: {line}",
     validationColumn: "Columna: {column}",
     validationLocate: "Ir al error",

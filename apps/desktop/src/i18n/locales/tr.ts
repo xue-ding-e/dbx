@@ -9995,7 +9995,7 @@ export default withEnglishFallback({
     validate: "Doğrula",
     validationPassed: "Yapılandırma sözdizimi geçerli",
     validationErrorTitle: "Yapılandırma sözdizimi hatası",
-    validationErrorDescription: "Bu yapılandırmayı yayımlamadan önce sözdizimi hatalarını düzeltin.",
+    validationErrorDescription: "Sözdizimi tanılamaları bilgilendirme amaçlıdır ve yayımlamayı engellemez. İçeriğin, onu kullanan uygulamaların gereksinimlerini karşıladığını kontrol edin.",
     validationLine: "Satır: {line}",
     validationColumn: "Sütun: {column}",
     validationLocate: "Hatayı bul",

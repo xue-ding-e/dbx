@@ -9001,7 +9001,7 @@ export default withEnglishFallback({
     validate: "Convalida",
     validationPassed: "La sintassi della configurazione è valida",
     validationErrorTitle: "Errore di sintassi della configurazione",
-    validationErrorDescription: "Correggi gli errori di sintassi prima di pubblicare.",
+    validationErrorDescription: "Le segnalazioni di sintassi sono indicative e non bloccano la pubblicazione. Verifica che il contenuto soddisfi i requisiti di chi lo utilizza.",
     validationLine: "Riga: {line}",
     validationColumn: "Colonna: {column}",
     validationLocate: "Vai all'errore",
