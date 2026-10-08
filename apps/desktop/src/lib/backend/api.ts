@@ -978,6 +978,7 @@ export type { AiConfigItem };
 export type {
   AppSupportInfo,
   AiMessage,
+  AiToolCallRef,
   AiCompletionRequest,
   AiTaskContract,
   AiStreamChunk,
