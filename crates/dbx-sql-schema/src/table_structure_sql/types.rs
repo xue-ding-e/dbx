@@ -254,6 +254,12 @@ pub struct TableStructureSqlOptions {
     /// will reject or downgrading to a blocking `CREATE INDEX`.
     #[serde(default)]
     pub partitioned: bool,
+    /// Whether the target table is a PostgreSQL foreign table (`relkind = 'f'`).
+    /// PostgreSQL rejects `COMMENT ON TABLE` for foreign tables
+    /// (`"<name>" is not a table`), so the table-comment statement must use
+    /// `COMMENT ON FOREIGN TABLE` when this is set.
+    #[serde(default)]
+    pub foreign_table: bool,
     /// When true, the connection is GaussDB M-mode which uses MySQL-compatible
     /// SQL dialect with backtick quoting. The structure editor maps this to
     /// `StructureDialect::Mysql` so that DDL is generated with MySQL syntax.

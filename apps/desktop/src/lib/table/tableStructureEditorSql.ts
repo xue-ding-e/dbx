@@ -101,6 +101,10 @@ export interface BuildTableStructureChangeSqlOptions {
    * the backend rejects `CREATE INDEX CONCURRENTLY` on such tables (fail
    * closed) instead of downgrading to a blocking `CREATE INDEX`. */
   partitioned?: boolean;
+  /** The target table is a PostgreSQL foreign table (`relkind = 'f'`);
+   * PostgreSQL rejects `COMMENT ON TABLE` for these, so the backend must
+   * generate `COMMENT ON FOREIGN TABLE`. */
+  foreignTable?: boolean;
   /** When true, the connection is GaussDB M-mode which uses MySQL-compatible
    * SQL dialect with backtick quoting. */
   isGaussdbMMode?: boolean;

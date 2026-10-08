@@ -520,6 +520,10 @@ const indexes = ref<EditableStructureIndex[]>([]);
 const isPartitionedParent = ref(false);
 // True when the edited table is itself a member partition of another table.
 const isTablePartition = ref(false);
+// True when the edited table is a PostgreSQL foreign table (relkind = 'f').
+// PostgreSQL requires `COMMENT ON FOREIGN TABLE` for these, so the SQL
+// preview must know which form to generate.
+const isForeignTable = ref(false);
 // The partition-status probe has settled (success or failure), so the tab can
 // be hidden without hiding it merely because the probe is still in flight.
 const partitionStatusResolved = ref(false);
@@ -535,6 +539,7 @@ async function probePartitionsTabVisibility() {
   if (!tableMetadataCapabilities.value.partitions || isCreateMode.value) {
     isPartitionedParent.value = false;
     isTablePartition.value = false;
+    isForeignTable.value = false;
     partitionStatusResolved.value = true;
     return;
   }
@@ -551,11 +556,13 @@ async function probePartitionsTabVisibility() {
     if (requestId !== partitionTabProbeRequestId) return;
     isPartitionedParent.value = status.isPartitionedParent;
     isTablePartition.value = status.isPartition;
+    isForeignTable.value = status.isForeign;
     partitionStatusResolved.value = true;
   } catch {
     if (requestId !== partitionTabProbeRequestId) return;
     isPartitionedParent.value = false;
     isTablePartition.value = false;
+    isForeignTable.value = false;
     // A failed probe leaves the concurrent-index availability unknown, so keep
     // the documented fail-closed behavior (disable Concurrent) instead of
     // assuming the table is a plain, non-partitioned one.
@@ -2524,6 +2531,7 @@ function structureChangeOptions(): BuildTableStructureChangeSqlOptions {
     transwarpCreate: isCreateMode.value && databaseType.value === "transwarp" ? buildInceptorCreateOptions(physicalOptions.value, columns.value) : undefined,
     tableCollation: mysqlTableDefaultCollation.value || undefined,
     partitioned: isPartitionedParent.value,
+    foreignTable: isForeignTable.value,
     isGaussdbMMode: connection.value?.driver_profile?.toLowerCase() === "gaussdb-m",
   };
 }
@@ -2691,6 +2699,7 @@ function resetState() {
   secondaryMetadataErrors.value = {};
   isPartitionedParent.value = false;
   isTablePartition.value = false;
+  isForeignTable.value = false;
   partitionStatusResolved.value = false;
   partitionStatusKnown.value = true;
   concurrentAvailabilityInvalidated.value = false;
@@ -3005,8 +3014,8 @@ async function loadStructure(
             // status we cannot rule out a partitioned parent, so Concurrent is
             // treated as unavailable until a later reload re-runs the probe.
             .then((status) => ({ known: true, status }))
-            .catch(() => ({ known: false, status: { isPartitionedParent: false, isPartition: false } }))
-        : Promise.resolve({ known: true, status: { isPartitionedParent: false, isPartition: false } });
+            .catch(() => ({ known: false, status: { isPartitionedParent: false, isPartition: false, isForeign: false } }))
+        : Promise.resolve({ known: true, status: { isPartitionedParent: false, isPartition: false, isForeign: false } });
     const columnsLoad = effectiveScope.columns ? loadObjectMetadataFacet(metadataRequest, "columns", () => api.getColumns(connectionId, database, schema, tableName, catalog), { force: forceMetadata }) : undefined;
     const columnsPromise = columnsLoad
       ? columnsLoad.then((result) => {
@@ -3085,6 +3094,7 @@ async function loadStructure(
       partitionStatusKnown.value = partitionStatus.known;
       isPartitionedParent.value = partitionStatus.status.isPartitionedParent;
       isTablePartition.value = partitionStatus.status.isPartition;
+      isForeignTable.value = partitionStatus.status.isForeign;
       partitionStatusResolved.value = true;
       // Availability inputs changed: fail closed while the status is unknown,
       // but preserve the user's Concurrent intent so a later successful probe

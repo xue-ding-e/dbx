@@ -8641,6 +8641,11 @@ pub struct TablePartitionStatus {
     pub is_partitioned_parent: bool,
     /// The table is itself a partition of a parent (`pg_class.relispartition`).
     pub is_partition: bool,
+    /// The table is a foreign table (`pg_class.relkind = 'f'`). PostgreSQL
+    /// requires `COMMENT ON FOREIGN TABLE` (not `COMMENT ON TABLE`) for these,
+    /// so the structure editor needs this to generate a working statement.
+    #[serde(default)]
+    pub is_foreign: bool,
 }
 
 pub async fn table_partition_status_core(
@@ -8656,7 +8661,11 @@ pub async fn table_partition_status_core(
         match pool_handle.as_ref() {
             Some(PoolKind::Postgres(pool)) => {
                 let info = db::postgres::get_table_partition_info(pool, schema, table).await?;
-                Ok(TablePartitionStatus { is_partitioned_parent: info.key.is_some(), is_partition: info.is_partition })
+                Ok(TablePartitionStatus {
+                    is_partitioned_parent: info.key.is_some(),
+                    is_partition: info.is_partition,
+                    is_foreign: info.is_foreign,
+                })
             }
             Some(PoolKind::Agent(client)) => {
                 // Resolve the config once: it gates the arm and feeds the RPC
