@@ -112,7 +112,15 @@ static INLINE_FOREIGN_KEY_CONSTRAINT_LINE_RE: std::sync::LazyLock<Regex> = std::
         .expect("valid inline foreign key constraint line regex")
 });
 
-const MAX_TRANSFER_WRITE_SQL_BYTES: usize = 512 * 1024;
+// Upper bound for a single generated INSERT/upsert statement. Raised from
+// 512 KiB so one `batchSize` page normally becomes one multi-row INSERT.
+// MySQL-family targets additionally cap batches by the live
+// `max_allowed_packet` of the target server (see transfer_write_mysql_hard_limit).
+const MAX_TRANSFER_WRITE_SQL_BYTES: usize = 90 * 1024 * 1024;
+/// Conservative write-batch cap when the target's max_allowed_packet cannot be
+/// queried (mirrors the pre-batching era limit so a failed probe cannot produce
+/// statements larger than what stock MySQL accepts).
+const TRANSFER_WRITE_SQL_FALLBACK_BYTES: usize = 512 * 1024;
 const MAX_SQLSERVER_INSERT_ROWS: usize = 1000;
 const MAX_ORACLE_INSERT_ALL_ROWS: usize = 500;
 const MAX_ORACLE_MERGE_ROWS: usize = 500;
@@ -279,6 +287,16 @@ pub struct TransferRequest {
     #[serde(default)]
     pub ownership_policy: TransferOwnershipPolicy,
     pub batch_size: usize,
+    /// Optional per-table source filter for this transfer.
+    ///
+    /// Key = source table name; value is either a bare `WHERE` predicate
+    /// (`id <= 90000`) or a complete source `SELECT`
+    /// (`select * from t_order where id <= 90000`) used as a derived table.
+    /// Missing or empty entries transfer the whole table. Only MySQL- and
+    /// PostgreSQL-family sources are supported (see
+    /// `transfer_table_filter_supported`).
+    #[serde(default)]
+    pub table_filters: HashMap<String, String>,
     /// When true, rename the target table to a backup before creating it from the
     /// source structure. Only after the transfer succeeds is the backup dropped.
     /// Requires `create_table = true` and `content != DataOnly`.
@@ -990,6 +1008,12 @@ pub fn validate_transfer_request(request: &TransferRequest) -> Result<(), String
                 return Err(format!("Invalid object name: {name:?}"));
             }
         }
+    }
+    for (table, raw) in &request.table_filters {
+        if table.trim().is_empty() {
+            return Err("Table filter contains an empty table name".to_string());
+        }
+        parse_transfer_table_filter(raw)?;
     }
     Ok(())
 }
@@ -5316,6 +5340,28 @@ fn generate_insert_sql_batches_from_value_rows(
 
 #[allow(clippy::too_many_arguments)]
 #[cfg_attr(not(test), allow(dead_code))]
+/// Caps generated write batches by a MySQL-family target's `max_allowed_packet`
+/// (same pattern as `mysql_import_sql_hard_limit`); non-MySQL pools and failed
+/// probes fall back to None / a conservative constant respectively.
+async fn transfer_write_mysql_hard_limit(state: &AppState, pool_key: &str) -> Option<usize> {
+    let pool = {
+        let pool_handle = state.pool_handle(pool_key).await;
+        match pool_handle.as_ref() {
+            Some(PoolKind::Mysql(pool, _)) => pool.clone(),
+            _ => return None,
+        }
+    };
+    match crate::db::mysql::max_allowed_packet(&pool).await {
+        Ok(packet_bytes) => crate::db::mysql::mysql_sql_statement_hard_limit(packet_bytes),
+        Err(error) => {
+            log::debug!(
+                "[transfer] MySQL max_allowed_packet query failed; using the conservative write batch size: {error}"
+            );
+            Some(TRANSFER_WRITE_SQL_FALLBACK_BYTES)
+        }
+    }
+}
+
 fn generate_transfer_write_sql_batches(
     mode: &TransferMode,
     columns: &[String],
@@ -5342,6 +5388,7 @@ fn generate_transfer_write_sql_batches(
         overrides_postgres_system_values,
         mysql_spatial_markers,
         true,
+        None,
     )
 }
 
@@ -5359,6 +5406,7 @@ fn generate_transfer_write_sql_batches_with_column_quoting(
     overrides_postgres_system_values: bool,
     mysql_spatial_markers: bool,
     quote_target_column_names: bool,
+    hard_sql_bytes: Option<usize>,
 ) -> Result<Vec<String>, String> {
     if rows.is_empty() {
         return Ok(Vec::new());
@@ -5373,7 +5421,8 @@ fn generate_transfer_write_sql_batches_with_column_quoting(
             schema,
             db_type,
             catalog,
-            SqlBatchLimits::for_database(db_type, max_transfer_write_rows(db_type, mode)),
+            SqlBatchLimits::for_database(db_type, max_transfer_write_rows(db_type, mode))
+                .with_hard_sql_bytes(hard_sql_bytes),
             overrides_postgres_system_values,
             mysql_spatial_markers,
             quote_target_column_names,
@@ -5388,6 +5437,7 @@ fn generate_transfer_write_sql_batches_with_column_quoting(
         DatabaseType::CloudflareD1 => crate::db::cloudflare_d1::MAX_SQL_STATEMENT_BYTES,
         _ => MAX_TRANSFER_WRITE_SQL_BYTES,
     };
+    let batch_sql_bytes = hard_sql_bytes.map_or(max_sql_bytes, |hard| max_sql_bytes.min(hard));
     let mut statements = Vec::new();
     let mut start = 0;
 
@@ -5423,7 +5473,7 @@ fn generate_transfer_write_sql_batches_with_column_quoting(
                 mysql_spatial_markers,
                 quote_target_column_names,
             );
-            if candidate.len() > max_sql_bytes && !accepted.is_empty() {
+            if candidate.len() > batch_sql_bytes && !accepted.is_empty() {
                 break;
             }
             accepted = candidate;
@@ -5654,6 +5704,166 @@ pub fn count_sql_with_where_and_identifier_quote(
     let predicate = crate::sql_dialect::normalize_where_input(where_input);
     let where_clause = if predicate.is_empty() { String::new() } else { format!(" WHERE ({predicate})") };
     format!("SELECT COUNT(*) FROM {full_table}{where_clause}")
+}
+
+/// Per-table row filter supplied by the user for a data transfer.
+///
+/// * `Predicate` — the text after `WHERE` (`id <= 90000`), applied to the
+///   source table directly.
+/// * `Query` — a complete `SELECT` (`select * from t_order where id <= 90000`)
+///   used as a derived table, so joins/`ORDER BY`/`LIMIT` in the user's SQL are
+///   preserved verbatim.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TransferTableFilter {
+    Predicate(String),
+    Query(String),
+}
+
+/// Source engines that support per-table transfer filters. The paged fallback
+/// only relies on MySQL/PostgreSQL `LIMIT`/`OFFSET` semantics.
+pub fn transfer_table_filter_supported(db_type: &DatabaseType) -> bool {
+    matches!(
+        db_type,
+        DatabaseType::Mysql
+            | DatabaseType::Gbase
+            | DatabaseType::Postgres
+            | DatabaseType::Kingbase
+            | DatabaseType::Gaussdb
+            | DatabaseType::OpenGauss
+            | DatabaseType::Kwdb
+    )
+}
+
+fn transfer_filter_keyword_at(input: &str, keyword: &str) -> bool {
+    let bytes = input.as_bytes();
+    if bytes.len() < keyword.len() || !input.is_char_boundary(keyword.len()) {
+        return false;
+    }
+    if !input[..keyword.len()].eq_ignore_ascii_case(keyword) {
+        return false;
+    }
+    match bytes.get(keyword.len()) {
+        None => true,
+        Some(byte) => !(byte.is_ascii_alphanumeric() || *byte == b'_' || *byte == b'$'),
+    }
+}
+
+fn transfer_filter_starts_with_query(input: &str) -> bool {
+    let mut rest = input.trim_start();
+    // Skip leading SQL comments so `-- filter\nselect ...` still counts as a query.
+    loop {
+        if let Some(after) = rest.strip_prefix("--") {
+            match after.find('\n') {
+                Some(index) => rest = after[index + 1..].trim_start(),
+                None => return false,
+            }
+            continue;
+        }
+        if let Some(after) = rest.strip_prefix('#') {
+            match after.find('\n') {
+                Some(index) => rest = after[index + 1..].trim_start(),
+                None => return false,
+            }
+            continue;
+        }
+        if let Some(after) = rest.strip_prefix("/*") {
+            match after.find("*/") {
+                Some(index) => rest = after[index + 2..].trim_start(),
+                None => return false,
+            }
+            continue;
+        }
+        break;
+    }
+    transfer_filter_keyword_at(rest, "select") || transfer_filter_keyword_at(rest, "with")
+}
+
+/// Parses one user-supplied filter. Empty input means "no filter" (full table).
+pub fn parse_transfer_table_filter(raw: &str) -> Result<Option<TransferTableFilter>, String> {
+    let trimmed = raw.trim().trim_end_matches(';').trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if trimmed.contains(';') {
+        return Err("Table filter must be a single statement; remove the extra ';' separators".to_string());
+    }
+    if transfer_filter_starts_with_query(trimmed) {
+        return Ok(Some(TransferTableFilter::Query(trimmed.to_string())));
+    }
+    let predicate = crate::sql_dialect::normalize_where_input(Some(trimmed));
+    let predicate = predicate.trim();
+    if predicate.is_empty() {
+        return Ok(None);
+    }
+    if predicate.contains(';') {
+        return Err("Table filter must be a single statement; remove the extra ';' separators".to_string());
+    }
+    Ok(Some(TransferTableFilter::Predicate(predicate.to_string())))
+}
+
+fn transfer_table_filter_for(request: &TransferRequest, table: &str) -> Result<Option<TransferTableFilter>, String> {
+    match request.table_filters.get(table) {
+        Some(raw) => parse_transfer_table_filter(raw),
+        None => Ok(None),
+    }
+}
+
+fn transfer_filter_count_sql(
+    table: &str,
+    schema: &str,
+    db_type: &DatabaseType,
+    catalog: Option<&str>,
+    filter: &TransferTableFilter,
+) -> String {
+    match filter {
+        TransferTableFilter::Predicate(predicate) => {
+            count_sql_with_where(table, schema, db_type, Some(predicate.as_str()), catalog)
+        }
+        TransferTableFilter::Query(query) => format!("SELECT COUNT(*) FROM ({query}) AS dbx_transfer_src"),
+    }
+}
+
+/// Builds one paged source read for a filtered table.
+///
+/// MySQL/PostgreSQL share `LIMIT`/`OFFSET`, and the PK `ORDER BY` keeps OFFSET
+/// paging deterministic. Keyset/ctid/COPY paging are disabled while a filter is
+/// present because they build their own `WHERE`/`FROM` and would ignore it.
+#[allow(clippy::too_many_arguments)]
+fn transfer_filter_page_sql(
+    columns: &[String],
+    table: &str,
+    schema: &str,
+    db_type: &DatabaseType,
+    catalog: Option<&str>,
+    filter: &TransferTableFilter,
+    offset: u64,
+    limit: usize,
+    order_by_columns: &[String],
+    empty_row_only: bool,
+) -> String {
+    let select_list = if empty_row_only {
+        "1".to_string()
+    } else {
+        columns.iter().map(|column| quote_identifier(column, db_type)).collect::<Vec<_>>().join(", ")
+    };
+    let (from_sql, predicate) = match filter {
+        TransferTableFilter::Predicate(predicate) => {
+            (qualified_table(table, schema, db_type, catalog), Some(predicate.trim().to_string()))
+        }
+        TransferTableFilter::Query(query) => (format!("({query}) AS dbx_transfer_src"), None),
+    };
+    let where_clause = match predicate.as_deref() {
+        Some(predicate) if !predicate.is_empty() => format!(" WHERE ({predicate})"),
+        _ => String::new(),
+    };
+    let order_clause = if order_by_columns.is_empty() {
+        String::new()
+    } else {
+        let columns =
+            order_by_columns.iter().map(|column| quote_identifier(column, db_type)).collect::<Vec<_>>().join(", ");
+        format!(" ORDER BY {columns}")
+    };
+    format!("SELECT {select_list} FROM {from_sql}{where_clause}{order_clause} LIMIT {limit} OFFSET {offset}")
 }
 
 pub fn keyset_pagination_sql(
@@ -9592,6 +9802,7 @@ where
             } else {
                 mongo_documents_to_rows(&documents, &sql_target_column_names)
             };
+            let write_hard_limit = transfer_write_mysql_hard_limit(state, target_pool_key).await;
             let write_statements = generate_transfer_write_sql_batches_with_column_quoting(
                 &TransferMode::Append,
                 &sql_target_column_names,
@@ -9605,6 +9816,7 @@ where
                 false,
                 false,
                 request.quote_target_column_names,
+                write_hard_limit,
             )?;
             for (statement_index, batch_sql) in write_statements.iter().enumerate() {
                 execute_on_pool(state, target_pool_key, batch_sql).await.map_err(|e| {
@@ -10345,6 +10557,15 @@ where
         .await;
     }
 
+    let table_filter = transfer_table_filter_for(request, table)?;
+    if table_filter.is_some() && should_copy_data(&request.content) && !transfer_table_filter_supported(source_db_type)
+    {
+        return Err(format!(
+            "Table filters are not supported for source database '{}'; only the MySQL and PostgreSQL families are supported",
+            source_db_type.as_str()
+        ));
+    }
+
     let total_tables = request.tables.len();
     let pg_compat_transfer = is_postgres_compat_transfer(source_db_type, target_db_type);
     let ResolvedTransferTargetTable { name: target_table, preexisting: mut target_table_preexisting } =
@@ -10515,7 +10736,16 @@ where
 
     let total_rows = if should_copy_data(&request.content) {
         // Count source rows only for data-bearing transfers.
-        let sql = count_sql(table, &request.source_schema, source_db_type, request.source_catalog.as_deref());
+        let sql = match table_filter.as_ref() {
+            Some(filter) => transfer_filter_count_sql(
+                table,
+                &request.source_schema,
+                source_db_type,
+                request.source_catalog.as_deref(),
+                filter,
+            ),
+            None => count_sql(table, &request.source_schema, source_db_type, request.source_catalog.as_deref()),
+        };
         match execute_on_pool(state, source_pool_key, &sql).await {
             Ok(result) => result.rows.first().and_then(|r| r.first()).and_then(|v| match v {
                 serde_json::Value::Number(n) => n.as_u64(),
@@ -10809,7 +11039,9 @@ where
     // is atomic (the target's COPY statement aborts), so the paged INSERT loop
     // below runs unchanged as a fallback.
     let mut copy_rows: Option<u64> = None;
-    if transfer_copy_fast_path_supported(pg_compat_transfer, &effective_mode, overrides_postgres_system_values) {
+    if table_filter.is_none()
+        && transfer_copy_fast_path_supported(pg_compat_transfer, &effective_mode, overrides_postgres_system_values)
+    {
         let (copy_out_sql, copy_in_sql) = postgres_copy_transfer_sql(
             &col_names,
             &write_col_names,
@@ -10883,12 +11115,16 @@ where
     // and discards every previously read row (quadratic in table size). Falls
     // back to OFFSET (keeping the same key ordering) when the key metadata
     // does not hold up mid-table.
-    let mut keyset_indexes = transfer_keyset_column_indexes(&writable_columns, &primary_key_columns, source_db_type);
+    let mut keyset_indexes = if table_filter.is_some() {
+        None
+    } else {
+        transfer_keyset_column_indexes(&writable_columns, &primary_key_columns, source_db_type)
+    };
     let mut keyset_cursor: Vec<serde_json::Value> = Vec::new();
     // A single Agent cursor keeps Hive-family rows in one query execution. Inceptor
     // rejects the generic LIMIT/OFFSET form, just like the other Agent cursor paths.
     // Re-running LIMIT/OFFSET pages is unstable for tables without a unique key.
-    let use_hive_server_cursor = uses_agent_transfer_cursor(source_db_type);
+    let use_hive_server_cursor = table_filter.is_none() && uses_agent_transfer_cursor(source_db_type);
     let hive_server_transfer_sql = use_hive_server_cursor.then(|| {
         transfer_cursor_sql(
             &col_names,
@@ -10904,7 +11140,8 @@ where
     // slower as it runs and never finishes. Tables with a usable key keep the
     // keyset cursor above, and the COPY fast path already covers the
     // PostgreSQL-to-PostgreSQL case.
-    let mut ctid_pager = if copy_rows.is_none()
+    let mut ctid_pager = if table_filter.is_none()
+        && copy_rows.is_none()
         && keyset_indexes.is_none()
         && !default_rows_only
         && *source_db_type == DatabaseType::Postgres
@@ -10930,6 +11167,8 @@ where
         None
     };
 
+    // Query once for the whole table: caps every write batch page below.
+    let write_hard_limit = transfer_write_mysql_hard_limit(state, target_pool_key).await;
     let transfer_result: Result<(), String> = async {
         if copy_rows.is_some() {
             // The COPY fast path already streamed the whole table.
@@ -10957,7 +11196,20 @@ where
                 let sql = pager.page_sql(&col_names, table, &request.source_schema, batch_size);
                 (execute_on_pool_with_max_rows(state, source_pool_key, &sql, Some(batch_size)).await?, false)
             } else {
-                let sql = if default_rows_only {
+                let sql = if let Some(filter) = table_filter.as_ref() {
+                    transfer_filter_page_sql(
+                        &col_names,
+                        table,
+                        &request.source_schema,
+                        source_db_type,
+                        request.source_catalog.as_deref(),
+                        filter,
+                        offset,
+                        batch_size,
+                        &primary_key_columns,
+                        default_rows_only,
+                    )
+                } else if default_rows_only {
                     // Preserve row multiplicity without reading generated values
                     // (which must never be assigned on the target).
                     let source_table = qualified_table(
@@ -11058,6 +11310,7 @@ where
                 overrides_postgres_system_values,
                 mysql_spatial_markers,
                 request.quote_target_column_names,
+                write_hard_limit,
             )?;
             for (statement_index, batch_sql) in write_statements.iter().enumerate() {
                 execute_transfer_write_statement(
@@ -12977,6 +13230,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
     #[test]
     fn transfer_request_serializes_new_fields_camel_case() {
         let request = TransferRequest {
+            table_filters: std::collections::HashMap::new(),
             transfer_id: "t1".to_string(),
             source_connection_id: "s".to_string(),
             source_database: "db".to_string(),
@@ -13068,6 +13322,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         #[test]
         fn validates_content_and_object_rules() {
             let base = TransferRequest {
+                table_filters: std::collections::HashMap::new(),
                 transfer_id: "t".into(),
                 source_connection_id: "s".into(),
                 source_database: "db".into(),
@@ -13108,6 +13363,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         #[test]
         fn rejects_drop_target_before_create_with_data_only() {
             let base = TransferRequest {
+                table_filters: std::collections::HashMap::new(),
                 transfer_id: "t".into(),
                 source_connection_id: "s".into(),
                 source_database: "db".into(),
@@ -14268,6 +14524,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
     }
     fn test_transfer_request(tables: Vec<&str>) -> TransferRequest {
         TransferRequest {
+            table_filters: std::collections::HashMap::new(),
             transfer_id: "transfer-1".to_string(),
             source_connection_id: "source".to_string(),
             source_database: "source_db".to_string(),
@@ -14975,6 +15232,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
             false,
             false,
             false,
+            None,
         )
         .unwrap();
 
@@ -18289,7 +18547,9 @@ SELECT 1 FROM dual"#
     #[test]
     fn transfer_write_sql_batches_split_large_insert_statements() {
         let rows = (0..4).map(|index| vec![json!(index), json!("x".repeat(180 * 1024))]).collect::<Vec<_>>();
-        let statements = generate_transfer_write_sql_batches(
+        // A MySQL-family target's max_allowed_packet translates into a hard
+        // batch cap; the same 4x180 KiB page must split under that cap.
+        let statements = generate_transfer_write_sql_batches_with_column_quoting(
             &TransferMode::Append,
             &[String::from("id"), String::from("payload")],
             &[Some(String::from("int")), Some(String::from("text"))],
@@ -18301,6 +18561,8 @@ SELECT 1 FROM dual"#
             None,
             false,
             false,
+            true,
+            Some(512 * 1024),
         )
         .unwrap();
 
@@ -19496,6 +19758,48 @@ CREATE INDEX items_name_idx ON public.items (id);"#;
 
         assert_eq!(statements.len(), 1);
         assert!(statements[0].starts_with("CREATE TABLE"));
+    }
+
+    #[test]
+    fn parse_transfer_table_filter_accepts_predicates_and_strips_where_prefix() {
+        assert_eq!(parse_transfer_table_filter(""), Ok(None));
+        assert_eq!(parse_transfer_table_filter("   "), Ok(None));
+        assert_eq!(parse_transfer_table_filter(";"), Ok(None));
+        assert_eq!(
+            parse_transfer_table_filter("age > 30"),
+            Ok(Some(TransferTableFilter::Predicate("age > 30".to_string())))
+        );
+        assert_eq!(
+            parse_transfer_table_filter("age > 30;"),
+            Ok(Some(TransferTableFilter::Predicate("age > 30".to_string())))
+        );
+        assert_eq!(
+            parse_transfer_table_filter("WHERE status = 'active'"),
+            Ok(Some(TransferTableFilter::Predicate("status = 'active'".to_string())))
+        );
+    }
+
+    #[test]
+    fn parse_transfer_table_filter_accepts_full_queries_with_comments() {
+        assert_eq!(
+            parse_transfer_table_filter("SELECT * FROM orders WHERE amount > 10"),
+            Ok(Some(TransferTableFilter::Query("SELECT * FROM orders WHERE amount > 10".to_string())))
+        );
+        assert_eq!(
+            parse_transfer_table_filter("WITH recent AS (SELECT 1) SELECT * FROM recent"),
+            Ok(Some(TransferTableFilter::Query("WITH recent AS (SELECT 1) SELECT * FROM recent".to_string())))
+        );
+        // Leading comments are skipped when detecting a query shape.
+        assert_eq!(
+            parse_transfer_table_filter("-- filtered rows\nSELECT * FROM orders"),
+            Ok(Some(TransferTableFilter::Query("-- filtered rows\nSELECT * FROM orders".to_string())))
+        );
+    }
+
+    #[test]
+    fn parse_transfer_table_filter_rejects_multiple_statements() {
+        assert!(parse_transfer_table_filter("a = 1; b = 2").is_err());
+        assert!(parse_transfer_table_filter("SELECT 1; SELECT 2").is_err());
     }
 
     #[test]
