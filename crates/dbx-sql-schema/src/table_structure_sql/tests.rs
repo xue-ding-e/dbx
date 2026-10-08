@@ -7961,6 +7961,605 @@ fn mysql_generated_column_change_is_blocked_without_expression_metadata() {
     assert!(result.warnings[0].contains("generation expression could not be loaded"));
 }
 
+#[test]
+fn postgres_generated_column_extra_shape_is_not_an_mysql_extra_change() {
+    // PostgreSQL-family introspection reports generated columns in the same
+    // `generated always as (...) stored` shape, but the structure editor of
+    // those dialects never parses it into `extra.generated`. The MySQL-only
+    // generated-column diff must not flag these columns as changed.
+    let mut total = column("total");
+    total.data_type = "numeric(12,2)".to_string();
+    total.extra = Some(ColumnExtra::default());
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "numeric(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("generated always as (price * quantity) stored".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result = build_table_structure_change_sql(structure_change_options(
+        DatabaseType::Postgres,
+        None,
+        "products",
+        vec![total],
+    ));
+
+    assert_eq!(result.statements, Vec::<String>::new());
+    assert_eq!(result.warnings, Vec::<String>::new());
+}
+
+#[test]
+fn mysql_add_column_with_generated_expression_stored() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * `quantity`".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` ADD COLUMN `total` decimal(14,2) GENERATED ALWAYS AS (`price` * `quantity`) STORED;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_add_column_with_generated_expression_defaults_to_virtual() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated { expression: "`price` * `quantity`".to_string(), storage: None }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` ADD COLUMN `total` decimal(14,2) GENERATED ALWAYS AS (`price` * `quantity`) VIRTUAL;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_modify_generated_column_expression_change() {
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * `quantity` * 2".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * `quantity`) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` MODIFY COLUMN `total` decimal(12,2) GENERATED ALWAYS AS (`price` * `quantity` * 2) STORED;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_modify_generated_column_storage_change() {
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * `quantity`".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * `quantity`) VIRTUAL".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    // MySQL rejects switching a generated column between VIRTUAL and STORED
+    // in place; the DDL is still emitted but a warning explains the rejection.
+    assert_eq!(result.warnings.len(), 1);
+    assert!(result.warnings[0].contains("cannot switch a generated column between VIRTUAL and STORED"));
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` MODIFY COLUMN `total` decimal(12,2) GENERATED ALWAYS AS (`price` * `quantity`) STORED;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_generated_column_removed_becomes_plain_column() {
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    // An explicit empty expression removes the generated-column attribute.
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated { expression: String::new(), storage: None }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * `quantity`) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(result.statements, vec!["ALTER TABLE `products` MODIFY COLUMN `total` decimal(12,2);"]);
+}
+
+#[test]
+fn mysql_plain_column_becomes_generated() {
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * `quantity`".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: None,
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` MODIFY COLUMN `total` decimal(12,2) GENERATED ALWAYS AS (`price` * `quantity`) STORED;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_unchanged_generated_column_with_explicit_values_is_not_modified() {
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    // Explicitly echoing the introspected definition must not register a change.
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * `quantity`".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * `quantity`) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(result.statements, Vec::<String>::new());
+}
+
+#[test]
+fn mysql_generated_column_comparison_ignores_case_and_whitespace() {
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "  `PRICE`  *   `quantity`  ".to_string(),
+            storage: Some("stored".to_string()),
+        }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * `quantity`) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.statements, Vec::<String>::new());
+}
+
+#[test]
+fn mysql_generated_expression_with_wrapping_parentheses_is_normalized() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "(`price` * `quantity`)".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` ADD COLUMN `total` decimal(14,2) GENERATED ALWAYS AS (`price` * `quantity`) STORED;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_generated_literal_case_change_is_detected() {
+    // MySQL stores string literals verbatim, so editing only the case of a
+    // literal is a real change and must not be swallowed by the
+    // case-insensitive comparison of keywords and identifiers.
+    let mut flag = column("flag");
+    flag.data_type = "varchar(3)".to_string();
+    flag.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "if(`status`, 'yes', 'No')".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    flag.original = Some(ColumnInfo {
+        name: "flag".to_string(),
+        data_type: "varchar(3)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (IF(`status`, 'Yes', 'No')) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    flag.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![flag]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "ALTER TABLE `products` MODIFY COLUMN `flag` varchar(3) GENERATED ALWAYS AS (if(`status`, 'yes', 'No')) STORED;"
+        ]
+    );
+}
+
+#[test]
+fn mysql_generated_keyword_case_change_is_ignored_but_literal_is_not() {
+    // Keyword/identifier case differences must stay invisible (drivers may
+    // rewrite them), while the literal keeps its exact spelling.
+    let mut flag = column("flag");
+    flag.data_type = "varchar(3)".to_string();
+    flag.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "  IF(`status`,   'Yes', 'No')".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    flag.original = Some(ColumnInfo {
+        name: "flag".to_string(),
+        data_type: "varchar(3)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (if(`status`, 'Yes', 'No')) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    flag.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![flag]));
+
+    // Only whitespace and keyword case differ → no statement.
+    assert_eq!(result.statements, Vec::<String>::new());
+}
+
+#[test]
+fn mysql_generated_wrapping_parentheses_typed_by_hand_do_not_modify() {
+    // The renderer strips one layer of wrapping parentheses; edit detection
+    // compares with the same contract, so re-typing them is not a change and
+    // must not emit a no-op MODIFY (a STORED rebuild is not free).
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "(price * qty)".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(12,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (price * qty) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.statements, Vec::<String>::new());
+    assert_eq!(result.warnings, Vec::<String>::new());
+}
+
+#[test]
+fn mysql_generated_double_quoted_literal_case_change_is_detected() {
+    // MySQL treats double quotes as string quotes unless ANSI_QUOTES is on;
+    // either way the quoted text must keep its exact spelling in comparisons.
+    let mut flag = column("flag");
+    flag.data_type = "varchar(3)".to_string();
+    flag.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "IF(`status`, \"yes\", 'No')".to_string(),
+            storage: Some("STORED".to_string()),
+        }),
+        ..Default::default()
+    });
+    flag.original = Some(ColumnInfo {
+        name: "flag".to_string(),
+        data_type: "varchar(3)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (IF(`status`, \"Yes\", 'No')) STORED".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    flag.original_position = Some(0);
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![flag]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(result.statements.len(), 1);
+    assert!(result.statements[0].contains("\"yes\""));
+}
+
+#[test]
+fn mysql_plain_to_virtual_generated_warns() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(14,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: None,
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * 2".to_string(),
+            storage: Some("VIRTUAL".to_string()),
+        }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings.len(), 1);
+    assert!(result.warnings[0].contains("only allows converting a plain column into a STORED generated column"));
+}
+
+#[test]
+fn mysql_generated_storage_switch_warns() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(14,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * 2) VIRTUAL".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated { expression: "`price` * 2".to_string(), storage: Some("STORED".to_string()) }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings.len(), 1);
+    assert!(result.warnings[0].contains("cannot switch a generated column between VIRTUAL and STORED"));
+}
+
+#[test]
+fn mysql_virtual_to_plain_warns() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(14,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: Some("GENERATED ALWAYS AS (`price` * 2) VIRTUAL".to_string()),
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+    total.extra = Some(ColumnExtra { ..Default::default() });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert!(result.warnings.iter().any(|warning| warning.contains("removing a VIRTUAL generated attribute")));
+}
+
+#[test]
+fn mysql_plain_to_stored_generated_and_back_do_not_warn() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.original = Some(ColumnInfo {
+        name: "total".to_string(),
+        data_type: "decimal(14,2)".to_string(),
+        is_nullable: true,
+        column_default: None,
+        is_primary_key: false,
+        extra: None,
+        comment: None,
+        ..Default::default()
+    });
+    total.original_position = Some(0);
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated { expression: "`price` * 2".to_string(), storage: Some("STORED".to_string()) }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert!(result.statements.iter().any(|statement| statement.contains("GENERATED ALWAYS AS (`price` * 2) STORED")));
+}
+
+#[test]
+fn mysql_empty_generated_expression_warns_and_omits_clause() {
+    let mut total = column("total");
+    total.data_type = "decimal(14,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated { expression: "   ".to_string(), storage: Some("STORED".to_string()) }),
+        ..Default::default()
+    });
+
+    let result =
+        build_table_structure_change_sql(structure_change_options(DatabaseType::Mysql, None, "products", vec![total]));
+
+    assert_eq!(result.warnings.len(), 1);
+    assert!(result.warnings[0].contains("expression is empty"));
+    assert_eq!(result.statements, vec!["ALTER TABLE `products` ADD COLUMN `total` decimal(14,2);"]);
+}
+
+#[test]
+fn mysql_create_table_with_generated_column() {
+    let mut price = column("price");
+    price.data_type = "decimal(10,2)".to_string();
+    let mut total = column("total");
+    total.data_type = "decimal(12,2)".to_string();
+    total.extra = Some(ColumnExtra {
+        generated: Some(ColumnGenerated {
+            expression: "`price` * 2".to_string(),
+            storage: Some("VIRTUAL".to_string()),
+        }),
+        ..Default::default()
+    });
+
+    let result = build_create_table_sql(TableStructureSqlOptions {
+        database_type: Some(DatabaseType::Mysql),
+        driver_profile: None,
+        schema: None,
+        table_name: "products".to_string(),
+        columns: vec![price, total],
+        indexes: Vec::new(),
+        foreign_keys: Vec::new(),
+        triggers: Vec::new(),
+        table_comment: None,
+        original_table_comment: None,
+        mysql_engine: None,
+        transwarp_create: None,
+        partitioned: false,
+        is_gaussdb_m_mode: false,
+        table_collation: None,
+        foreign_table: false,
+    });
+
+    assert_eq!(result.warnings, Vec::<String>::new());
+    assert_eq!(
+        result.statements,
+        vec![
+            "CREATE TABLE `products` (\n  `price` decimal(10,2),\n  `total` decimal(12,2) GENERATED ALWAYS AS (`price` * 2) VIRTUAL\n);"
+        ]
+    );
+}
+
 // ---- Oscar (神通) ----
 // 神通 v7 是 Oracle 兼容方言，且实测支持 ALTER TABLE DROP/ADD PRIMARY KEY（与 Dameng 一致，
 // 不同于 Oracle）。DDL 生成走 StructureDialect::Oscar，与 Dameng 共享 Oracle-like 分支。

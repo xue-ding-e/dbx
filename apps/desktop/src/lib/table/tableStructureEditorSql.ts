@@ -6,10 +6,17 @@ export interface ColumnIdentity {
   increment?: number;
 }
 
+export interface ColumnGenerated {
+  /** Generation expression without the surrounding parentheses; empty means "not generated". */
+  expression: string;
+  storage?: "VIRTUAL" | "STORED";
+}
+
 export interface ColumnExtra {
   autoIncrement?: boolean;
   onUpdateCurrentTimestamp?: boolean;
   identity?: ColumnIdentity;
+  generated?: ColumnGenerated;
   manticoreIndexed?: boolean;
   manticoreStored?: boolean;
   manticoreAttribute?: boolean;

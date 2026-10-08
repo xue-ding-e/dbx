@@ -12,7 +12,8 @@ use super::column_alter::{
 };
 use super::column_format::{
     column_definition, has_dameng_identity, is_dameng_identity_compatible_type, is_mysql_character_data_type,
-    original_is_mysql_generated_column, original_mysql_generated_clause,
+    normalize_mysql_generated_storage, original_is_mysql_generated_column, original_mysql_generated_clause,
+    original_mysql_generated_values,
 };
 use super::comments::build_sqlserver_column_comment_sql_for_profile;
 use super::dialect::{capabilities_for, database_label, is_oracle_like, StructureDialect};
@@ -31,6 +32,77 @@ pub(super) fn build_column_sql(options: &TableStructureSqlOptions, warnings: &mu
     let table = qualified_table(dialect, options.schema.as_deref(), &options.table_name);
     let database_label = database_label(options.database_type);
     let active_columns: Vec<_> = options.columns.iter().filter(|column| !column.marked_for_drop).collect();
+    if dialect == StructureDialect::Mysql {
+        // A generated column whose expression was left empty renders as a plain
+        // column; surface the silent drop of the user's intent instead.
+        for column in &active_columns {
+            // An empty expression on a formerly generated column is the explicit
+            // "remove the attribute" edit, not a mistake — warn only when the
+            // column was plain before, where a missing expression drops the
+            // user's intent of adding a generated column.
+            let removes_generated_attribute = column
+                .original
+                .as_ref()
+                .and_then(|original| original.extra.as_deref())
+                .and_then(original_mysql_generated_values)
+                .is_some();
+            if !removes_generated_attribute
+                && column
+                    .extra
+                    .as_ref()
+                    .and_then(|extra| extra.generated.as_ref())
+                    .is_some_and(|generated| generated.expression.trim().is_empty())
+            {
+                warnings.push(format!(
+                    "Column \"{}\" is marked as generated but its expression is empty; the generated-column clause was omitted from the DDL.",
+                    column.name
+                ));
+            }
+            // MySQL rejects several generated-column conversions via MODIFY:
+            // a plain column may only become a STORED generated column, only a
+            // STORED generated column may become plain again, and VIRTUAL and
+            // STORED cannot be switched (those need DROP + ADD). Surface the
+            // rejected shape as a warning instead of emitting DDL the server
+            // will refuse.
+            let original_generated = column
+                .original
+                .as_ref()
+                .and_then(|original| original.extra.as_deref())
+                .and_then(original_mysql_generated_values);
+            if let Some(generated) = column.extra.as_ref().and_then(|extra| extra.generated.as_ref()) {
+                if !generated.expression.trim().is_empty() {
+                    match original_generated {
+                        // The conversion restriction applies to MODIFY of an
+                        // existing plain column; ADD accepts VIRTUAL freely.
+                        None if column.original.is_some() => {
+                            if normalize_mysql_generated_storage(generated.storage.as_deref()) == "VIRTUAL" {
+                                warnings.push(format!(
+                                    "Column \"{}\": MySQL only allows converting a plain column into a STORED generated column; a VIRTUAL generated column requires dropping and re-adding the column.",
+                                    column.name
+                                ));
+                            }
+                        }
+                        None => {}
+                        Some((_, original_storage)) => {
+                            if normalize_mysql_generated_storage(generated.storage.as_deref()) != original_storage {
+                                warnings.push(format!(
+                                    "Column \"{}\": MySQL cannot switch a generated column between VIRTUAL and STORED in place; the column must be dropped and re-added.",
+                                    column.name
+                                ));
+                            }
+                        }
+                    }
+                }
+            } else if let Some((_, original_storage)) = original_generated {
+                if original_storage == "VIRTUAL" {
+                    warnings.push(format!(
+                        "Column \"{}\": MySQL only allows converting a STORED generated column back to a plain column; removing a VIRTUAL generated attribute requires dropping and re-adding the column.",
+                        column.name
+                    ));
+                }
+            }
+        }
+    }
     if dialect == StructureDialect::Dameng {
         let identity_columns: Vec<_> = active_columns.iter().filter(|column| has_dameng_identity(column)).collect();
         if identity_columns.len() > 1
@@ -191,7 +263,7 @@ pub(super) fn build_column_sql(options: &TableStructureSqlOptions, warnings: &mu
             .is_some_and(|change| mysql_orphans_auto_increment_column(options, column, change));
 
         if !has_existing_column_attribute_change(column)
-            && !has_column_extra_change(column)
+            && !has_column_extra_change(dialect, column)
             && !has_position_change
             && !clears_orphaned_auto_increment
         {
@@ -207,7 +279,7 @@ pub(super) fn build_column_sql(options: &TableStructureSqlOptions, warnings: &mu
             || (is_mysql_character_data_type(&column.data_type)
                 && (column.character_set.trim() != original.character_set.as_deref().unwrap_or("")
                     || column.collation.trim() != original.collation.as_deref().unwrap_or("")))
-            || has_column_extra_change(column);
+            || has_column_extra_change(dialect, column);
         if has_comment_change && !capabilities.comment {
             warnings.push(format!(
                 "Column comments are not supported for {database_label} from this editor; the comment change for \"{}\" was ignored.",
@@ -232,6 +304,9 @@ pub(super) fn build_column_sql(options: &TableStructureSqlOptions, warnings: &mu
         if dialect == StructureDialect::Mysql
             && original_is_mysql_generated_column(column)
             && original_mysql_generated_clause(column).is_none()
+            // An edited generated value no longer depends on the introspected
+            // expression, so the column may be altered (or un-generated) safely.
+            && column.extra.as_ref().and_then(|extra| extra.generated.as_ref()).is_none()
         {
             warnings.push(format!(
                 "Column \"{}\" is generated, but its generation expression could not be loaded; no ALTER statement was generated to avoid removing the generated-column definition.",
