@@ -18645,7 +18645,10 @@ SELECT 1 FROM dual"#
             "dbo",
             &DatabaseType::SqlServer,
             None,
-            SqlBatchLimits::for_database(&DatabaseType::SqlServer, rows.len()),
+            // The default target now allows one large multi-row INSERT; pin the
+            // legacy 512 KiB cap so the UTF-16 measurement keeps being exercised
+            // across a split boundary.
+            SqlBatchLimits::for_database(&DatabaseType::SqlServer, rows.len()).with_hard_sql_bytes(Some(512 * 1024)),
         )
         .unwrap();
 
