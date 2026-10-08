@@ -4845,7 +4845,13 @@ for line in sys.stdin:
     }
 
     #[test]
-    fn agent_table_paging_supports_tdengine_and_default_oracle_only() {
+    fn agent_table_paging_supports_cache_tdengine_and_default_oracle() {
+        let mut cache = test_connection_config(DatabaseType::Iris);
+        assert!(!super::supports_agent_table_paging(&cache));
+        cache.driver_profile = Some("cache".to_string());
+        assert!(super::supports_agent_table_paging(&cache));
+        cache.driver_profile = Some("CACHE".to_string());
+        assert!(super::supports_agent_table_paging(&cache));
         assert!(super::supports_agent_table_paging(&test_connection_config(DatabaseType::Tdengine)));
         assert!(super::supports_agent_table_paging(&test_connection_config(DatabaseType::Oracle)));
         assert!(!super::supports_agent_table_paging(&test_connection_config(DatabaseType::Dameng)));
@@ -9743,7 +9749,9 @@ fn uses_oracle_metadata_object_source(config: Option<&ConnectionConfig>, object_
 
 fn supports_agent_table_paging(config: &ConnectionConfig) -> bool {
     // Keep paging opt-in until each legacy agent is known to apply metadata constraints server-side.
-    matches!(config.db_type, DatabaseType::Tdengine) || is_default_oracle_agent_config(config)
+    matches!(config.db_type, DatabaseType::Tdengine)
+        || crate::agent_catalog::agent_key(&config.db_type, config.driver_profile.as_deref()) == Some("cache")
+        || is_default_oracle_agent_config(config)
 }
 
 fn agent_paging_likely_applied(enabled: bool, limit: Option<usize>, returned_len: usize) -> bool {
