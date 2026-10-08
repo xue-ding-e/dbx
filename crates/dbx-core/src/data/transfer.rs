@@ -5362,6 +5362,8 @@ async fn transfer_write_mysql_hard_limit(state: &AppState, pool_key: &str) -> Op
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
 fn generate_transfer_write_sql_batches(
     mode: &TransferMode,
     columns: &[String],

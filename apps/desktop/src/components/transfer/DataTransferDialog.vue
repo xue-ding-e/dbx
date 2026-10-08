@@ -203,7 +203,6 @@ const tableFilters = ref<Record<string, string>>({});
 const filterDialogOpen = ref(false);
 const filterEditingTable = ref("");
 const filterDraft = ref("");
-const showRebuildConfirm = ref(false);
 const isSubmitting = ref(false);
 const pendingTransferId = ref<string | null>(null);
 const showStartConfirm = ref(false);

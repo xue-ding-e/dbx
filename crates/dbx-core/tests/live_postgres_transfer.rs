@@ -2186,6 +2186,7 @@ async fn live_postgres_structure_only_preview_renders_ddl_without_touching_the_t
         .insert(target_connection_id.to_string(), postgres_test_config(target_connection_id, &target_database));
 
     let request = TransferRequest {
+        table_filters: std::collections::HashMap::new(),
         transfer_id: format!("live-pg-preview-{suffix}"),
         source_connection_id: source_connection_id.to_string(),
         source_database: source_database.clone(),
