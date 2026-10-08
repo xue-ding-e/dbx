@@ -1405,7 +1405,7 @@ async fn live_sqlserver_transfer_table_skips_rowversion_insert_column() {
         drop_target_before_create: false,
         drop_target_confirmed: false,
         content: dbx_core::transfer::TransferContent::default(),
-        objects: Vec::new(),
+        objects: Some(Vec::new()),
         mode: dbx_core::transfer::TransferMode::Append,
         target_table_name_case: dbx_core::transfer::TransferTableNameCase::Upper,
         quote_target_column_names: true,

@@ -24,6 +24,7 @@ export type ShortcutActionId =
   | "undo"
   | "redo"
   | "selectAll"
+  | "selectCurrentStatement"
   | "extendSelection"
   | "addNextSelectionOccurrence"
   | "selectAllSelectionOccurrences"
@@ -309,6 +310,12 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     labelKey: "settings.shortcutSelectAll",
     scope: "editor",
     defaultShortcut: "Mod+A",
+  },
+  {
+    id: "selectCurrentStatement",
+    labelKey: "settings.shortcutSelectCurrentStatement",
+    scope: "editor",
+    defaultShortcut: "Mod+Shift+E",
   },
   {
     id: "extendSelection",

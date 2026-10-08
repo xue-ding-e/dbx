@@ -2658,9 +2658,7 @@ pub fn format_grid_sql_literal_with_identifier_quote(
     }
     let escaped_text = if database_type == Some(DatabaseType::Neo4j) {
         literal_text.replace('\\', "\\\\").replace('\'', "\\'")
-    } else if is_sqlite_literal_database(database_type)
-        || matches!(database_type, Some(DatabaseType::Dameng | DatabaseType::Oracle | DatabaseType::OceanbaseOracle))
-    {
+    } else if is_sqlite_literal_database(database_type) || keeps_literal_backslashes(database_type) {
         // These engines keep backslashes literal in ordinary string literals,
         // so only the quote delimiter needs escaping.
         literal_text.replace('\'', "''")
@@ -2746,6 +2744,34 @@ fn is_sqlite_literal_database(database_type: Option<DatabaseType>) -> bool {
     matches!(
         database_type,
         Some(DatabaseType::Sqlite | DatabaseType::Rqlite | DatabaseType::Turso | DatabaseType::CloudflareD1)
+    )
+}
+
+/// Engines whose ordinary string literals keep a backslash literal: Oracle and
+/// the engines that inherit its lexer for this purpose, plus the PostgreSQL
+/// family, whose `standard_conforming_strings` default makes `'dir\'` a complete
+/// string. Doubling the backslash there would copy `C:\\tmp` for a stored
+/// `C:\tmp`. Mirrors the SQL export path, which only doubles backslashes for the
+/// dialects whose escape table has one, and `keeps_backslash_literal` in
+/// `dbx-core`'s transfer path.
+fn keeps_literal_backslashes(database_type: Option<DatabaseType>) -> bool {
+    matches!(
+        database_type,
+        Some(
+            DatabaseType::Oracle
+                | DatabaseType::OceanbaseOracle
+                | DatabaseType::Dameng
+                | DatabaseType::Yashandb
+                | DatabaseType::Oscar
+                | DatabaseType::Xugu
+                | DatabaseType::Gaussdb
+                | DatabaseType::OpenGauss
+                | DatabaseType::Kingbase
+                | DatabaseType::Highgo
+                | DatabaseType::Uxdb
+                | DatabaseType::Vastbase
+                | DatabaseType::Kwdb
+        )
     )
 }
 
@@ -3523,7 +3549,10 @@ pub fn is_grid_insert_omitted_column(
 ) -> bool {
     is_synthetic_row_id(database_type, name)
         || is_postgres_tsvector_column(database_type, column_info)
-        || (!include_computed_columns && is_non_identity_generated_column(column_info))
+        || is_sqlserver_rowversion_column(database_type, column_info)
+        || (!include_computed_columns
+            && (is_non_identity_generated_column(column_info)
+                || is_sqlserver_computed_column(database_type, column_info)))
 }
 
 fn is_grid_update_omitted_column(
@@ -3569,6 +3598,38 @@ fn is_postgres_tsvector_column(database_type: Option<DatabaseType>, column_info:
 fn is_postgres_tsvector_type(data_type: &str) -> bool {
     let normalized = data_type.trim().trim_matches('"').to_ascii_lowercase();
     normalized == "tsvector" || normalized.ends_with(".tsvector")
+}
+
+/// SQL Server `timestamp`/`rowversion` columns are server-generated counters:
+/// like PostgreSQL `tsvector` they can never take an explicit INSERT value
+/// ("Cannot insert an explicit value into a timestamp column"), so they are
+/// omitted unconditionally. The grid copy path carries table metadata
+/// (sys.columns) types here, where the column surfaces as `timestamp`;
+/// result-set types (`varbinary` on TDS) would not identify it.
+fn is_sqlserver_rowversion_column(
+    database_type: Option<DatabaseType>,
+    column_info: Option<&DataGridColumnInfo>,
+) -> bool {
+    database_type == Some(DatabaseType::SqlServer)
+        && column_info.map(|column| is_sqlserver_rowversion_type(&column.data_type)).unwrap_or(false)
+}
+
+fn is_sqlserver_rowversion_type(data_type: &str) -> bool {
+    let normalized = data_type.trim().trim_matches('"').to_ascii_lowercase();
+    let base = normalized.split(['(', ' ', '\t', '\n']).next().unwrap_or("").trim();
+    matches!(base, "timestamp" | "rowversion")
+}
+
+/// SQL Server computed columns mark themselves with the bare `computed` string
+/// in their metadata EXTRA (sys.columns), which the dialect-neutral generated
+/// keywords ("generated always as"/"virtual generated"/"stored generated") do
+/// not match; without this branch a copy INSERT would still write a value into
+/// a computed column ("Cannot insert a value into the computed column").
+fn is_sqlserver_computed_column(database_type: Option<DatabaseType>, column_info: Option<&DataGridColumnInfo>) -> bool {
+    database_type == Some(DatabaseType::SqlServer)
+        && column_info
+            .and_then(|column| column.extra.as_deref())
+            .is_some_and(|extra| extra.trim().eq_ignore_ascii_case("computed"))
 }
 
 pub fn is_non_identity_generated_column(column_info: Option<&DataGridColumnInfo>) -> bool {
@@ -4019,6 +4080,31 @@ mod tests {
     /// `schema`), so the save statements are the one generated-SQL surface that
     /// never picked up `生成 SQL 时包含数据库名`. It must match the data-table
     /// SELECT label and the copy-as-INSERT statements.
+    #[test]
+    fn grid_sql_keeps_backslashes_literal_for_pg_family_and_oracle_like_targets() {
+        for database_type in [
+            DatabaseType::Gaussdb,
+            DatabaseType::OpenGauss,
+            DatabaseType::Kingbase,
+            DatabaseType::Highgo,
+            DatabaseType::Uxdb,
+            DatabaseType::Vastbase,
+            DatabaseType::Kwdb,
+            DatabaseType::Yashandb,
+            DatabaseType::Oscar,
+            DatabaseType::Xugu,
+        ] {
+            assert_eq!(
+                format_grid_sql_literal(&json!(r"C:\tmp"), Some(database_type), None),
+                r"'C:\tmp'",
+                "{database_type:?}"
+            );
+        }
+
+        // Dialects whose escape table has a backslash escape still double it.
+        assert_eq!(format_grid_sql_literal(&json!(r"C:\tmp"), Some(DatabaseType::Mysql), None), r"'C:\\tmp'");
+    }
+
     #[test]
     fn mysql_data_grid_save_honors_include_database_name() {
         let mut options = mysql_people_save_options(1);
@@ -5493,6 +5579,84 @@ mod tests {
             statement.as_deref(),
             Some("INSERT INTO \"public\".\"articles\" (\"id\", \"title\") VALUES (1, 'Hello');")
         );
+    }
+
+    #[test]
+    fn builds_copy_insert_statement_omits_sqlserver_rowversion_and_computed_columns() {
+        // The copy path carries table metadata (sys.columns): `rowversion` shows
+        // up as data_type "timestamp" and computed columns as extra "computed".
+        // Both reject explicit INSERT values, so the copy INSERT must omit them
+        // (issue #10764); computed returns only under the explicit option.
+        let options = |include_computed_columns: bool| DataGridCopyInsertStatementOptions {
+            database_type: Some(DatabaseType::SqlServer),
+            identifier_quote: None,
+            table_meta: Some(DataGridTableMeta {
+                catalog: None,
+                database: Some("dbx_test".to_string()),
+                schema: Some("dbo".to_string()),
+                table_name: "sync_state".to_string(),
+                primary_keys: vec!["id".to_string()],
+                columns: Some(vec![
+                    column("id", "int", false, None),
+                    column("note", "nvarchar(50)", true, None),
+                    column("row_version", "timestamp", false, None),
+                    column("total", "int", true, Some("computed")),
+                ]),
+            }),
+            columns: vec!["id".to_string(), "note".to_string(), "row_version".to_string(), "total".to_string()],
+            column_types: None,
+            source_columns: None,
+            rows: vec![vec![json!(7), json!("ok"), json!("0x00000000000007D1"), json!(42)]],
+            exclude_primary_keys: false,
+            include_computed_columns,
+            include_database_name: true,
+            insert_mode: DataGridCopyInsertMode::Merged,
+        };
+
+        assert_eq!(
+            build_data_grid_copy_insert_statement(options(false)).as_deref(),
+            Some("INSERT INTO [dbx_test].[dbo].[sync_state] ([id], [note]) VALUES (7, N'ok');")
+        );
+        assert_eq!(
+            build_data_grid_copy_insert_statement(options(true)).as_deref(),
+            Some("INSERT INTO [dbx_test].[dbo].[sync_state] ([id], [note], [total]) VALUES (7, N'ok', 42);")
+        );
+    }
+
+    #[test]
+    fn sqlserver_rowversion_and_computed_rules_do_not_leak_into_other_dialects() {
+        let rowversion = column("row_version", "timestamp", false, None);
+        let computed = column("total", "int", true, Some("computed"));
+        assert!(is_grid_insert_omitted_column(
+            Some(DatabaseType::SqlServer),
+            Some(&rowversion),
+            Some("row_version"),
+            false
+        ));
+        assert!(is_grid_insert_omitted_column(Some(DatabaseType::SqlServer), Some(&computed), Some("total"), false));
+        // The computed-column option only governs the computed family; the SQL
+        // Server rowversion rule stays unconditional.
+        assert!(is_grid_insert_omitted_column(
+            Some(DatabaseType::SqlServer),
+            Some(&rowversion),
+            Some("row_version"),
+            true
+        ));
+        assert!(!is_grid_insert_omitted_column(Some(DatabaseType::SqlServer), Some(&computed), Some("total"), true));
+        // MySQL `timestamp` is an ordinary datetime column and must stay insertable.
+        let mysql_timestamp = column("created_at", "timestamp", false, None);
+        assert!(!is_grid_insert_omitted_column(
+            Some(DatabaseType::Mysql),
+            Some(&mysql_timestamp),
+            Some("created_at"),
+            false
+        ));
+        assert!(!is_grid_insert_omitted_column(
+            Some(DatabaseType::Postgres),
+            Some(&mysql_timestamp),
+            Some("created_at"),
+            false
+        ));
     }
 
     #[test]

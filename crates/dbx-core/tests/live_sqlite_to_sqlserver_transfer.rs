@@ -169,7 +169,7 @@ async fn live_sqlite_to_sqlserver_keeps_sixty_four_bit_integer_values() {
         drop_target_before_create: false,
         drop_target_confirmed: false,
         content: TransferContent::default(),
-        objects: Vec::new(),
+        objects: Some(Vec::new()),
         mode: TransferMode::Append,
         target_table_name_case: TransferTableNameCase::Preserve,
         quote_target_column_names: true,

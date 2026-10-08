@@ -774,7 +774,7 @@ mod tests {
             drop_target_before_create: false,
             drop_target_confirmed: false,
             content: TransferContent::DataOnly,
-            objects: Vec::new(),
+            objects: Some(Vec::new()),
             mode: TransferMode::Append,
             target_table_name_case: TransferTableNameCase::Preserve,
             quote_target_column_names: true,
