@@ -22,6 +22,9 @@ jobs:
     # A fork release must not publish to the upstream project's mirrors.
     if: github.repository == 't8y2/dbx'
     name: Sync to CNB
+    # Mirror destinations are fixed to the upstream remotes; forks must never
+    # publish their refs there, even with mirrored secrets (#10944).
+    if: github.repository == 't8y2/dbx'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -45,6 +48,7 @@ jobs:
     # A fork release must not publish to the upstream project's mirrors.
     if: github.repository == 't8y2/dbx'
     name: Sync to AtomGit
+    if: github.repository == 't8y2/dbx'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -68,6 +72,7 @@ jobs:
     # A fork release must not publish to the upstream project's mirrors.
     if: github.repository == 't8y2/dbx'
     name: Sync to Gitee
+    if: github.repository == 't8y2/dbx'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

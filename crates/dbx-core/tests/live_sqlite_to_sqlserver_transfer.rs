@@ -16,6 +16,8 @@ use std::time::Duration;
 
 fn sqlite_config(id: &str, path: &str) -> ConnectionConfig {
     ConnectionConfig {
+        oracle_oci_nls_lang: None,
+        oracle_oci_tns_admin: None,
         docs_notes_path: None,
         id: id.to_string(),
         name: id.to_string(),
@@ -60,6 +62,7 @@ fn sqlite_config(id: &str, path: &str) -> ConnectionConfig {
         redis_scan_page_size: None,
         redis_database_aliases: Default::default(),
         redis_key_templates: Vec::new(),
+        redis_key_filter: None,
         redis_key_grouping: None,
         etcd_endpoints: String::new(),
         gbase_server: String::new(),

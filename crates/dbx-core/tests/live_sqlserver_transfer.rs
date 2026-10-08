@@ -10,6 +10,8 @@ use std::time::Duration;
 
 fn live_sqlserver_config(id: &str, database: &str) -> ConnectionConfig {
     ConnectionConfig {
+        oracle_oci_nls_lang: None,
+        oracle_oci_tns_admin: None,
         docs_notes_path: None,
         id: id.to_string(),
         name: id.to_string(),
@@ -54,6 +56,7 @@ fn live_sqlserver_config(id: &str, database: &str) -> ConnectionConfig {
         redis_scan_page_size: None,
         redis_database_aliases: Default::default(),
         redis_key_templates: Vec::new(),
+        redis_key_filter: None,
         redis_key_grouping: None,
         etcd_endpoints: String::new(),
         gbase_server: String::new(),
@@ -939,11 +942,13 @@ async fn live_sqlserver_database_export_replays_composite_foreign_keys() {
         include_create_database: false,
         drop_table_if_exists: false,
         omit_auto_increment: false,
+        preserve_original_language: false,
         fail_on_error: false,
         prevent_overwrite: false,
         output_compression: Default::default(),
         snapshot_session_id: None,
         insert_dialect: Default::default(),
+        insert_mode: Default::default(),
         batch_size: 1000,
         split_max_mb: None,
     };
