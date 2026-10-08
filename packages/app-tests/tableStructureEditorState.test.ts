@@ -136,7 +136,9 @@ test("preserves MySQL generated expressions in original column metadata", () => 
     "mysql",
   );
 
-  assert.deepEqual(draft.extra, {});
+  assert.deepEqual(draft.extra, {
+    generated: { expression: "`price` * `quantity`", storage: "STORED" },
+  });
   assert.equal(draft.original?.extra, expression);
 });
 
