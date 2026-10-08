@@ -74,6 +74,10 @@ jobs:
           python-version: '3.12'
       - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install -r scripts/remote-mcp-requirements.txt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: current-windows-service-smoke
+          cache-on-failure: true
       - name: Build CLI and MCP from this exact checkout
         # Default package features plus the native backend, no desktop bundle.
         run: cargo build --locked -p dbx-cli -p dbx-mcp --features dbx-mcp/os-keyring

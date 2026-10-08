@@ -83,6 +83,7 @@ impl Storage {
             secret_key_policy: SecretKeyPolicy::PlatformDefault,
             secret_key_creation_allowed: false,
             secret_codec_cache: Arc::new(Mutex::new(None)),
+            secret_key_error_cache: Arc::new(Mutex::new(None)),
             migration_failure: Arc::new(Mutex::new(None)),
         })
     }

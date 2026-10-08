@@ -80,3 +80,40 @@ jobs:
           path: staging/desktop/
           if-no-files-found: error
           retention-days: 7
+
+  focused-rust:
+    name: Isolated connection and session regressions
+    if: github.repository == 'xue-ding-e/dbx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: current-fork-focused-rust
+          cache-on-failure: true
+      - name: Check Rust formatting
+        # Match upstream's workspace check without reformatting vendored path dependencies.
+        run: cargo fmt --check
+      # These targets create synthetic temporary storage and loopback fixtures.
+      # Live database tests stay ignored; no external DSNs or secrets are supplied.
+      - name: Core connection CRUD and encrypted bundle import
+        run: cargo test --locked -p dbx-core --no-default-features --features sqlite-bundled,duckdb-sidecar,mq-admin --test connection_crud --test connection_import --test meatshell_storage_cache
+      - name: CLI configuration, imports, same-ID routes and unit regressions
+        run: cargo test --locked -p dbx-cli --bin dbx --test connection_crud --test connection_import --test meatshell_import --test route_update
+      - name: MCP policy, encrypted import, protocols, OAuth and session regressions
+        run: cargo test --locked -p dbx-mcp --lib --test connection_crud --test connection_import --test protocol --test local --test version
+      - name: Verify tested source identity
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"

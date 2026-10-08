@@ -37,4 +37,18 @@ describe("current fork desktop build contract", () => {
     expect(upload.with["if-no-files-found"]).toBe("error");
     expect(steps.filter((step: { run?: string }) => /gh release|wrangler.*deploy|git push/.test(step.run ?? ""))).toEqual([]);
   });
+
+  it("retains isolated Core, CLI and MCP regressions for the same source commit", () => {
+    const focused = workflow.jobs["focused-rust"];
+    expect(focused.if).toBe("github.repository == 'xue-ding-e/dbx'");
+    const checkout = focused.steps.find((step: { uses?: string }) => step.uses?.startsWith("actions/checkout@"));
+    expect(checkout.with).toEqual({ ref: "${{ github.sha }}", "persist-credentials": false });
+    const commands = focused.steps.map((step: { run?: string }) => step.run ?? "");
+    expect(commands).toContain("cargo fmt --check");
+    expect(commands).toContain("cargo test --locked -p dbx-core --no-default-features --features sqlite-bundled,duckdb-sidecar,mq-admin --test connection_crud --test connection_import --test meatshell_storage_cache");
+    expect(commands).toContain("cargo test --locked -p dbx-cli --bin dbx --test connection_crud --test connection_import --test meatshell_import --test route_update");
+    expect(commands).toContain("cargo test --locked -p dbx-mcp --lib --test connection_crud --test connection_import --test protocol --test local --test version");
+    expect(commands.join("\n")).not.toContain("--ignored");
+    expect(focused.steps.every((step: Record<string, unknown>) => !step["continue-on-error"])).toBe(true);
+  });
 });
