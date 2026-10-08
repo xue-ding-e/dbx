@@ -7668,6 +7668,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "パスワードは暗号化され、現在のDBXインスタンスにのみ保存されます。WebDAVには同期されず、同期パスワードを置き換えるものでもありません。",
     syncRemotePath: "リモートスナップショットパス",
     syncRemotePathDescription: "アップロード時に不足している親フォルダーをDBXが作成します。",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "省略可。一部の WebDAV サービスは特定のクライアントアプリのみ許可します。該当する User-Agent（例：Zotero/7.0.15）を入力してください。空欄の場合は User-Agent を送信しません。",
     syncSecretNotice: "デフォルトでは、DBXは接続詳細と設定のみを同期します。データベースパスワード、SSHパスワード、プロキシパスワード、接続文字列、AI APIキーはローカルに保持されます。",
     syncSecrets: "暗号化されたシークレットを同期",
     syncSecretsDescription: "有効時、DBXはデータベースパスワード、SSHパスワード、AI APIキーを暗号化してからWebDAVにアップロードします。",

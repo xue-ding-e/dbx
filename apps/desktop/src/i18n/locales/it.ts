@@ -7654,6 +7654,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "La password viene crittografata e memorizzata solo nell'istanza DBX corrente. Non viene sincronizzata su WebDAV e non sostituisce la password di sincronizzazione.",
     syncRemotePath: "Percorso snapshot remoto",
     syncRemotePathDescription: "DBX creerà le cartelle superiori mancanti durante il caricamento.",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "Opzionale. Alcuni servizi WebDAV consentono l'accesso solo ad applicazioni client specifiche; inserisci lo User-Agent corrispondente (ad esempio Zotero/7.0.15). Se lasciato vuoto, non viene inviato alcuno User-Agent.",
     syncSecretNotice: "Per impostazione predefinita, DBX sincronizza solo i dettagli e le impostazioni di connessione. Le password dei database, le password SSH, le password proxy, le stringhe di connessione e le chiavi API AI rimangono locali.",
     syncSecrets: "Sincronizza i segreti crittografati",
     syncSecretsDescription: "Se abilitato, DBX crittografa le password del database, le password SSH e le chiavi API AI prima di caricarle su WebDAV.",

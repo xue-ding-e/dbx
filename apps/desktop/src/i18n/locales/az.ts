@@ -7580,6 +7580,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "Parol şifrələnir və yalnız cari DBX instansiyasında saxlanılır. WebDAV ilə sinxronlaşdırılmır və sinxronlaşdırma parolunu əvəz etmir.",
     syncRemotePath: "Uzaq anlıq nüsxənin yolu",
     syncRemotePathDescription: "Yükləmə zamanı DBX çatışmayan üst qovluqları yaradacaq.",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "İstəyə bağlı. Bəzi WebDAV xidmətləri yalnız müəyyən klient tətbiqlərinə icazə verir; uyğun User-Agent daxil edin (məsələn, Zotero/7.0.15). Boş buraxılsa User-Agent göndərilmir.",
     syncSecretNotice: "Standart olaraq DBX yalnız əlaqə məlumatlarını və parametrləri sinxronlaşdırır. Verilənlər bazası parolları, SSH parolları, proksi parolları, HTTP tunel tokenləri, əlaqə sətirləri və AI API açarları yerli olaraq qalır.",
     syncSecrets: "Şifrələnmiş məxfi məlumatları sinxronlaşdır",
     syncSecretsDescription: "Aktiv olduqda DBX verilənlər bazası parollarını, SSH parollarını, proksi parollarını, HTTP tunel tokenlərini və AI API açarlarını uzaq yaddaşa yükləməzdən əvvəl şifrələyir.",

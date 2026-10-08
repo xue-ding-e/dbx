@@ -7488,6 +7488,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "비밀번호는 현재 DBX 인스턴스에만 암호화되어 저장됩니다. WebDAV에 동기화되지 않으며 동기화 비밀번호를 대체하지 않습니다.",
     syncRemotePath: "원격 스냅샷 경로",
     syncRemotePathDescription: "DBX가 업로드 시 누락된 상위 폴더를 만듭니다.",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "선택 사항. 일부 WebDAV 서비스는 특정 클라이언트 앱만 허용합니다. 해당하는 User-Agent(예: Zotero/7.0.15)를 입력하세요. 비워 두면 User-Agent를 전송하지 않습니다.",
     syncSecretNotice: "기본적으로 DBX는 연결 세부 정보와 설정만 동기화합니다. 데이터베이스 비밀번호, SSH 비밀번호, 프록시 비밀번호, HTTP 터널 토큰, 연결 문자열 및 AI API 키는 로컬에 유지됩니다.",
     syncSecrets: "암호화된 비밀 동기화",
     syncSecretsDescription: "활성화하면 DBX가 데이터베이스 비밀번호, SSH 비밀번호, 프록시 비밀번호, HTTP 터널 토큰 및 AI API 키를 암호화하여 원격 저장소에 업로드합니다.",

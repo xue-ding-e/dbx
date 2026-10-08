@@ -7003,6 +7003,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "密碼會加密儲存在目前 DBX 執行個體中，不會同步到 WebDAV，也不會取代同步密碼。",
     syncRemotePath: "遠端快照路徑",
     syncRemotePathDescription: "上傳時 DBX 會自動建立缺失的父目錄。",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "選填。部分 WebDAV 服務僅允許特定用戶端應用程式存取，填寫對應的 User-Agent（例如 Zotero/7.0.15）即可。留空則不傳送 User-Agent。",
     syncSecretNotice: "預設只同步連線詳細資料和設定。資料庫密碼、SSH 密碼、代理伺服器密碼、連線字串和 AI API Key 會保留在本機。",
     syncSecrets: "同步加密後的敏感資訊",
     syncSecretsDescription: "開啟後，DBX 會先加密資料庫密碼、SSH 密碼和 AI API Key，再上傳到 WebDAV。",

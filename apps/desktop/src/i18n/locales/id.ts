@@ -8379,6 +8379,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "Kata sandi dienkripsi dan disimpan hanya pada instans DBX saat ini. Tidak disinkronkan ke WebDAV dan tidak menggantikan kata sandi sinkronisasi.",
     syncRemotePath: "Jalur snapshot jarak jauh",
     syncRemotePathDescription: "DBX akan membuat folder induk yang hilang saat mengunggah.",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "Opsional. Beberapa layanan WebDAV hanya mengizinkan aplikasi klien tertentu; isi User-Agent yang sesuai (misalnya Zotero/7.0.15). Jika dikosongkan, User-Agent tidak dikirim.",
     syncSecretNotice: "Secara default, DBX hanya menyinkronkan detail koneksi dan pengaturan. Kata sandi database, kata sandi SSH, kata sandi proxy, token tunnel HTTP, connection string, dan kunci API AI tetap lokal.",
     syncSecrets: "Sinkronkan rahasia terenkripsi",
     syncSecretsDescription: "Jika diaktifkan, DBX mengenkripsi kata sandi database, kata sandi SSH, kata sandi proxy, token tunnel HTTP, dan kunci API AI sebelum mengunggahnya ke penyimpanan jarak jauh.",

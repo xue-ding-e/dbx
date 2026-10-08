@@ -7478,6 +7478,8 @@ export default withEnglishFallback({
     syncRememberWebDavPasswordDescription: "Parola şifrelenir ve yalnızca geçerli DBX örneğinde saklanır. WebDAV'a eşitlenmez ve eşitleme parolasının yerine geçmez.",
     syncRemotePath: "Uzak anlık görüntü yolu",
     syncRemotePathDescription: "DBX, yükleme sırasında eksik üst klasörleri oluşturur.",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "İsteğe bağlı. Bazı WebDAV hizmetleri yalnızca belirli istemci uygulamalarına izin verir; eşleşen User-Agent değerini girin (örneğin Zotero/7.0.15). Boş bırakılırsa User-Agent gönderilmez.",
     syncSecretNotice: "DBX varsayılan olarak yalnızca bağlantı ayrıntılarını ve ayarları eşitler. Veritabanı parolaları, SSH parolaları, proxy parolaları, HTTP tünel belirteçleri, bağlantı dizeleri ve yapay zekâ API anahtarları yerelde kalır.",
     syncSecrets: "Şifreli gizli bilgileri eşitle",
     syncSecretsDescription: "Etkinleştirildiğinde DBX; veritabanı parolalarını, SSH parolalarını, proxy parolalarını, HTTP tünel belirteçlerini ve yapay zekâ API anahtarlarını uzak depolamaya yüklemeden önce şifreler.",

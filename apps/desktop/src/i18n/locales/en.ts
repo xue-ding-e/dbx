@@ -8623,6 +8623,8 @@ export default {
     syncRememberWebDavPasswordDescription: "The password is encrypted and stored in the current DBX instance only. It is not synced to WebDAV and does not replace the sync password.",
     syncRemotePath: "Remote snapshot path",
     syncRemotePathDescription: "DBX will create missing parent folders when uploading.",
+    syncUserAgent: "User-Agent",
+    syncUserAgentDescription: "Optional. Some WebDAV services only allow specific client applications; fill in the matching User-Agent (for example Zotero/7.0.15). Leave empty to send no User-Agent.",
     syncSecretNotice: "By default, DBX syncs connection details and settings only. Database passwords, SSH passwords, proxy passwords, HTTP tunnel tokens, connection strings, and AI API keys stay local.",
     syncSecrets: "Sync encrypted secrets",
     syncSecretsDescription: "When enabled, DBX encrypts database passwords, SSH passwords, proxy passwords, HTTP tunnel tokens, and AI API keys before uploading them to remote storage.",
