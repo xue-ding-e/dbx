@@ -13688,11 +13688,6 @@ mod tests {
 
     #[test]
     fn import_insert_batches_split_long_rows_by_sql_size() {
-        let mappings = vec![TableImportColumnMapping {
-            source_column: "payload".to_string(),
-            target_column: "payload".to_string(),
-            target_data_type: None,
-        }];
         let data = ParsedImportFile {
             columns: vec!["payload".to_string()],
             rows: (0..4).map(|index| vec![serde_json::json!(format!("{index}{}", "x".repeat(180 * 1024)))]).collect(),
