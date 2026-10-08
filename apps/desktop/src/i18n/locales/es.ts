@@ -3284,6 +3284,7 @@ export default withEnglishFallback({
     jalapenoDescription: "🎉 ¡La IA de nivel empresarial que utilizan los equipos líderes ya está disponible para ti! ¡Prueba modelos de vanguardia con un 50 % de descuento y recibe más bonificaciones al recargar!",
     hualongDescription: "🐉 ¡Relay de modelos con fuente oficial para desarrolladores de IA intensivos! Serie Codex/Claude 100% oficial, facturación por token verificable, contratos y facturas. \n🎉¡Regístrate con el código promocional DBX&HUALONG y obtén 1 $ de crédito!",
     aicodemirrorDescription: "⚡ AICodeMirror ofrece concurrencia de nivel empresarial, facturación rápida y soporte dedicado 7×24; los nuevos usuarios obtienen ¥8 de crédito gratuito y un 20% de descuento en su primera recarga.",
+    astraflowDescription: "AstraFlow de UCloud ofrece acceso a más de 200 modelos de IA populares con una sola clave API y es compatible con la API de OpenAI.",
     visitPartner: "Visitar el sitio web del socio",
     getApiKey: "Obtener clave API",
     defaultModel: "Modelo predeterminado",

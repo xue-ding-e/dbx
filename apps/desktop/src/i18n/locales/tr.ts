@@ -2863,6 +2863,7 @@ export default withEnglishFallback({
     jalapenoDescription: "🎉 Önde gelen ekiplerin güvendiği kurumsal düzeyde yapay zekâ artık sizin için de kullanılabilir! En yeni modelleri %50 indirimle deneyin ve daha çok yükleme yaptıkça daha çok bonus kredi kazanın!",
     hualongDescription: "🐉 Yoğun yapay zekâ geliştiricileri için resmî kaynak aktarıcı! Codex/Claude serisi %100 resmî kaynak, doğrulanabilir belirteç düzeyinde fatura, kurumsal sözleşme ve fatura. \n🎉DBX&HUALONG promosyon koduyla kayıt olun, 1$ kredi kazanın!",
     aicodemirrorDescription: "⚡ AICodeMirror, kurumsal düzeyde eşzamanlılık, hızlı faturalandırma ve 7×24 özel destek sunar; yeni kullanıcılar ¥8 ücretsiz kredi ve ilk yüklemede %20 indirim kazanır.",
+    astraflowDescription: "UCloud'un AstraFlow platformu, tek bir API anahtarıyla 200'den fazla popüler yapay zekâ modeline erişim sağlar ve OpenAI API ile uyumludur.",
     visitPartner: "İş ortağının web sitesini ziyaret et",
     getApiKey: "API anahtarı al",
     defaultModel: "Varsayılan Model",

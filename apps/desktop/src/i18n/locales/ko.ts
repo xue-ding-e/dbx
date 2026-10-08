@@ -3086,6 +3086,7 @@ export default withEnglishFallback({
     jalapenoDescription: "🎉 최고의 팀들이 사용하는 엔터프라이즈급 AI를 이제 만나보세요! 최첨단 모델을 50% 할인으로 바로 체험하고, 충전할수록 더 많은 보너스를 받으세요!",
     hualongDescription: "🐉 헤비 AI 개발자를 위한 공식 직결 릴레이! Codex/Claude 시리즈 100% 공식 소스, 토큰 단위 명세 검증, 기업 계약 및 인보이스 지원. \n🎉프로모 코드 DBX&HUALONG 로 가입하면 $1 크레딧 증정!",
     aicodemirrorDescription: "⚡ AICodeMirror는 기업급 동시 처리, 빠른 세금계산서 발급, 7×24 전담 기술 지원을 제공합니다. 신규 사용자는 8위안 무료 크레딧과 첫 충전 20% 할인을 받습니다.",
+    astraflowDescription: "UCloud의 AstraFlow는 하나의 API 키로 200개 이상의 주요 AI 모델을 이용할 수 있는 OpenAI API 호환 플랫폼입니다.",
     visitPartner: "파트너 웹사이트 방문",
     getApiKey: "API 키 받기",
     defaultModel: "기본 모델",

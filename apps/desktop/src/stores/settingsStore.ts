@@ -553,6 +553,21 @@ export const AI_PROVIDER_PARTNER_PRESETS: readonly AiPartnerProviderPreset[] = [
     descriptionKey: "ai.hualongDescription",
     badgeKey: "ai.hualongSponsored",
   },
+  {
+    id: "astraflow",
+    label: "AstraFlow",
+    iconPath: "/icons/ai/astraflow.png",
+    group: "partner",
+    provider: "openai-compatible",
+    endpoint: "https://api.modelverse.cn/v1",
+    model: "",
+    apiStyle: "completions",
+    authMethod: "bearer",
+    requiresApiKey: true,
+    websiteUrl: "https://www.ucloud.cn/site/active/kuaijiesale.html?ytag=geo_waituo_github_dbx",
+    apiKeyUrl: "https://console.ucloud.cn/modelverse/experience/api-keys",
+    descriptionKey: "ai.astraflowDescription",
+  },
 ];
 
 function normalizeAiProviderEndpoint(endpoint: string): string {

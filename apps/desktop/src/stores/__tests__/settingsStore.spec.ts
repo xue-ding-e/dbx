@@ -11,7 +11,10 @@ import {
   EXECUTE_MODE_CURRENT_DEFAULT_VERSION,
   SIDEBAR_BROWSE_OBJECTS_MIGRATION_VERSION,
   enforceRightSidebarPanelExclusivity,
+  getAiProviderPreset,
   getAiProviderPresetDefaultEndpoint,
+  getAiProviderPresetId,
+  getAiProviderPresetOption,
   normalizeAiConfig,
   normalizeDesktopSettings,
   normalizeEditorSettings,
@@ -1226,6 +1229,42 @@ describe("settingsStore AI API key normalization", () => {
       websiteUrl: "https://www.aicodemirror.ai/register?invitecode=DK44NH",
       badgeKey: "ai.aicodemirrorSponsored",
     });
+  });
+
+  it("appends AstraFlow as a partner preset without a default model", () => {
+    const preset = getAiProviderPresetOption("astraflow");
+
+    expect(AI_PROVIDER_PARTNER_PRESETS.at(-1)).toBe(preset);
+    expect(preset).toMatchObject({
+      id: "astraflow",
+      label: "AstraFlow",
+      iconPath: "/icons/ai/astraflow.png",
+      group: "partner",
+      provider: "openai-compatible",
+      endpoint: "https://api.modelverse.cn/v1",
+      model: "",
+      apiStyle: "completions",
+      authMethod: "bearer",
+      requiresApiKey: true,
+      websiteUrl: "https://www.ucloud.cn/site/active/kuaijiesale.html?ytag=geo_waituo_github_dbx",
+      apiKeyUrl: "https://console.ucloud.cn/modelverse/experience/api-keys",
+      descriptionKey: "ai.astraflowDescription",
+    });
+    expect(preset.models ?? []).toEqual([]);
+    expect(normalizeAiConfig(preset)).toMatchObject({
+      provider: "openai-compatible",
+      endpoint: "https://api.modelverse.cn/v1",
+      model: "",
+    });
+  });
+
+  it("recognizes saved AstraFlow configs without changing other compatible providers", () => {
+    const preset = getAiProviderPresetOption("astraflow");
+
+    expect(getAiProviderPreset("openai-compatible", "https://api.modelverse.cn/v1")).toBe(preset);
+    expect(getAiProviderPresetId("openai-compatible", " HTTPS://API.MODELVERSE.CN/v1/ ")).toBe("astraflow");
+    expect(getAiProviderPreset("openai-compatible", "https://example.com/v1")).toBe(AI_PROVIDER_PRESETS["openai-compatible"]);
+    expect(getAiProviderPresetOption("hualong-ai").model).toBe("deepseek-v4.1-flash");
   });
 
   it("uses the mainland MiniMax endpoint only for new zh-CN presets", () => {
