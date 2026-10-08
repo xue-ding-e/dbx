@@ -129,6 +129,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "Kanan · Atas dahulu",
     shortcutsRightBottom: "Kanan · Bawah dahulu",
     shortcutsVisiblePlugins: "Plugin yang terlihat",
+    shortcutsShowInSidebar: "Tampilkan di bilah samping",
     shortcutsResize: "Seret untuk mengubah ukuran; klik dua kali untuk tinggi otomatis",
     globalSettingsTitle: "Pengaturan global",
     shortcutsTitle: "Pintasan plugin",

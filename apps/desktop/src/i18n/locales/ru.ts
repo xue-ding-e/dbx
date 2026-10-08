@@ -178,6 +178,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "Справа · Сверху",
     shortcutsRightBottom: "Справа · Снизу",
     shortcutsVisiblePlugins: "Видимые плагины",
+    shortcutsShowInSidebar: "Показывать на боковой панели",
     shortcutsResize: "Перетащите для изменения высоты; двойной щелчок — автоматическая высота",
     globalSettingsTitle: "Общие настройки",
     shortcutsTitle: "Быстрый доступ к плагинам",

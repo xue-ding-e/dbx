@@ -153,6 +153,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "右侧·顶部优先",
     shortcutsRightBottom: "右侧·底部优先",
     shortcutsVisiblePlugins: "显示的插件",
+    shortcutsShowInSidebar: "在侧边栏显示",
     shortcutsResize: "拖动调整高度，双击恢复自动高度",
     globalSettingsTitle: "全局配置",
     shortcutsTitle: "插件快捷入口",

@@ -207,6 +207,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "오른쪽 · 위쪽 정렬",
     shortcutsRightBottom: "오른쪽 · 아래쪽 정렬",
     shortcutsVisiblePlugins: "표시할 플러그인",
+    shortcutsShowInSidebar: "사이드바에 표시",
     shortcutsResize: "드래그하여 높이 조절, 두 번 클릭하여 자동 높이 복원",
     globalSettingsTitle: "전역 설정",
     shortcutsTitle: "플러그인 바로가기",

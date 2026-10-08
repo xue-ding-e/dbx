@@ -103,6 +103,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "Sağ · Üst",
     shortcutsRightBottom: "Sağ · Alt",
     shortcutsVisiblePlugins: "Görünür eklentiler",
+    shortcutsShowInSidebar: "Kenar çubuğunda göster",
     shortcutsResize: "Yüksekliği ayarlamak için sürükleyin; otomatik yükseklik için çift tıklayın",
   },
   cellTransform: {

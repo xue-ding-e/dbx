@@ -208,6 +208,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "右側・上寄せ",
     shortcutsRightBottom: "右側・下寄せ",
     shortcutsVisiblePlugins: "表示するプラグイン",
+    shortcutsShowInSidebar: "サイドバーに表示",
     shortcutsResize: "ドラッグで高さを変更、ダブルクリックで自動調整に戻す",
     globalSettingsTitle: "グローバル設定",
     shortcutsTitle: "プラグインショートカット",

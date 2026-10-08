@@ -207,6 +207,7 @@ export default {
     shortcutsRightTop: "Right · Top first",
     shortcutsRightBottom: "Right · Bottom first",
     shortcutsVisiblePlugins: "Visible plugins",
+    shortcutsShowInSidebar: "Show in sidebar",
     shortcutsResize: "Drag to resize; double-click for automatic height",
     globalSettingsTitle: "Global settings",
     shortcutsTitle: "Plugin shortcuts",

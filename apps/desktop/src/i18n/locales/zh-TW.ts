@@ -210,6 +210,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "右側·頂部優先",
     shortcutsRightBottom: "右側·底部優先",
     shortcutsVisiblePlugins: "顯示的外掛程式",
+    shortcutsShowInSidebar: "在側邊欄顯示",
     shortcutsResize: "拖曳調整高度，按兩下恢復自動高度",
     globalSettingsTitle: "全域設定",
     shortcutsTitle: "外掛程式快捷入口",

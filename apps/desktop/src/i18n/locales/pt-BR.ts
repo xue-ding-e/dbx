@@ -208,6 +208,7 @@ export default withEnglishFallback({
     shortcutsRightTop: "Direita · Superior",
     shortcutsRightBottom: "Direita · Inferior",
     shortcutsVisiblePlugins: "Plugins visíveis",
+    shortcutsShowInSidebar: "Mostrar na barra lateral",
     shortcutsResize: "Arraste para ajustar a altura; clique duas vezes para altura automática",
     globalSettingsTitle: "Configurações globais",
     shortcutsTitle: "Atalhos de plugins",
