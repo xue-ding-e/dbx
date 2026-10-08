@@ -2521,7 +2521,7 @@ onUnmounted(() => {
   if (sidebarTreeContentMeasureFrame) window.cancelAnimationFrame(sidebarTreeContentMeasureFrame);
 });
 
-defineExpose({ focusSearch, createNewGroup, collapseAllTreeNodes, locateTabInSidebar });
+defineExpose({ focusSearch, createNewGroup, collapseAllTreeNodes, locateTabInSidebar, disconnectAllActiveConnections });
 </script>
 
 <template>
