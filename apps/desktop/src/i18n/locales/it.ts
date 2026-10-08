@@ -6850,6 +6850,7 @@ export default withEnglishFallback({
     rollbackSql: "SQL di Rollback",
   },
   schemaDiff: {
+    connectionDisconnected: "Il confronto degli schemi è stato interrotto perché una connessione al database è stata disconnessa.",
     optionsTitle: "Opzioni di Confronto",
     selectConfig: "Seleziona configurazione",
     newConfigName: "Nuova Configurazione",

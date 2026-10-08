@@ -6703,6 +6703,7 @@ export default withEnglishFallback({
     rollbackSql: "Geri Alma SQL'i",
   },
   schemaDiff: {
+    connectionDisconnected: "Veritabanı bağlantısı kesildiği için şema karşılaştırması durduruldu.",
     optionsTitle: "Karşılaştırma Seçenekleri",
     selectConfig: "Yapılandırma seçin",
     newConfigName: "Yeni Yapılandırma",

@@ -6851,6 +6851,7 @@ export default withEnglishFallback({
     rollbackSql: "SQL de Reversão",
   },
   schemaDiff: {
+    connectionDisconnected: "A comparação de esquemas foi interrompida porque uma conexão com o banco de dados foi desconectada.",
     optionsTitle: "Opções de Comparação",
     selectConfig: "Selecionar configuração",
     newConfigName: "Nova Configuração",
