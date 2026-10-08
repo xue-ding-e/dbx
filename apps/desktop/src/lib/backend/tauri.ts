@@ -6095,6 +6095,8 @@ export interface QueryResultExportRequest {
   executionId?: string;
   dateTimeFormat?: string;
   exportTableName?: string;
+  /** Explicit INSERT target schema; separate from `schema`, which scopes query execution. */
+  exportSchema?: string;
   exportColumnTypes?: Array<string | null | undefined>;
   selectedColumns?: SqlExportColumnSelection[];
   /**

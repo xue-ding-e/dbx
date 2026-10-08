@@ -2554,6 +2554,7 @@ defineExpose({
                 :source-columns="hasNeo4jNodes ? undefined : activeTab.querySourceColumns"
                 :joined-write-targets="hasNeo4jNodes ? undefined : activeTab.queryWriteTargets"
                 :query-multi-source="(activeTab.queryWriteTargets?.length ?? 0) > 1"
+                :has-unique-query-insert-target="!!activeTab.tableMeta && activeTab.queryAnalysis?.multiSource !== true && (activeTab.queryAnalysis?.sources?.length ?? 1) === 1 && (activeTab.queryWriteTargets?.length ?? 1) <= 1"
                 :readonly-column-indexes="hasNeo4jNodes ? undefined : groupedQueryReadonlyColumnIndexes(activeTab)"
                 :result-column-comments="hasNeo4jNodes ? undefined : activeTab.resultColumnComments"
                 :query-display-source-columns="hasNeo4jNodes ? undefined : activeTab.queryDisplaySourceColumns"
@@ -2595,6 +2596,7 @@ defineExpose({
                         format: 'csv' | 'xlsx' | 'json' | 'txt' | 'sql';
                         includeSqlSheet?: boolean;
                         exportTableName?: string;
+                        exportSchema?: string;
                         exportColumnTypes?: Array<string | null | undefined>;
                         exportColumnExtras?: Array<string | null | undefined>;
                         insertMode?: SqlInsertMode;

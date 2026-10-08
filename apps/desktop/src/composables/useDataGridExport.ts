@@ -104,8 +104,10 @@ export interface UseDataGridExportOptions {
   exportSql?: ComputedRef<string | undefined>;
   pageSql?: ComputedRef<string | undefined>;
   tableMeta: ComputedRef<DataGridTableMeta | undefined>;
-  /** Editor setting "Include database name in generated SQL" — passed through to SQL extractors. */
+  /** Editor setting "Include database name in generated SQL" — passed through to SQL extractors and INSERT exports. */
   includeDatabaseName?: ComputedRef<boolean>;
+  /** True only when query metadata resolves exactly one source table as the INSERT target. */
+  hasUniqueQueryInsertTarget?: ComputedRef<boolean>;
   copyInsertTargetLabel?: ComputedRef<string | undefined>;
   mongoUpdateTarget?: ComputedRef<MongoCopyUpdateTarget | undefined>;
   databaseType: ComputedRef<DatabaseType | undefined>;
@@ -145,6 +147,7 @@ export interface UseDataGridExportOptions {
     format: "csv" | "xlsx" | "json" | "txt" | "sql";
     includeSqlSheet?: boolean;
     exportTableName?: string;
+    exportSchema?: string;
     exportColumnTypes?: Array<string | null | undefined>;
     exportColumnExtras?: Array<string | null | undefined>;
     insertMode?: SqlInsertMode;
@@ -211,6 +214,7 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
     exportSql: resultExportSql,
     pageSql: resultPageSql,
     tableMeta,
+    hasUniqueQueryInsertTarget,
     copyInsertTargetLabel,
     sourceColumns,
     columnComments: columnCommentsOption,
@@ -1416,6 +1420,20 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
     return extras.some((extra) => !!extra) ? extras : undefined;
   }
 
+  function sqlInsertTargetMeta(): DataGridTableMeta | undefined {
+    if (context.value === "results" && hasUniqueQueryInsertTarget?.value !== true) return undefined;
+    return tableMeta.value;
+  }
+
+  function sqlInsertTargetSchema(meta: DataGridTableMeta | undefined): string | undefined {
+    if (!meta?.schema || dropsSchemaQualifier(databaseType.value, options.includeDatabaseName?.value, meta.catalog)) return undefined;
+    return meta.schema;
+  }
+
+  function sqlInsertTargetName(meta: DataGridTableMeta | undefined): string {
+    return meta?.tableName || (context.value === "results" ? "query_result" : "table_name");
+  }
+
   /** 供导出请求使用：把“不含主键”设置转换成后端请求字段。 */
   function sqlExportPrimaryKeyOptions(): { excludePrimaryKeys?: boolean; primaryKeys?: string[] } {
     const excludeColumns = sqlExportExcludedColumns();
@@ -1572,12 +1590,14 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
     }
 
     const exportId = uuid();
+    const insertTarget = format === "sql" ? sqlInsertTargetMeta() : undefined;
     const baseRequest = await queryResultExportRequest({
       exportId,
       filePath: outputPath,
       format,
       includeSqlSheet,
-      exportTableName: format === "sql" ? tableMeta.value?.tableName : undefined,
+      exportTableName: insertTarget?.tableName,
+      exportSchema: insertTarget?.tableName ? sqlInsertTargetSchema(insertTarget) : undefined,
       exportColumnTypes: format === "sql" ? allColumnTypes.value?.map((type) => type ?? null) : undefined,
       exportColumnExtras: format === "sql" ? sqlExportColumnExtras(allColumns.value) : undefined,
       ...(format === "sql" && sqlExportOptions ? { insertMode: sqlExportOptions.insertMode } : {}),
@@ -1771,11 +1791,12 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
         });
 
         logExportStage("sql-build-start");
+        const insertTarget = sqlInsertTargetMeta();
         const content = await formatSqlInsert({
           databaseType: databaseType.value,
           identifierQuote: options.identifierQuote?.value,
-          schema: tableMeta.value?.schema,
-          tableName: tableMeta.value?.tableName || "table_name",
+          schema: sqlInsertTargetSchema(insertTarget),
+          tableName: sqlInsertTargetName(insertTarget),
           columns: exportData.columns,
           columnTypes: exportData.columnTypes,
           columnExtras: exportData.columnExtras,
@@ -1817,11 +1838,12 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
       try {
         const result = await resultToExport({ columnIndexes }, undefined, false, false);
         const exportData = sqlInsertExportData(result, sqlExportOptions.selectedColumns);
+        const insertTarget = sqlInsertTargetMeta();
         const content = await formatSqlInsert({
           databaseType: databaseType.value,
           identifierQuote: options.identifierQuote?.value,
-          schema: tableMeta.value?.schema,
-          tableName: tableMeta.value?.tableName || "table_name",
+          schema: sqlInsertTargetSchema(insertTarget),
+          tableName: sqlInsertTargetName(insertTarget),
           columns: exportData.columns,
           columnTypes: exportData.columnTypes,
           columnExtras: exportData.columnExtras,
