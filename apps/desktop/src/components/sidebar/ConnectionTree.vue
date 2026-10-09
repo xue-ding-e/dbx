@@ -43,6 +43,7 @@ import { isInternalDorisCatalog, usesTreeSchemaMode } from "@/lib/database/datab
 import { connectionObjectTreeNodeSchema, connectionShouldDiscoverJdbcSchemas, connectionUsesConnectionRootSchemaMode, connectionUsesDatabaseObjectTreeMode, effectiveDatabaseTypeForConnection } from "@/lib/database/jdbcDialect";
 import {
   activeTabSidebarTarget,
+  expandSidebarLocatePath,
   findSidebarConnectionNode,
   findSidebarNodeForActiveTab,
   findSidebarNodeForTarget,
@@ -1600,6 +1601,14 @@ async function locateActiveTabInSidebar() {
 }
 
 async function locateTabInSidebar(tab: QueryTab | undefined | null, align: SidebarNodeScrollAlign = "center") {
+  try {
+    await locateTabInSidebarTarget(tab, align);
+  } catch (error) {
+    toast(error instanceof Error ? error.message : String(error), 5000);
+  }
+}
+
+async function locateTabInSidebarTarget(tab: QueryTab | undefined | null, align: SidebarNodeScrollAlign) {
   if (!tab) return;
 
   const tabTarget = activeTabSidebarTarget(tab);
@@ -1623,8 +1632,12 @@ async function locateTabInSidebar(tab: QueryTab | undefined | null, align: Sideb
   const tabTableCandidate = locatesSavedSql || cursorCandidate ? null : tableLocateCandidateFromTarget(tabTarget, config);
   const locateTableCandidate = cursorCandidate ?? tabTableCandidate;
   const fallbackTarget = locatesSavedSql ? tabTarget : (queryContextTargetFromCandidate(tab, cursorCandidate) ?? tabTarget);
-  const initialTarget = locateTableCandidate ? tableTargetFromCandidate(locateTableCandidate) : fallbackTarget;
+  let initialTarget = locateTableCandidate ? tableTargetFromCandidate(locateTableCandidate) : fallbackTarget;
   if (!initialTarget) return;
+  if (initialTarget.type === "query-context" && connectionUsesConnectionRootSchemaMode(config)) {
+    const schema = initialTarget.schema || initialTarget.database;
+    initialTarget = { ...initialTarget, database: schema, schema };
+  }
 
   // Ensure the tree is loaded deep enough to contain the preferred target.
   // Saved SQL rows live below their database's runtime Queries node. Loading
@@ -1638,7 +1651,7 @@ async function locateTabInSidebar(tab: QueryTab | undefined | null, align: Sideb
           database: savedSqlFile.database,
         }
       : initialTarget;
-  await ensureTreeLoadedForTarget(treeLoadTarget);
+  await ensureTreeLoadedForTarget(treeLoadTarget, { requireDatabaseChildren: locatesSavedSql });
 
   // Clear any active search filter so the node is visible
   if (isRootListPartial.value) {
@@ -1672,17 +1685,12 @@ async function locateTabInSidebar(tab: QueryTab | undefined | null, align: Sideb
     nodePath = findNodePathForTarget(fallbackTarget, store.treeNodes);
   }
 
-  if (!nodePath) return;
-
-  for (const ancestor of nodePath) {
-    // Only flip the arrow when this node's own children are already loaded
-    // (e.g. by ensureTreeLoadedForTarget above). Forcing isExpanded on a
-    // table/collection whose column/index groups were never fetched shows an
-    // "expanded" arrow with no content underneath (issue #5850).
-    if (!ancestor.isExpanded && store.canUseLoadedTreeNodeToggle(ancestor)) {
-      ancestor.isExpanded = true;
-    }
+  if (!nodePath) {
+    toast(t("sidebar.locateTargetNotFound"), 5000);
+    return;
   }
+
+  expandSidebarLocatePath(nodePath, store.canUseLoadedTreeNodeToggle);
 
   // 表分组行同样是投影出的合成节点（不登记已加载子节点，上面的守卫会跳过），
   // 折叠状态存在布局里，必须经布局 op 展开，否则下次投影又把它折叠回去。
@@ -1721,17 +1729,20 @@ function tableTargetFromCandidate(candidate: QueryCursorTableCandidate): ActiveT
     type: "table",
     connectionId: candidate.connectionId,
     database: candidate.database,
+    catalog: candidate.catalog,
     schema: candidate.schema,
     tableName: candidate.tableName,
   };
 }
 
 function tableLocateCandidateFromTarget(target: ActiveTabSidebarTarget | null, config: ReturnType<typeof store.getConfig>): QueryCursorTableCandidate | null {
+  if (target?.type === "hbase-table") return { connectionId: target.connectionId, database: target.namespace, tableName: target.tableName };
   if (target?.type !== "table") return null;
   const database = connectionUsesConnectionRootSchemaMode(config) && target.schema ? target.schema : target.database;
   return {
     connectionId: target.connectionId,
     database,
+    catalog: target.catalog,
     schema: target.schema,
     tableName: target.tableName,
   };
@@ -1742,7 +1753,7 @@ function resolveLoadedLocateTarget(target: ActiveTabSidebarTarget, candidate: Qu
   return findLoadedTableTargetForCandidate(store.treeNodes, candidate);
 }
 
-async function ensureTreeLoadedForTarget(target: ActiveTabSidebarTarget, opts?: { force?: boolean }) {
+async function ensureTreeLoadedForTarget(target: ActiveTabSidebarTarget, opts?: { force?: boolean; requireDatabaseChildren?: boolean }) {
   if (target.type === "saved-sql-file" || target.type === "etcd-root" || target.type === "etcd-dashboard" || target.type === "etcd-access-control" || target.type === "zookeeper-root" || target.type === "consul-root") return;
   const connId = target.connectionId;
   if (!connId) return;
@@ -1757,20 +1768,27 @@ async function ensureTreeLoadedForTarget(target: ActiveTabSidebarTarget, opts?: 
   const force = opts?.force ?? false;
   const loadOptions = force ? { force: true } : undefined;
 
+  if (target.type === "connection") return;
+
   // Ensure databases are loaded under the connection
   const connNode = findSidebarConnectionNode(store.treeNodes, connId);
   if (connNode && (force || !connNode.children || connNode.children.length === 0)) {
     try {
       if (config.db_type === "redis") {
-        await store.loadRedisDatabases(connId);
+        await store.loadRedisDatabases(connId, { showAll: true });
       } else if (config.db_type === "mongodb") {
         await store.loadMongoDatabases(connId);
       } else if (config.db_type === "dynamodb") {
         await store.loadDynamoDbTables(connId);
       } else if (config.db_type === "elasticsearch" || config.db_type === "easysearch" || config.db_type === "meilisearch" || config.db_type === "solr" || config.db_type === "couchdb") {
         await store.loadElasticsearchIndices(connId);
-      } else if (config.db_type === "qdrant" || config.db_type === "milvus" || config.db_type === "weaviate" || config.db_type === "chromadb") {
+      } else if (config.db_type === "milvus") {
+        // Milvus collections belong below a database, even during a forced locate retry.
+        await store.loadMilvusDatabases(connId);
+      } else if (config.db_type === "qdrant" || config.db_type === "weaviate" || config.db_type === "chromadb") {
         await store.loadVectorCollections(connId);
+      } else if (config.db_type === "mqtt") {
+        await store.loadMqttTopics(connId);
       } else if (config.db_type === "mq") {
         await store.loadMqTenants(connId, loadOptions);
       } else if (config.db_type === "nacos") {
@@ -1786,7 +1804,22 @@ async function ensureTreeLoadedForTarget(target: ActiveTabSidebarTarget, opts?: 
   if (config.db_type === "mq" || config.db_type === "nacos" || config.db_type === "consul") return;
   if (!("database" in target) || !target.database) return;
 
-  const usesExactCatalogScope = target.type === "query-context";
+  if (target.type === "redis-db") {
+    if (!findNodePathForTarget(target, store.treeNodes)) await store.loadRedisDatabases(connId, { showAll: true });
+    return;
+  }
+  if (target.type === "mongo-collection" || target.type === "mongo-gridfs") {
+    if (force || !findNodePathForTarget(target, store.treeNodes)) await store.loadMongoCollections(connId, target.database);
+    return;
+  }
+  if (target.type === "vector-collection") {
+    if (force || !findNodePathForTarget(target, store.treeNodes)) await store.loadVectorCollections(connId, target.database);
+    return;
+  }
+  // Locating a database only needs its ancestors, not its entire object list.
+  if (!opts?.requireDatabaseChildren && target.type === "query-context" && !target.schema && findNodePathForTarget(target, store.treeNodes)) return;
+
+  const usesExactCatalogScope = target.type === "query-context" || target.type === "table";
   const targetCatalog = usesExactCatalogScope ? target.catalog : undefined;
   if (usesExactCatalogScope) {
     const catalogNode = findDorisCatalogNode(store.treeNodes, connId, targetCatalog);
@@ -1802,11 +1835,12 @@ async function ensureTreeLoadedForTarget(target: ActiveTabSidebarTarget, opts?: 
   // Find the database node
   const targetSchema = "schema" in target ? target.schema : undefined;
   const effectiveDbType = effectiveDatabaseTypeForConnection(config);
-  if (target.type === "table" && connectionUsesConnectionRootSchemaMode(config)) {
+  if ((target.type === "table" || target.type === "query-context") && connectionUsesConnectionRootSchemaMode(config)) {
     const schemaName = targetSchema || target.database;
     if (!schemaName) return;
     const schemaNode = findSchemaNode(store.treeNodes, connId, schemaName, schemaName);
     if (!schemaNode) return;
+    if (target.type === "query-context") return;
     if (force || !schemaNode.children || schemaNode.children.length === 0) {
       await store.loadTables(connId, schemaNode.database || schemaName, schemaNode.schema ?? schemaName, loadOptions);
     }
@@ -1816,7 +1850,14 @@ async function ensureTreeLoadedForTarget(target: ActiveTabSidebarTarget, opts?: 
 
   const dbNode = findDatabaseNode(store.treeNodes, connId, target.database, targetCatalog, usesExactCatalogScope);
   if (!dbNode) return;
-  const databaseChildrenLoaded = !!dbNode.children && dbNode.children.length > 0;
+  if (targetCatalog) {
+    if (!opts?.requireDatabaseChildren && target.type === "query-context" && !target.schema) return;
+    if (force || (opts?.requireDatabaseChildren ? !store.canUseLoadedTreeNodeToggle(dbNode) : !dbNode.children?.length)) await store.loadDorisCatalogTables(dbNode, loadOptions);
+    if (target.type === "table") await ensureTableObjectGroupsLoaded(target, loadOptions);
+    return;
+  }
+  // Runtime Queries children do not mean that the database metadata was loaded.
+  const databaseChildrenLoaded = opts?.requireDatabaseChildren ? store.canUseLoadedTreeNodeToggle(dbNode) : !!dbNode.children && dbNode.children.length > 0;
   const usesSchemaTree = (usesTreeSchemaMode(effectiveDbType) && !connectionUsesDatabaseObjectTreeMode(config)) || connectionShouldDiscoverJdbcSchemas(config);
   const shouldLoadSchemaTables = target.type === "table" && !!targetSchema && usesSchemaTree;
   if (!force && databaseChildrenLoaded && !shouldLoadSchemaTables) return;
@@ -1871,6 +1912,7 @@ function findTableObjectGroupNodes(nodes: TreeNode[], target: Extract<ActiveTabS
       (node.type === "group-tables" || node.type === "group-dolt-system-tables" || node.type === "group-views" || node.type === "group-materialized-views") &&
       node.connectionId === target.connectionId &&
       sameTreeName(node.database, target.database) &&
+      (node.catalog || undefined) === (target.catalog || undefined) &&
       (!target.schema || sameTreeName(node.schema, target.schema))
     ) {
       matches.push(node);

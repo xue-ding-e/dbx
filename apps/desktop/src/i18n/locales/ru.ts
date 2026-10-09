@@ -716,6 +716,7 @@ export default withEnglishFallback({
     regexSearch: "Поиск по регулярному выражению",
     regexSearchTooltip: "Сопоставлять имена, комментарии и псевдонимы в боковой панели с помощью регулярных выражений JavaScript.",
     clearFilter: "Очистить фильтр",
+    locateTargetNotFound: "Элемент недоступен на боковой панели. Возможно, он был удалён или скрыт.",
     locateActiveTab: "Найти в боковой панели",
   },
   savedSql: {

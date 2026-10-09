@@ -739,6 +739,7 @@ export default withEnglishFallback({
     regexSearch: "正規表示式搜尋",
     regexSearchTooltip: "使用 JavaScript 正規表示式比對側邊欄名稱、備註與別名。",
     clearFilter: "清除篩選",
+    locateTargetNotFound: "側邊欄中找不到對應項目，該項目可能已被刪除或隱藏。",
     locateActiveTab: "在側邊欄中定位",
   },
   savedSql: {

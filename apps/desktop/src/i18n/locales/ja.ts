@@ -734,6 +734,7 @@ export default withEnglishFallback({
     regexSearch: "正規表現検索",
     regexSearchTooltip: "JavaScript 正規表現でサイドバーの名前、コメント、エイリアスを照合します。",
     clearFilter: "フィルターをクリア",
+    locateTargetNotFound: "サイドバーに該当する項目が見つかりません。削除または非表示にされている可能性があります。",
     locateActiveTab: "サイドバーで表示",
   },
   savedSql: {

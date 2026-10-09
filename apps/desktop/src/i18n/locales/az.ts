@@ -467,6 +467,7 @@ export default withEnglishFallback({
     regexSearch: "Müntəzəm ifadə ilə axtarış",
     regexSearchTooltip: "Yan paneldəki adları, şərhləri və ləqəbləri JavaScript müntəzəm ifadələri ilə uyğunlaşdırın.",
     clearFilter: "Süzgəci təmizlə",
+    locateTargetNotFound: "Element yan paneldə mövcud deyil. O, silinmiş və ya gizlədilmiş ola bilər.",
     locateActiveTab: "Yan paneldə tap",
   },
   savedSql: {

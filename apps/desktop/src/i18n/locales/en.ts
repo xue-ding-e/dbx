@@ -750,6 +750,7 @@ export default {
     regexSearch: "Regex search",
     regexSearchTooltip: "Match sidebar names, comments, and aliases with JavaScript regular expressions.",
     clearFilter: "Clear filter",
+    locateTargetNotFound: "The item is not available in the sidebar. It may have been removed or hidden.",
     locateActiveTab: "Locate in sidebar",
   },
   savedSql: {

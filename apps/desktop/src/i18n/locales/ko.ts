@@ -736,6 +736,7 @@ export default withEnglishFallback({
     regexSearch: "정규식 검색",
     regexSearchTooltip: "JavaScript 정규식으로 사이드바 이름, 주석, 별칭을 검색합니다.",
     clearFilter: "필터 지우기",
+    locateTargetNotFound: "사이드바에서 해당 항목을 찾을 수 없습니다. 삭제되었거나 숨겨져 있을 수 있습니다.",
     locateActiveTab: "사이드바에서 찾기",
   },
   savedSql: {

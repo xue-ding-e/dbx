@@ -644,6 +644,7 @@ export default withEnglishFallback({
     regexSearch: "Pencarian regex",
     regexSearchTooltip: "Cocokkan nama, komentar, dan alias di bilah sisi dengan ekspresi reguler JavaScript.",
     clearFilter: "Bersihkan filter",
+    locateTargetNotFound: "Item tidak tersedia di bilah sisi. Item mungkin telah dihapus atau disembunyikan.",
     locateActiveTab: "Cari di bilah sisi",
   },
   savedSql: {
