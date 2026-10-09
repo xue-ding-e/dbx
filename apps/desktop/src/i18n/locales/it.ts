@@ -7468,6 +7468,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "Apre i dettagli della cella in una finestra di dialogo modale per impostazione predefinita anziché nel pannello laterale o inferiore.",
     dataGridCrosshairHighlight: "Evidenzia riga e colonna a croce",
     dataGridCrosshairHighlightDescription: "Se attivato, evidenzia leggermente l'intera riga e la colonna della cella attiva (come Excel). La cella focalizzata mantiene il suo stile selezionato.",
+    dataGridCrosshairRowBg: "Colore riga evidenziata",
+    dataGridCrosshairColBg: "Colore colonna evidenziata",
     dataGridZebraRowBg: "Colore riga alterna",
     infiniteScroll: "Caricamento a scorrimento infinito",
     autoCalculateTotalRows: "Calcola automaticamente il totale delle righe",

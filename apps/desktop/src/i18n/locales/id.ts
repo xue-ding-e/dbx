@@ -8142,6 +8142,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "Buka detail sel dalam dialog modal secara default daripada di panel samping atau bawah.",
     dataGridCrosshairHighlight: "Sorot baris & kolom crosshair",
     dataGridCrosshairHighlightDescription: "Jika diaktifkan, sorot secara samar seluruh baris dan kolom dari sel aktif (seperti Excel). Sel yang difokuskan tetap mempertahankan gaya terpilihnya.",
+    dataGridCrosshairRowBg: "Warna sorot baris",
+    dataGridCrosshairColBg: "Warna sorot kolom",
     infiniteScroll: "Pemuatan gulir tak terbatas",
     autoCalculateTotalRows: "Hitung total jumlah baris secara otomatis",
     autoCalculateTotalRowsDescription: "Jalankan COUNT(*) secara otomatis setelah setiap kueri untuk menampilkan total baris yang cocok. Nonaktif secara default agar kueri besar tetap cepat — hitung sesuai kebutuhan dari footer hasil.",

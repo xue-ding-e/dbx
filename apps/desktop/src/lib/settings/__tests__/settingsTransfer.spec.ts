@@ -525,4 +525,20 @@ describe("settingsTransfer", () => {
     if (!result.ok) return;
     expect(result.value.editorSettings.dataGridZebraRowBg).toBe("#232323");
   });
+
+  it("round-trips crosshair row and column backgrounds in data category", () => {
+    expect(transferCategoryForKey("dataGridCrosshairRowBg")).toBe("data");
+    expect(transferCategoryForKey("dataGridCrosshairColBg")).toBe("data");
+
+    const text = serializeSettingsTransfer({
+      ...DEFAULT_EDITOR_SETTINGS,
+      dataGridCrosshairRowBg: "#232323",
+      dataGridCrosshairColBg: "#343434",
+    });
+    const result = parseSettingsTransferFile(text);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.editorSettings.dataGridCrosshairRowBg).toBe("#232323");
+    expect(result.value.editorSettings.dataGridCrosshairColBg).toBe("#343434");
+  });
 });

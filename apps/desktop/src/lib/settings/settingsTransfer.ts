@@ -173,6 +173,8 @@ const SETTINGS_TRANSFER_CATEGORY_KEYS: Record<SettingsTransferCategoryId, readon
     "dataGridCellDetailButtonVisible",
     "dataGridCellDetailDialogDefault",
     "dataGridCrosshairHighlight",
+    "dataGridCrosshairRowBg",
+    "dataGridCrosshairColBg",
     "dataGridStripedRows",
     "dataGridZebraRowBg",
     "flatteningMultiLineText",

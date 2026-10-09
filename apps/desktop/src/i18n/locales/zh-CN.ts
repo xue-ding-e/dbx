@@ -8400,6 +8400,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "点击单元格详情按钮时，默认使用弹窗展示而非侧边或下方分屏。",
     dataGridCrosshairHighlight: "行列十字高亮",
     dataGridCrosshairHighlightDescription: "开启后，以当前活动单元格为中心淡色高亮整行和整列（类似 Excel）。焦点单元格仍保留原有的选中样式。",
+    dataGridCrosshairRowBg: "行高亮颜色",
+    dataGridCrosshairColBg: "列高亮颜色",
     dataGridZebraRowBg: "斑马纹颜色",
     infiniteScroll: "无限滚动加载",
     autoCalculateTotalRows: "自动统计总行数",

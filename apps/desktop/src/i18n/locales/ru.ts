@@ -8711,6 +8711,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "Открывать сведения о ячейке в модальном окне по умолчанию вместо боковой или нижней панели.",
     dataGridCrosshairHighlight: "Подсветка строки и столбца перекрестием",
     dataGridCrosshairHighlightDescription: "Если включено, слегка подсвечиваются вся строка и столбец активной ячейки (как в Excel). Ячейка в фокусе сохраняет свой выделенный стиль.",
+    dataGridCrosshairRowBg: "Цвет подсветки строки",
+    dataGridCrosshairColBg: "Цвет подсветки столбца",
     dataGridZebraRowBg: "Цвет полосы",
     infiniteScroll: "Бесконечная прокрутка с подгрузкой",
     autoCalculateTotalRows: "Автоматически считать общее число строк",

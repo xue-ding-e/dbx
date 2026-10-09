@@ -6818,6 +6818,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "點擊儲存格詳情按鈕時，預設使用彈窗展示而非側邊或下方分屏。",
     dataGridCrosshairHighlight: "行列十字高亮",
     dataGridCrosshairHighlightDescription: "開啟後，以目前活動儲存格為中心淡色高亮整列和整行（類似 Excel）。焦點儲存格仍保留原有選取樣式。",
+    dataGridCrosshairRowBg: "橫行高亮顏色",
+    dataGridCrosshairColBg: "直欄高亮顏色",
     dataGridZebraRowBg: "斑馬紋顏色",
     infiniteScroll: "無限滾動載入",
     autoCalculateTotalRows: "自動統計總筆數",

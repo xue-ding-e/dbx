@@ -715,6 +715,15 @@ describe("normalizeEditorSettings", () => {
     }
   });
 
+  it("defaults crosshair row and column backgrounds empty and normalizes custom colors", () => {
+    expect(normalizeEditorSettings({}).dataGridCrosshairRowBg).toBe("");
+    expect(normalizeEditorSettings({}).dataGridCrosshairColBg).toBe("");
+    expect(normalizeEditorSettings({ dataGridCrosshairRowBg: " #aec3e0 \n", dataGridCrosshairColBg: " #8eaad2 " }).dataGridCrosshairRowBg).toBe("#aec3e0");
+    expect(normalizeEditorSettings({ dataGridCrosshairRowBg: " #aec3e0 \n", dataGridCrosshairColBg: " #8eaad2 " }).dataGridCrosshairColBg).toBe("#8eaad2");
+    expect(normalizeEditorSettings({ dataGridCrosshairRowBg: null as never, dataGridCrosshairColBg: null as never }).dataGridCrosshairRowBg).toBe("");
+    expect(normalizeEditorSettings({ dataGridCrosshairRowBg: null as never, dataGridCrosshairColBg: null as never }).dataGridCrosshairColBg).toBe("");
+  });
+
   it("defaults zebra row background empty and normalizes custom color", () => {
     expect(normalizeEditorSettings({}).dataGridZebraRowBg).toBe("");
     expect(normalizeEditorSettings({ dataGridZebraRowBg: " #334455 \n" }).dataGridZebraRowBg).toBe("#334455");
@@ -1703,14 +1712,28 @@ describe("settingsStore persisted settings initialization", () => {
     await store.initEditorSettings();
 
     expect(store.editorSettings.dataGridCrosshairHighlight).toBe(false);
+    expect(store.editorSettings.dataGridCrosshairRowBg).toBe("");
+    expect(store.editorSettings.dataGridCrosshairColBg).toBe("");
 
-    await store.updateEditorSettingsAndPersist({ dataGridCrosshairHighlight: true });
-    expect(saveEditorSettings).toHaveBeenLastCalledWith(expect.objectContaining({ dataGridCrosshairHighlight: true }));
+    await store.updateEditorSettingsAndPersist({
+      dataGridCrosshairHighlight: true,
+      dataGridCrosshairRowBg: "#112233",
+      dataGridCrosshairColBg: "#445566",
+    });
+    expect(saveEditorSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        dataGridCrosshairHighlight: true,
+        dataGridCrosshairRowBg: "#112233",
+        dataGridCrosshairColBg: "#445566",
+      }),
+    );
 
     setActivePinia(createPinia());
     const restartedStore = useSettingsStore();
     await restartedStore.initEditorSettings();
     expect(restartedStore.editorSettings.dataGridCrosshairHighlight).toBe(true);
+    expect(restartedStore.editorSettings.dataGridCrosshairRowBg).toBe("#112233");
+    expect(restartedStore.editorSettings.dataGridCrosshairColBg).toBe("#445566");
   });
 
   it("loads, persists, and reloads data grid striped rows preference", async () => {

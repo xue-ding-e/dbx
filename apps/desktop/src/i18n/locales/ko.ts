@@ -7309,6 +7309,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "셀 세부 정보 버튼을 클릭할 때 사이드 또는 하단 패널 대신 모달 대화상자로 표시합니다.",
     dataGridCrosshairHighlight: "행·열 십자 강조",
     dataGridCrosshairHighlightDescription: "활성화하면 활성 셀의 전체 행과 열을 연하게 강조합니다(Excel과 유사). 포커스 셀은 기존 선택 스타일을 유지합니다.",
+    dataGridCrosshairRowBg: "행 강조 색상",
+    dataGridCrosshairColBg: "열 강조 색상",
     dataGridZebraRowBg: "줄무늬 색상",
     infiniteScroll: "무한 스크롤 로딩",
     autoCalculateTotalRows: "전체 행 수 자동 집계",

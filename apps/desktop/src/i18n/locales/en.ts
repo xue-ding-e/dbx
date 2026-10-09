@@ -8414,6 +8414,8 @@ export default {
     dataGridCellDetailDialogDefaultDescription: "Open cell details in a modal dialog by default instead of the side or bottom panel.",
     dataGridCrosshairHighlight: "Crosshair row & column highlight",
     dataGridCrosshairHighlightDescription: "When enabled, lightly highlight the entire row and column of the active cell (like Excel). The focused cell keeps its selected style.",
+    dataGridCrosshairRowBg: "Row highlight color",
+    dataGridCrosshairColBg: "Column highlight color",
     dataGridZebraRowBg: "Stripe Color",
     infiniteScroll: "Infinite scroll loading",
     autoCalculateTotalRows: "Auto-calculate total row count",

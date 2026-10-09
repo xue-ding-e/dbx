@@ -7469,6 +7469,8 @@ export default withEnglishFallback({
     dataGridCellDetailDialogDefaultDescription: "Abre os detalhes da célula em uma caixa de diálogo modal por padrão, em vez do painel lateral ou inferior.",
     dataGridCrosshairHighlight: "Destacar linha e coluna em cruz",
     dataGridCrosshairHighlightDescription: "Quando ativado, destaca levemente toda a linha e a coluna da célula ativa (como no Excel). A célula focada mantém o estilo selecionado.",
+    dataGridCrosshairRowBg: "Cor de destaque da linha",
+    dataGridCrosshairColBg: "Cor de destaque da coluna",
     dataGridZebraRowBg: "Cor da linha alternada",
     infiniteScroll: "Carregamento por rolagem infinita",
     autoCalculateTotalRows: "Calcular automaticamente o total de linhas",

@@ -80,6 +80,8 @@ export const EDITOR_SETTINGS_DRAFT_KEYS = [
   "dataGridCellDetailButtonVisible",
   "dataGridCellDetailDialogDefault",
   "dataGridCrosshairHighlight",
+  "dataGridCrosshairRowBg",
+  "dataGridCrosshairColBg",
   "dataGridStripedRows",
   "dataGridZebraRowBg",
   "pageSize",

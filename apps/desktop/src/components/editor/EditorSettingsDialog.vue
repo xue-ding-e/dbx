@@ -766,6 +766,8 @@ const editDataGridAutoTransposeSingleRow = ref(settingsStore.editorSettings.data
 const editDataGridCellDetailButtonVisible = ref(settingsStore.editorSettings.dataGridCellDetailButtonVisible);
 const editDataGridCellDetailDialogDefault = ref(settingsStore.editorSettings.dataGridCellDetailDialogDefault);
 const editDataGridCrosshairHighlight = ref(settingsStore.editorSettings.dataGridCrosshairHighlight);
+const editDataGridCrosshairRowBg = ref(settingsStore.editorSettings.dataGridCrosshairRowBg);
+const editDataGridCrosshairColBg = ref(settingsStore.editorSettings.dataGridCrosshairColBg);
 const editDataGridStripedRows = ref(settingsStore.editorSettings.dataGridStripedRows);
 const editDataGridZebraRowBg = ref(settingsStore.editorSettings.dataGridZebraRowBg);
 const editPageSize = ref(settingsStore.editorSettings.pageSize);
@@ -1135,6 +1137,8 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     dataGridCellDetailButtonVisible: editDataGridCellDetailButtonVisible.value,
     dataGridCellDetailDialogDefault: editDataGridCellDetailDialogDefault.value,
     dataGridCrosshairHighlight: editDataGridCrosshairHighlight.value,
+    dataGridCrosshairRowBg: editDataGridCrosshairRowBg.value,
+    dataGridCrosshairColBg: editDataGridCrosshairColBg.value,
     dataGridStripedRows: editDataGridStripedRows.value,
     dataGridZebraRowBg: editDataGridZebraRowBg.value,
     flatteningMultiLineText: editFlatteningMultiLineText.value,
@@ -1819,6 +1823,8 @@ function syncEditorSettingsDraftFromStore() {
   editDataGridCellDetailButtonVisible.value = settingsStore.editorSettings.dataGridCellDetailButtonVisible;
   editDataGridCellDetailDialogDefault.value = settingsStore.editorSettings.dataGridCellDetailDialogDefault;
   editDataGridCrosshairHighlight.value = settingsStore.editorSettings.dataGridCrosshairHighlight;
+  editDataGridCrosshairRowBg.value = settingsStore.editorSettings.dataGridCrosshairRowBg;
+  editDataGridCrosshairColBg.value = settingsStore.editorSettings.dataGridCrosshairColBg;
   editDataGridStripedRows.value = settingsStore.editorSettings.dataGridStripedRows;
   editDataGridZebraRowBg.value = settingsStore.editorSettings.dataGridZebraRowBg;
   editFlatteningMultiLineText.value = settingsStore.editorSettings.flatteningMultiLineText;
@@ -1978,6 +1984,8 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   dataGridCellDetailButtonVisible: editDataGridCellDetailButtonVisible,
   dataGridCellDetailDialogDefault: editDataGridCellDetailDialogDefault,
   dataGridCrosshairHighlight: editDataGridCrosshairHighlight,
+  dataGridCrosshairRowBg: editDataGridCrosshairRowBg,
+  dataGridCrosshairColBg: editDataGridCrosshairColBg,
   dataGridStripedRows: editDataGridStripedRows,
   dataGridZebraRowBg: editDataGridZebraRowBg,
   pageSize: editPageSize,
@@ -2576,6 +2584,8 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editDataGridCellDetailButtonVisible.value = DEFAULT_EDITOR_SETTINGS.dataGridCellDetailButtonVisible;
     editDataGridCellDetailDialogDefault.value = DEFAULT_EDITOR_SETTINGS.dataGridCellDetailDialogDefault;
     editDataGridCrosshairHighlight.value = DEFAULT_EDITOR_SETTINGS.dataGridCrosshairHighlight;
+    editDataGridCrosshairRowBg.value = DEFAULT_EDITOR_SETTINGS.dataGridCrosshairRowBg;
+    editDataGridCrosshairColBg.value = DEFAULT_EDITOR_SETTINGS.dataGridCrosshairColBg;
     editDataGridStripedRows.value = DEFAULT_EDITOR_SETTINGS.dataGridStripedRows;
     editDataGridZebraRowBg.value = DEFAULT_EDITOR_SETTINGS.dataGridZebraRowBg;
     editFlatteningMultiLineText.value = DEFAULT_EDITOR_SETTINGS.flatteningMultiLineText;
@@ -2701,6 +2711,8 @@ function resetAllDefaults() {
   editDataGridCellDetailButtonVisible.value = DEFAULT_EDITOR_SETTINGS.dataGridCellDetailButtonVisible;
   editDataGridCellDetailDialogDefault.value = DEFAULT_EDITOR_SETTINGS.dataGridCellDetailDialogDefault;
   editDataGridCrosshairHighlight.value = DEFAULT_EDITOR_SETTINGS.dataGridCrosshairHighlight;
+  editDataGridCrosshairRowBg.value = DEFAULT_EDITOR_SETTINGS.dataGridCrosshairRowBg;
+  editDataGridCrosshairColBg.value = DEFAULT_EDITOR_SETTINGS.dataGridCrosshairColBg;
   editDataGridStripedRows.value = DEFAULT_EDITOR_SETTINGS.dataGridStripedRows;
   editDataGridZebraRowBg.value = DEFAULT_EDITOR_SETTINGS.dataGridZebraRowBg;
   editFlatteningMultiLineText.value = DEFAULT_EDITOR_SETTINGS.flatteningMultiLineText;
@@ -8907,7 +8919,37 @@ onUnmounted(() => {
                       {{ t("settings.dataGridCrosshairHighlightDescription") }}
                     </p>
                   </div>
-                  <Switch id="data-grid-crosshair-highlight" v-model="editDataGridCrosshairHighlight" />
+                  <div class="flex items-center gap-3">
+                    <div v-if="editDataGridCrosshairHighlight" class="flex flex-wrap items-center gap-2.5">
+                      <div class="flex items-center gap-1.5">
+                        <Label for="data-grid-crosshair-row-bg" class="text-xs text-muted-foreground">{{ t("settings.dataGridCrosshairRowBg") }}</Label>
+                        <input
+                          id="data-grid-crosshair-row-bg"
+                          type="color"
+                          class="h-6 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                          :value="editDataGridCrosshairRowBg || (isDark ? '#4b5462' : '#aec3e0')"
+                          @input="editDataGridCrosshairRowBg = ($event.target as HTMLInputElement).value"
+                        />
+                        <Button v-if="editDataGridCrosshairRowBg" type="button" variant="ghost" size="sm" class="h-6 px-1 text-[11px] text-muted-foreground hover:text-foreground" @click="editDataGridCrosshairRowBg = ''">
+                          {{ t("settings.reset") }}
+                        </Button>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <Label for="data-grid-crosshair-col-bg" class="text-xs text-muted-foreground">{{ t("settings.dataGridCrosshairColBg") }}</Label>
+                        <input
+                          id="data-grid-crosshair-col-bg"
+                          type="color"
+                          class="h-6 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                          :value="editDataGridCrosshairColBg || (isDark ? '#626f82' : '#8eaad2')"
+                          @input="editDataGridCrosshairColBg = ($event.target as HTMLInputElement).value"
+                        />
+                        <Button v-if="editDataGridCrosshairColBg" type="button" variant="ghost" size="sm" class="h-6 px-1 text-[11px] text-muted-foreground hover:text-foreground" @click="editDataGridCrosshairColBg = ''">
+                          {{ t("settings.reset") }}
+                        </Button>
+                      </div>
+                    </div>
+                    <Switch id="data-grid-crosshair-highlight" v-model="editDataGridCrosshairHighlight" />
+                  </div>
                 </div>
                 <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
                   <div class="space-y-1">
