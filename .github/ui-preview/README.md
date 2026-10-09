@@ -24,7 +24,9 @@ carries the `ui-preview` label), the workflow does this:
    - has it plan scenes: what to click, double-click, hover, type and capture;
    - walks the plan in Chromium with `cursor.js` drawing the pointer, its trail and each
      click. It always takes screenshots. When the plan interacts, it also records an mp4,
-     never a GIF. A failed step is re-planned from the page as it is (up to three times),
+     never a GIF — each scene on a page of its own, its load trimmed off and the takes
+     joined, so scene changes read as cuts rather than the app reloading. A failed step
+     is re-planned from the page as it is (up to three times),
      after an Escape clears anything the failure left open (a menu, a dialog); what still
      fails is listed honestly in the PR block, and shots taken after a failure in their
      scene are marked ⚠️ both there and on the Pages player.

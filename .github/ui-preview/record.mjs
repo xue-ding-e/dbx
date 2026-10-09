@@ -582,19 +582,33 @@ async function main() {
   if (plan.scenes.length) {
     const rec = await browser.newContext({ ...ctxOpts, recordVideo: { dir: path.join(OUT, "raw"), size: VIEW } });
     await rec.addInitScript({ path: path.join(here, "cursor.js") });
-    const page = await rec.newPage();
-    const began = Date.now();
-    let lead = 0, repairs = 0, interactive = false;
+    let repairs = 0, interactive = false;
+    // one take per scene: every scene starts from the app as it opens, and
+    // its video keeps only what happens once the app has settled — the
+    // load never reaches the final cut, so a scene change reads as a cut,
+    // not as the app reloading out of nowhere
+    const takes = [];
     for (const s of plan.scenes.slice(0, 5)) {
       const scene = { title: s.title || "", shots: [], derailed: false };
       manifest.scenes.push(scene);
+      const page = await rec.newPage();
+      const began = Date.now();
+      let ready = 0;
       try {
-        await caption(page, scene.title);
         await page.goto(BASE);
         await settle(page);
-        if (!lead) lead = Math.max(0, (Date.now() - began) / 1000 - 0.4);
         await page.evaluate(([x, y]) => window.__uiPreviewAt?.(x, y), [mouse.x, mouse.y]);
-      } catch (e) { manifest.errors.push(`${scene.title}: open: ${e.message}`); if (manifest.leak) break; continue; }
+        ready = Date.now();
+      } catch (e) {
+        manifest.errors.push(`${scene.title}: open: ${e.message}`);
+        await page.close().catch(() => {});
+        if (manifest.leak) break;
+        continue;
+      }
+      // the scene's title readable on the settled page for a beat, before
+      // the first step's caption replaces it
+      await caption(page, scene.title);
+      await sleep(1100);
       let steps = (s.steps || []).slice(0, 25);
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -632,17 +646,23 @@ async function main() {
           } catch (e2) { manifest.errors.push(`repair: ${e2.message}`); }
         }
       }
-      if (manifest.leak) break;
+      if (manifest.leak) { await page.close().catch(() => {}); break; }
       await caption(page, "");
       await sleep(600);
+      takes.push({ video: await page.video().path(), from: Math.max(0, (ready - began) / 1000 - 0.2) });
+      await page.close();
     }
-    const video = await page.video().path();
     await rec.close();
     manifest.interactive = interactive;
     // a video when there's something to watch: an interaction
-    if (!manifest.leak && interactive) {
-      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-ss", lead.toFixed(2), "-i", video, "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-        "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30", path.join(OUT, "preview.mp4")]);
+    if (!manifest.leak && interactive && takes.length) {
+      // the takes joined, each already trimmed of its load
+      const args = ["-y", "-loglevel", "error"];
+      const pins = takes.map((t, i) => (args.push("-ss", t.from.toFixed(2), "-i", t.video), `[${i}:v]`));
+      args.push("-filter_complex", `${pins.join("")}concat=n=${takes.length}:v=1:a=0[v]`, "-map", "[v]",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30",
+        path.join(OUT, "preview.mp4"));
+      execFileSync("ffmpeg", args);
       manifest.video = "preview.mp4";
       manifest.poster = await poster(browser);
     }
