@@ -1480,6 +1480,8 @@ export interface SqlCompletionItem {
   replaceSelectWildcard?: true;
   /** Enables the query editor's checkbox-based batch insertion for this column. */
   batchSelectionMode?: "select" | "insert";
+  /** Batch insertion can quote columns without changing single-column completion. */
+  batchSelectionApply?: string;
   /** Qualifier to prepend to every batch-selected column after the first one. */
   batchSelectionQualifier?: string;
 }
@@ -1616,6 +1618,8 @@ export function prepareSqlCompletionReplacement(sql: string, cursor: number, con
       if (closingQuote && item.type === "column" && !(apply.startsWith(sql[from] ?? "") && apply.endsWith(closingQuote)) && (context.qualifier || !apply.includes("."))) {
         const escaped = apply.replaceAll(closingQuote, closingQuote + closingQuote);
         prepared = { ...prepared, apply: `${sql[from]}${escaped}${closingQuote}` };
+        // An explicitly typed quote takes precedence over generated batch quoting.
+        if (item.batchSelectionApply !== undefined) prepared.batchSelectionApply = prepared.apply;
       }
       if (replaceClosingQuote && !prepared.replaceClosingQuote) prepared = { ...prepared, replaceClosingQuote };
       return replaceSelectWildcard && !prepared.replaceSelectWildcard ? { ...prepared, replaceSelectWildcard: true } : prepared;
@@ -1823,7 +1827,7 @@ class SqlCompletionProvider {
     }
 
     if (!context.exclusiveTableSuggestions && context.suggestColumns) {
-      this.items.push(...buildColumnItems(context, this.input.columnsByTable, this.dialect));
+      this.items.push(...buildColumnItems(context, this.input.columnsByTable, this.dialect, this.databaseType, this.input.quoteIdentifiers));
       this.items.push(...buildSelectAllColumnItems(context, this.input.columnsByTable, this.t, this.dialect, this.databaseType));
       this.items.push(...buildInsertAllColumnItems(context, this.input.columnsByTable, this.t, this.dialect, this.input.keywordCase));
     }
@@ -5113,7 +5117,7 @@ function columnsForInsertTarget(context: SqlCompletionContext, columnsByTable: M
   });
 }
 
-function buildColumnItems(context: SqlCompletionContext, columnsByTable: Map<string, SqlCompletionColumn[]>, dialect?: SqlCompletionApplyDialect): SqlCompletionItem[] {
+function buildColumnItems(context: SqlCompletionContext, columnsByTable: Map<string, SqlCompletionColumn[]>, dialect?: SqlCompletionApplyDialect, databaseType?: DatabaseType, quoteIdentifiers?: boolean): SqlCompletionItem[] {
   // Build a bounded candidate pool before doing duplicate detection, ranking,
   // and completion object materialization. Canonical column arrays remain the
   // source of truth; the per-array prefix index is only a derived accelerator.
@@ -5181,6 +5185,7 @@ function buildColumnItems(context: SqlCompletionContext, columnsByTable: Map<str
     .slice(0, context.insertTable || !context.prefix ? 50 : context.qualifier ? 30 : 20);
 
   const batchSelectionMode = context.insertTable ? "insert" : context.statementKind === "select" && context.selectListColumnContext ? "select" : undefined;
+  const quoteBatchColumns = !!batchSelectionMode && quoteIdentifiers !== false && (databaseType === "mysql" || databaseType === "starrocks");
 
   return rankedColumns.map(({ column, boost }) => {
     return {
@@ -5192,6 +5197,7 @@ function buildColumnItems(context: SqlCompletionContext, columnsByTable: Map<str
       apply: buildColumnApply(column, context, dialect),
       boost,
       batchSelectionMode,
+      batchSelectionApply: quoteBatchColumns ? buildColumnApply(column, context, dialect, quoteTableIdentifier(databaseType, column.name)) : undefined,
       // The first selected column keeps the qualifier already present in the
       // document. Subsequent columns must use that same user-typed qualifier,
       // not a referenced-table alias which may be different from it.
@@ -5260,12 +5266,12 @@ function normalizeCompletionKey(key: string): string {
     .join(".");
 }
 
-function buildColumnApply(column: SqlCompletionColumn & { displayLabel: string }, context: SqlCompletionContext, dialect?: SqlCompletionApplyDialect): string {
+function buildColumnApply(column: SqlCompletionColumn & { displayLabel: string }, context: SqlCompletionContext, dialect?: SqlCompletionApplyDialect, columnName = quoteCompletionApplyIdentifier(column.name, dialect)): string {
   if (context.qualifier || column.displayLabel === column.name || !column.displayLabel.includes(".")) {
-    return quoteCompletionApplyIdentifier(column.name, dialect);
+    return columnName;
   }
   const qualifier = column.sourceQualifierSql ?? quoteCompletionApplyIdentifier(column.sourceAlias ?? column.table, dialect);
-  return `${qualifier}.${quoteCompletionApplyIdentifier(column.name, dialect)}`;
+  return `${qualifier}.${columnName}`;
 }
 
 function isKeyColumn(name: string): boolean {
