@@ -1023,6 +1023,7 @@ async fn live_sqlserver_table_structure_default_changes_drop_existing_constraint
         mysql_engine: None,
         transwarp_create: None,
         partitioned: false,
+        foreign_table: false,
         is_gaussdb_m_mode: false,
         table_collation: None,
     });
@@ -1222,6 +1223,7 @@ async fn live_sqlserver_query_result_export_streams_cte_query_to_csv() {
         csv_quote_mode: Default::default(),
         null_literal: String::new(),
         export_table_name: None,
+        export_schema: None,
         export_column_types: None,
         selected_columns: None,
         export_column_extras: None,
@@ -1391,6 +1393,7 @@ async fn live_sqlserver_transfer_table_skips_rowversion_insert_column() {
         .await
         .expect("connect target transfer pool");
     let request = dbx_core::transfer::TransferRequest {
+        table_filters: std::collections::HashMap::new(),
         transfer_id: format!("live-sqlserver-rowversion-{suffix}"),
         source_connection_id: "live-sqlserver-rowversion".to_string(),
         source_database: database.clone(),

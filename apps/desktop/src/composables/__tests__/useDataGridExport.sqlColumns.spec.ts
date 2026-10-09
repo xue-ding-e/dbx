@@ -40,6 +40,8 @@ function createOptions(overrides: Partial<UseDataGridExportOptions> = {}): UseDa
       ],
     })),
     databaseType: computed(() => "postgres"),
+    includeDatabaseName: computed(() => false),
+    hasUniqueQueryInsertTarget: computed(() => true),
     connectionId: computed(() => "conn"),
     database: computed(() => "dbx"),
     context: computed(() => "results"),
@@ -102,6 +104,34 @@ describe("SQL export column selection across entrypoints", () => {
     expect(api.startQueryResultExport).not.toHaveBeenCalled();
     expect(api.startTableExport).not.toHaveBeenCalled();
     expect(saveTextFile).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { includeDatabaseName: true, expectedSchema: "APP_OWNER" },
+    { includeDatabaseName: false, expectedSchema: undefined },
+  ])("uses the Oracle owner only when generated SQL includes database names ($includeDatabaseName)", async ({ includeDatabaseName, expectedSchema }) => {
+    await useDataGridExport(
+      createOptions({
+        databaseType: computed(() => "oracle"),
+        includeDatabaseName: computed(() => includeDatabaseName),
+        tableMeta: computed(() => ({ tableName: "USERS", schema: "APP_OWNER", primaryKeys: [], columns: [] })),
+      }),
+    ).exportSql([7]);
+
+    expect(formatSqlInsert).toHaveBeenCalledWith(expect.objectContaining({ schema: expectedSchema, tableName: "USERS" }));
+  });
+
+  it("does not infer an INSERT target from first-source metadata for a multi-source result", async () => {
+    await useDataGridExport(
+      createOptions({
+        databaseType: computed(() => "oracle"),
+        includeDatabaseName: computed(() => true),
+        hasUniqueQueryInsertTarget: computed(() => false),
+        tableMeta: computed(() => ({ tableName: "USERS", schema: "APP_OWNER", primaryKeys: [], columns: [] })),
+      }),
+    ).exportSql([7]);
+
+    expect(formatSqlInsert).toHaveBeenCalledWith(expect.objectContaining({ schema: undefined, tableName: "query_result" }));
   });
 
   it("keeps second duplicate, spatial metadata and raw types aligned after internal-key removal", async () => {

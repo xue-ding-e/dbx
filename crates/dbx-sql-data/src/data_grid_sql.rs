@@ -2647,10 +2647,12 @@ pub fn format_grid_sql_literal_with_identifier_quote(
     } else {
         text
     };
-    if database_type == Some(DatabaseType::Postgres) && literal_text.contains('\\') {
+    if database_type == Some(DatabaseType::Postgres) && (literal_text.contains('\\') || literal_text.contains('\u{1a}'))
+    {
         // Escape strings have stable backslash semantics regardless of the
-        // session's standard_conforming_strings setting.
-        let escaped_text = literal_text.replace('\\', "\\\\").replace('\'', "''");
+        // session's standard_conforming_strings setting. The SUB byte is spelled
+        // `\x1A` so the copied script does not carry a raw 0x1A control byte.
+        let escaped_text = literal_text.replace('\\', "\\\\").replace('\'', "''").replace('\u{1a}', "\\x1A");
         return format!("E'{escaped_text}'");
     }
     if database_type == Some(DatabaseType::SqlServer) {
@@ -2663,10 +2665,52 @@ pub fn format_grid_sql_literal_with_identifier_quote(
         // so only the quote delimiter needs escaping.
         literal_text.replace('\'', "''")
     } else {
-        literal_text.replace('\\', "\\\\").replace('\'', "''")
+        let escaped_text = literal_text.replace('\\', "\\\\").replace('\'', "''");
+        match grid_sub_control_escape(database_type) {
+            Some(escape) => escape_grid_sub_control(&escaped_text, escape),
+            None => escaped_text,
+        }
     };
     let escaped = format!("'{escaped_text}'");
     escaped
+}
+
+/// How a backslash-escaping dialect spells the 0x1A (SUB / Ctrl-Z) byte,
+/// mirroring the SQL export path (`dbx-core`'s `SubControlEscape`).
+///
+/// `\Z` is a MySQL-family escape. ClickHouse has no `\Z` in its escape table and
+/// reads the sequence as a literal backslash followed by `Z`, and Snowflake drops
+/// the backslash, so both need `\xhh` instead. The MySQL manual is explicit about
+/// why these bytes must not stay raw in a script: ASCII 26 stands for
+/// end-of-file on Windows (`mysql db_name < file.sql` stops there), and the
+/// `mysql` client truncates quoted strings containing NUL characters.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GridSubControlEscape {
+    /// The MySQL-family `\Z`.
+    BackslashZ,
+    /// `\x1a`, for dialects whose escape table has no `\Z`.
+    Hex,
+}
+
+fn grid_sub_control_escape(database_type: Option<DatabaseType>) -> Option<GridSubControlEscape> {
+    match database_type {
+        Some(DatabaseType::Mysql | DatabaseType::Doris | DatabaseType::StarRocks | DatabaseType::Goldendb) => {
+            Some(GridSubControlEscape::BackslashZ)
+        }
+        Some(DatabaseType::ClickHouse | DatabaseType::Snowflake) => Some(GridSubControlEscape::Hex),
+        _ => None,
+    }
+}
+
+fn escape_grid_sub_control(text: &str, escape: GridSubControlEscape) -> String {
+    if !text.contains(['\u{1a}', '\0']) {
+        return text.to_string();
+    }
+    let sub_control = match escape {
+        GridSubControlEscape::BackslashZ => "\\Z",
+        GridSubControlEscape::Hex => "\\x1a",
+    };
+    text.replace('\0', "\\0").replace('\u{1a}', sub_control)
 }
 
 fn postgres_json_array_element_type(
@@ -4080,6 +4124,37 @@ mod tests {
     /// `schema`), so the save statements are the one generated-SQL surface that
     /// never picked up `生成 SQL 时包含数据库名`. It must match the data-table
     /// SELECT label and the copy-as-INSERT statements.
+    #[test]
+    fn grid_sql_spells_the_sub_byte_per_dialect() {
+        let value = json!("before\u{1a}after");
+
+        // MySQL-family scripts need \Z: a raw 0x1A makes the `mysql` client treat
+        // the rest of a batch script as end-of-file.
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::Mysql), None), "'before\\Zafter'");
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::StarRocks), None), "'before\\Zafter'");
+
+        // ClickHouse and Snowflake have no \Z in their escape table, so the byte is
+        // spelled as a hexadecimal escape instead.
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::ClickHouse), None), "'before\\x1aafter'");
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::Snowflake), None), "'before\\x1aafter'");
+
+        // PostgreSQL keeps the escape-string form the SQL export uses.
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::Postgres), None), "E'before\\x1Aafter'");
+
+        // Engines with no escape for the byte keep it raw instead of inventing one.
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::Oracle), None), "'before\u{1a}after'");
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::Sqlite), None), "'before\u{1a}after'");
+    }
+
+    #[test]
+    fn grid_sql_escapes_the_nul_byte_for_escaping_dialects() {
+        let value = json!("before\u{0}after");
+
+        // The mysql client truncates quoted strings containing a raw NUL.
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::Mysql), None), "'before\\0after'");
+        assert_eq!(format_grid_sql_literal(&value, Some(DatabaseType::ClickHouse), None), "'before\\0after'");
+    }
+
     #[test]
     fn grid_sql_keeps_backslashes_literal_for_pg_family_and_oracle_like_targets() {
         for database_type in [

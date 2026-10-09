@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { cancelSchemaDiffTasksForConnection } from "@/lib/schema/schemaDiffCancellation";
 import type { SqlFilePreview } from "@/lib/backend/api";
 import { uuid } from "@/lib/common/utils";
 import { containsHan, orderedSubsequenceSpan, pinyinFirstLetters } from "@/lib/common/pinyin";
@@ -317,6 +318,7 @@ function isFlatMqConnection(config: ConnectionConfig | undefined): boolean {
 type ImportSource = "dbx" | "navicat" | "dbeaver" | "datagrip";
 
 interface LocateTableTarget {
+  catalog?: string;
   connectionId: string;
   database: string;
   schema?: string;
@@ -1120,11 +1122,11 @@ export const useConnectionStore = defineStore("connection", () => {
     return bounded;
   }
 
-  function startDisconnectRequest(connectionId: string): Promise<void> {
+  function startDisconnectRequest(connectionId: string, metadataDrain?: Promise<void>): Promise<void> {
     const clientAttempt = activeLocalConnectionAttempts.get(connectionId) ?? successfulLocalConnectionAttempts.get(connectionId);
     let request: Promise<void>;
     try {
-      request = api.disconnectDb(connectionId, clientAttempt);
+      request = metadataDrain ? metadataDrain.then(() => api.disconnectDb(connectionId, clientAttempt)) : api.disconnectDb(connectionId, clientAttempt);
     } catch (error) {
       request = Promise.reject(error);
     }
@@ -4772,10 +4774,11 @@ export const useConnectionStore = defineStore("connection", () => {
    * `disconnectTabHandlingMode`，否则会把刚保留下来的 SQL 页签又关掉。
    */
   async function disconnect(connectionId: string, options: { skipTabHandling?: boolean } = {}) {
+    const metadataDrain = cancelSchemaDiffTasksForConnection(connectionId, new Error(i18n.global.t("schemaDiff.connectionDisconnected")));
     const stateRevision = bumpConnectionStateRevision(connectionId);
     const shouldRemoveOneTimeConnection = getConfig(connectionId)?.one_time === true;
     if (hasSqlServerActivityTraceForConnection(connectionId)) await disposeSqlServerActivityTracesForConnection(connectionId);
-    const disconnectRequest = startDisconnectRequest(connectionId);
+    const disconnectRequest = startDisconnectRequest(connectionId, metadataDrain);
     cancelLocalConnectionAttempt(connectionId);
 
     connectedIds.value.delete(connectionId);
@@ -7015,9 +7018,28 @@ export const useConnectionStore = defineStore("connection", () => {
         offset: 0,
         sidebarDisplayMode: useSettingsStore().editorSettings.sidebarObjectDisplay,
         driverProfile: metadataDriverProfile(config),
+        extra: target.catalog ? { catalog: target.catalog } : undefined,
       },
       async () => {
         await ensureConnected(target.connectionId);
+
+        if (target.catalog) {
+          const parent = findDatabaseTreeNode(treeNodes.value, target.connectionId, target.database, target.catalog);
+          if (!parent) return false;
+          let load = beginTreeNodeLoad(parent);
+          try {
+            load = reclaimTreeNodeLoad(load, parent);
+            const tables = await withMetadataLoadTimeout(target.connectionId, listTablesWithOptionalTableNameFilter(target.connectionId, target.database, "", target.tableName, undefined, undefined, undefined, target.catalog), "tables");
+            const current = treeNodeLoadTarget(load);
+            if (!current) return false;
+            const children = buildTableTreeNodes({ nodeId: current.id, connectionId: target.connectionId, database: target.database, catalog: target.catalog, tables });
+            setChildren(current, mergeLocatedTreeChildren(current, current.children ?? [], children, target.connectionId, target.database));
+            current.isExpanded = true;
+            return children.length > 0;
+          } finally {
+            finishTreeNodeLoad(load);
+          }
+        }
 
         const pageSize = sidebarObjectGroupPageSize();
         const simpleObjectDisplay = useSettingsStore().editorSettings.sidebarObjectDisplay === "simple";
