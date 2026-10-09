@@ -153,6 +153,7 @@ jobs:
           DIFF_FILE: ${{ github.workspace }}/pr-info/pr.diff
           PR_BODY_FILE: ${{ github.workspace }}/pr-info/body.txt
           DIST_DIR: ${{ github.workspace }}/pr/dist
+          SRC_DIR: ${{ github.workspace }}/pr
         run: PR_TITLE="$(cat pr-info/title.txt)" ci/.github/ui-preview/run.sh out
       - if: always()
         uses: actions/upload-artifact@v4
