@@ -7784,6 +7784,7 @@ export default withEnglishFallback({
     shortcutNewQuery: "새 쿼리",
     shortcutOpenSettings: "설정 열기",
     shortcutCloseTab: "탭 닫기",
+    shortcutCloseWindow: "창 닫기",
     shortcutFocusSearch: "현재 화면 검색에 포커스",
     shortcutQuickOpen: "빠른 열기 (모든 데이터베이스 객체 검색)",
     shortcutGlobalSearch: "전역 파일 내용 검색",

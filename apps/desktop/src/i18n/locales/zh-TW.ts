@@ -7251,6 +7251,7 @@ export default withEnglishFallback({
     shortcutNewQuery: "建立查詢",
     shortcutOpenSettings: "開啟設定",
     shortcutCloseTab: "關閉分頁",
+    shortcutCloseWindow: "關閉視窗",
     shortcutToggleSidebar: "切換側邊欄",
     shortcutToggleZenMode: "切換禪模式",
     shortcutFocusSearch: "聚焦目前頁面搜尋",

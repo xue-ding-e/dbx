@@ -8935,6 +8935,7 @@ export default {
     shortcutNewQuery: "New query",
     shortcutOpenSettings: "Open settings",
     shortcutCloseTab: "Close tab",
+    shortcutCloseWindow: "Close window",
     shortcutFocusSearch: "Focus current view search",
     shortcutQuickOpen: "Quick open (search all database objects)",
     shortcutGlobalSearch: "Global file content search",

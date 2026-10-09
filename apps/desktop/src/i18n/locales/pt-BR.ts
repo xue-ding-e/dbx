@@ -7932,6 +7932,7 @@ export default withEnglishFallback({
     shortcutNewQuery: "Nova consulta",
     shortcutOpenSettings: "Abrir configurações",
     shortcutCloseTab: "Fechar aba",
+    shortcutCloseWindow: "Fechar janela",
     shortcutToggleSidebar: "Alternar barra lateral",
     shortcutToggleZenMode: "Alternar modo Zen",
     shortcutFocusSearch: "Focar na pesquisa da tela atual",

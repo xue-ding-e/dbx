@@ -9225,6 +9225,7 @@ export default withEnglishFallback({
     shortcutNewQuery: "Новый запрос",
     shortcutOpenSettings: "Открыть настройки",
     shortcutCloseTab: "Закрыть вкладку",
+    shortcutCloseWindow: "Закрыть окно",
     shortcutFocusSearch: "Фокус на поиске в текущем представлении",
     shortcutQuickOpen: "Быстрое открытие (поиск по всем объектам базы данных)",
     shortcutGlobalSearch: "Глобальный поиск по содержимому файлов",

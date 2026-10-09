@@ -8922,6 +8922,7 @@ export default withEnglishFallback({
     shortcutNewQuery: "新建查询",
     shortcutOpenSettings: "打开设置",
     shortcutCloseTab: "关闭标签页",
+    shortcutCloseWindow: "关闭窗口",
     shortcutToggleSidebar: "切换侧边栏",
     shortcutToggleZenMode: "切换禅模式",
     shortcutFocusSearch: "聚焦当前页面搜索",

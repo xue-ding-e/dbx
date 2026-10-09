@@ -8662,6 +8662,7 @@ export default withEnglishFallback({
     shortcutNewQuery: "Kueri baru",
     shortcutOpenSettings: "Buka pengaturan",
     shortcutCloseTab: "Tutup tab",
+    shortcutCloseWindow: "Tutup jendela",
     shortcutFocusSearch: "Fokus pencarian tampilan saat ini",
     shortcutQuickOpen: "Buka cepat (cari semua objek database)",
     shortcutGlobalSearch: "Pencarian konten file global",
