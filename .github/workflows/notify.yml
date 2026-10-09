@@ -11,7 +11,9 @@ on:
 
 jobs:
   notify:
-    if: github.event.pull_request.merged == true
+    # Feishu notifications belong to the upstream repository, not its forks.
+    # Preserve upstream's merged-PR condition without re-enabling disabled triggers.
+    if: github.repository == 't8y2/dbx' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Build message
@@ -143,6 +145,10 @@ jobs:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           MSG_CONTENT: ${{ steps.msg.outputs.msg }}
         run: |
+          if [ -z "${FEISHU_WEBHOOK_URL:-}" ]; then
+            echo "::notice::Feishu webhook is not configured; skipping notification."
+            exit 0
+          fi
           curl -s -X POST "$FEISHU_WEBHOOK_URL" \
             -H 'Content-Type: application/json' \
             -d "$(jq -n --arg text "$MSG_CONTENT" '{msg_type: "text", content: {text: $text}}')"
