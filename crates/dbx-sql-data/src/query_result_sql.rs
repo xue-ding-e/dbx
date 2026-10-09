@@ -10,7 +10,7 @@ use crate::sql_dialect::{
     TablePaginationStrategy,
 };
 use sqlparser::ast::{
-    visit_expressions, Expr, GroupByExpr, LimitClause, ObjectNamePart, OrderByKind, Select, SelectItem,
+    visit_expressions, Expr, ForClause, GroupByExpr, LimitClause, ObjectNamePart, OrderByKind, Select, SelectItem,
     SelectModifiers, SetExpr, Statement, TableFactor, Value, ValueWithSpan,
 };
 use sqlparser::dialect::{ClickHouseDialect, GenericDialect, MsSqlDialect, MySqlDialect};
@@ -742,8 +742,9 @@ fn has_top_level_select_into(sql: &str) -> bool {
 
 fn add_sql_server_offset_fetch(statement: &str, limit: usize, offset: usize) -> Option<String> {
     // FOR JSON/XML produces an unnamed result value and cannot be projected
-    // from a derived table used by DBX pagination.
-    if has_top_level_for_output_clause(statement) {
+    // from a derived table used by DBX pagination. 词法扫描在 `#` 临时表、
+    // 反斜杠字符串后会漏检顶层 FOR JSON/XML，AST 检测补位。
+    if has_top_level_for_output_clause(statement) || sql_server_ast_has_for_output_clause(statement) {
         return None;
     }
     // 用户已写 OFFSET/FETCH 时必须原样保留，不能再注入 TOP（两者同块会被 SQL Server 拒绝）。
@@ -762,8 +763,9 @@ fn add_sql_server_offset_fetch(statement: &str, limit: usize, offset: usize) -> 
 
     // TOP injected into the first SELECT only bounds that branch of a UNION /
     // INTERSECT / EXCEPT, so the combined result comes out wrong. Bound the
-    // whole statement instead.
-    if has_top_level_set_operator(statement) {
+    // whole statement instead. 词法扫描在 `#` 临时表、反斜杠字符串后会漏检
+    // set 操作符，AST 检测补位。
+    if has_top_level_set_operator(statement) || sql_server_ast_has_set_operator(statement) {
         return Some(add_sql_server_rowcount_pagination(statement, limit, offset));
     }
 
@@ -1942,6 +1944,30 @@ fn sql_server_ast_has_order_by(statement: &str) -> bool {
     query.order_by.is_some()
 }
 
+/// 词法扫描器对 `#` 临时表、反斜杠字符串等会漏掉顶层 set 操作符（UNION 等）；
+/// 此时给第一个分支注入 TOP 会返回错误的合并结果，AST 解析补位。
+fn sql_server_ast_has_set_operator(statement: &str) -> bool {
+    let Ok(statements) = Parser::parse_sql(&MsSqlDialect {}, statement) else {
+        return false;
+    };
+    let [Statement::Query(query)] = statements.as_slice() else {
+        return false;
+    };
+    matches!(query.body.as_ref(), SetExpr::SetOperation { .. })
+}
+
+/// 词法扫描器对 `#` 临时表、反斜杠字符串等会漏掉顶层 FOR JSON/XML；
+/// 这类语句与词法可见时一样不支持分页，AST 解析补位。
+fn sql_server_ast_has_for_output_clause(statement: &str) -> bool {
+    let Ok(statements) = Parser::parse_sql(&MsSqlDialect {}, statement) else {
+        return false;
+    };
+    let [Statement::Query(query)] = statements.as_slice() else {
+        return false;
+    };
+    matches!(query.for_clause, Some(ForClause::Json { .. } | ForClause::Xml { .. }))
+}
+
 fn add_fetch_first_limit(statement: &str, limit: usize, offset: usize) -> String {
     if has_top_level_fetch_first(statement) {
         if offset > 0 {
@@ -2971,6 +2997,31 @@ mod tests {
         }
     }
 
+    // 词法扫描漏检的 set 操作符同样不能被 TOP 只盖住第一个分支。
+    #[test]
+    fn sqlserver_hidden_set_operations_use_rowcount_instead_of_limiting_first_branch() {
+        for (original, expected) in [
+            (
+                "SELECT id FROM #t UNION SELECT id FROM u",
+                "EXEC sys.sp_executesql N'SET ROWCOUNT 500; SELECT id FROM #t UNION SELECT id FROM u'; /*__dbx_result_offset=0__*/",
+            ),
+            (
+                "SELECT id FROM t WHERE p = 'C:\\' UNION SELECT id FROM u",
+                "EXEC sys.sp_executesql N'SET ROWCOUNT 500; SELECT id FROM t WHERE p = ''C:\\'' UNION SELECT id FROM u'; /*__dbx_result_offset=0__*/",
+            ),
+        ] {
+            let result = build_paginated_query_sql(PaginatedQuerySqlOptions {
+                original_sql: original.to_string(),
+                database_type: Some(DatabaseType::SqlServer),
+                limit: 500,
+                offset: 0,
+            });
+
+            assert!(result.ok, "must stay paginatable: {original}");
+            assert_eq!(result.sql.unwrap(), expected);
+        }
+    }
+
     #[test]
     fn keeps_top_level_order_by_when_paginating_sqlserver_set_operations() {
         let original_sql = "SELECT id FROM a INTERSECT SELECT id FROM b ORDER BY id";
@@ -3490,6 +3541,23 @@ mod tests {
         assert!(plan.page_sql.is_none());
         assert!(plan.count_sql.is_none());
         assert_eq!(plan.exact_query_row_bound, None);
+    }
+
+    // 词法扫描漏检的顶层 FOR JSON/XML 与可见时一致：不包装、不分页（否则首页被 TOP 静默截断、后续页生成非法 SQL）。
+    #[test]
+    fn sqlserver_hidden_json_output_also_skips_wrappers() {
+        for original in ["SELECT * FROM #t FOR JSON PATH", "SELECT * FROM t WHERE p = 'C:\\' FOR JSON PATH"] {
+            for offset in [0, 500] {
+                let result = build_paginated_query_sql(PaginatedQuerySqlOptions {
+                    original_sql: original.to_string(),
+                    database_type: Some(DatabaseType::SqlServer),
+                    limit: 500,
+                    offset,
+                });
+
+                assert!(!result.ok, "must not wrap FOR JSON output (offset {offset}): {original}");
+            }
+        }
     }
 
     #[test]
