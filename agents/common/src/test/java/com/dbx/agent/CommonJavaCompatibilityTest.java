@@ -121,6 +121,17 @@ class CommonJavaCompatibilityTest {
     }
 
     @Test
+    void constraintMetadataUnsupportedIsNotAnEmptySuccess() {
+        JsonRpcServer server = new JsonRpcServer(new MinimalAgent());
+        JsonObject response = JsonParser.parseString(server.handleRequest(
+            "{\"id\":1,\"method\":\"list_constraints\",\"params\":{\"schema\":\"APP\",\"table\":\"T\"}}"
+        )).getAsJsonObject();
+
+        assertFalse(response.has("result"));
+        assertTrue(response.getAsJsonObject("error").get("message").getAsString().contains("not supported"));
+    }
+
+    @Test
     void jsonRpcConnectionTestAddsOptionalDatabaseInfoWithoutChangingLegacySuccess() {
         JsonRpcServer legacyServer = new JsonRpcServer(new MinimalAgent());
         JsonObject legacyResult = JsonParser.parseString(legacyServer.handleRequest(

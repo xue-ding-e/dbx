@@ -6541,12 +6541,12 @@ watch(
               {{ t("structureEditor.emptyReadonly") }}
             </div>
             <div v-else class="space-y-1.5">
-              <div v-for="constraint in constraintsForTab" :key="constraint.name" class="rounded-md border px-[var(--structure-cell-px)] py-[var(--structure-header-py)] text-[length:var(--structure-font-size)]" :class="constraint.enabled ? '' : 'opacity-60'">
+              <div v-for="constraint in constraintsForTab" :key="constraint.name" class="rounded-md border px-[var(--structure-cell-px)] py-[var(--structure-header-py)] text-[length:var(--structure-font-size)]" :class="constraint.enabled === false ? 'opacity-60' : ''">
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="font-mono font-medium">{{ constraint.name }}</span>
                   <Badge variant="outline" class="shrink-0">{{ constraint.constraint_type }}</Badge>
-                  <Badge v-if="!constraint.enabled" variant="outline" class="shrink-0 text-muted-foreground">{{ t("structureEditor.constraintDisabled") }}</Badge>
-                  <Badge v-else-if="!constraint.valid" variant="outline" class="shrink-0 text-muted-foreground">{{ t("structureEditor.constraintNotValidated") }}</Badge>
+                  <Badge variant="outline" class="shrink-0 text-muted-foreground">{{ t(constraint.enabled === true ? "grid.tableInfoConstraintEnabled" : constraint.enabled === false ? "structureEditor.constraintDisabled" : "grid.tableInfoConstraintEnabledUnknown") }}</Badge>
+                  <Badge variant="outline" class="shrink-0 text-muted-foreground">{{ t(constraint.valid === true ? "grid.tableInfoConstraintValidated" : constraint.valid === false ? "structureEditor.constraintNotValidated" : "grid.tableInfoConstraintValidationUnknown") }}</Badge>
                 </div>
                 <div v-if="constraint.columns.length" class="mt-1 truncate font-mono text-muted-foreground">{{ constraint.columns.join(", ") }}</div>
                 <div v-if="constraint.ref_table" class="mt-1 truncate font-mono text-muted-foreground">-> {{ constraint.ref_schema ? `${constraint.ref_schema}.` : "" }}{{ constraint.ref_table }}{{ constraint.ref_columns.length ? `(${constraint.ref_columns.join(", ")})` : "" }}</div>

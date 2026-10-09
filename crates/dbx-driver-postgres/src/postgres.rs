@@ -5607,10 +5607,10 @@ pub async fn list_constraints(pool: &Pool, schema: &str, table: &str) -> Result<
             match_type: postgres_constraint_match_type(row.try_get::<_, Option<String>>(7).ok().flatten()),
             on_update: postgres_fk_action_label(row.try_get::<_, Option<String>>(8).ok().flatten()),
             on_delete: postgres_fk_action_label(row.try_get::<_, Option<String>>(9).ok().flatten()),
-            deferrable: row.try_get::<_, bool>(10).unwrap_or(false),
-            initially_deferred: row.try_get::<_, bool>(11).unwrap_or(false),
-            enabled: true,
-            valid: row.try_get::<_, bool>(12).unwrap_or(true),
+            deferrable: Some(row.try_get::<_, bool>(10).unwrap_or(false)),
+            initially_deferred: Some(row.try_get::<_, bool>(11).unwrap_or(false)),
+            enabled: Some(true),
+            valid: Some(row.try_get::<_, bool>(12).unwrap_or(true)),
         })
         .collect())
 }
@@ -5677,10 +5677,10 @@ pub async fn list_opengauss_constraints(pool: &Pool, schema: &str, table: &str) 
             match_type: postgres_constraint_match_type(pg_row_try_optional_text(&row, 7)),
             on_update: postgres_fk_action_label(pg_row_try_optional_text(&row, 8)),
             on_delete: postgres_fk_action_label(pg_row_try_optional_text(&row, 9)),
-            deferrable: pg_row_try_bool(&row, 10).unwrap_or(false),
-            initially_deferred: pg_row_try_bool(&row, 11).unwrap_or(false),
-            enabled: true,
-            valid: pg_row_try_bool(&row, 12).unwrap_or(true),
+            deferrable: Some(pg_row_try_bool(&row, 10).unwrap_or(false)),
+            initially_deferred: Some(pg_row_try_bool(&row, 11).unwrap_or(false)),
+            enabled: Some(true),
+            valid: Some(pg_row_try_bool(&row, 12).unwrap_or(true)),
         });
     }
     Ok(result)
