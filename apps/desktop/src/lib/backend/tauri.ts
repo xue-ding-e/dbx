@@ -2141,7 +2141,7 @@ export async function buildCreateUserSql(username: string, password: string, tab
   return invoke("build_create_user_sql", { username, password, tablespace });
 }
 
-export async function getExplainInfo(connectionId: string, database: string | undefined, schema: string | undefined, sql: string, mode: string): Promise<string | undefined> {
+export async function getExplainInfo(connectionId: string, database: string | undefined, schema: string | undefined, sql: string, mode: string, executionId?: string, timeoutSecs?: number): Promise<string | undefined> {
   // Preserve Agent/driver errors so the explain view can show the actionable cause.
   return invoke<string>("get_explain_info", {
     connectionId,
@@ -2149,6 +2149,8 @@ export async function getExplainInfo(connectionId: string, database: string | un
     schema,
     sql,
     mode,
+    ...(executionId ? { executionId } : {}),
+    ...(timeoutSecs === undefined ? {} : { timeoutSecs }),
   });
 }
 

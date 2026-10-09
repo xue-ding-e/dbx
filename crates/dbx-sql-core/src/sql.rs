@@ -227,6 +227,12 @@ impl SqlDialectProfile {
             return Self::sql_server();
         }
 
+        if matches!(db_type, DatabaseType::Db2) {
+            // DB2 block comments nest; cursor extraction must skip the complete
+            // leading comment before handing the query to the Explain gate.
+            return Self { supports_nested_block_comments: true, ..Self::default() };
+        }
+
         if matches!(db_type, DatabaseType::ClickHouse) {
             // ClickHouse documents that C-style block comments nest.
             return Self { supports_nested_block_comments: true, ..Self::default() };
@@ -6117,6 +6123,20 @@ delimiter ;";
         );
     }
 
+    #[test]
+    fn db2_current_statement_skips_complete_nested_comments() {
+        let sql = "/* outer /* inner */ trailing */ SELECT IBMREQD FROM SYSIBM.SYSDUMMY1;";
+        let cursor = sql.encode_utf16().count();
+        assert_eq!(
+            find_statement_at_cursor_for_database(sql, cursor, DatabaseType::Db2),
+            "SELECT IBMREQD FROM SYSIBM.SYSDUMMY1"
+        );
+        let script = "/* outer /* SELECT 99; */ DELETE FROM hidden; */ VALUES 1; VALUES 2;";
+        assert_eq!(
+            split_sql_statements_for_database(script, DatabaseType::Db2),
+            vec!["/* outer /* SELECT 99; */ DELETE FROM hidden; */ VALUES 1", "VALUES 2"]
+        );
+    }
     #[test]
     fn mysql_current_statement_strips_other_leading_block_comments() {
         for comment in ["/* ordinary */", "/*unknown*/", "/* proxy */", "/*PROXY*/"] {

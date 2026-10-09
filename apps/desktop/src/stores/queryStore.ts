@@ -32,7 +32,7 @@ import type {
 import { orderPinnedFirst } from "@/lib/app/pinnedItems";
 import { canCancelQueryExecution } from "@/lib/sql/queryExecutionState";
 import { isSqlErrorPositionDebugEnabled, logSqlErrorPosition, sqlErrorHasMessagePosition, sqlErrorMessageText } from "@/lib/sql/errorPosition";
-import { buildExplainSql, parseExplainResult, parseDamengExplainText, parseOracleExplainText, sqlServerExplainResult, type BuildExplainSqlResult, type ExplainPlanDatabaseType } from "@/lib/diagram/explainPlan";
+import { buildExplainSql, parseExplainResult, parseDamengExplainText, parseOracleExplainText, parseDb2ExplainText, sqlServerExplainResult, type BuildExplainSqlResult, type ExplainPlanDatabaseType } from "@/lib/diagram/explainPlan";
 import { mysqlExplainCompatibilityHint } from "@/lib/diagram/mysqlExplainCompatibility";
 import {
   allEditableColumnsWriteable,
@@ -5763,6 +5763,7 @@ export const useQueryStore = defineStore("query", () => {
   function updateDatabase(id: string, database: string, options: UpdateExecutionTargetOptions = {}) {
     const tab = tabs.value.find((t) => t.id === id);
     if (!tab || tab.database === database) return;
+    if (tab.isExplaining) void cancelTabExplain(id);
     rollbackTabTransaction(tab);
     void closeResultSession(tab);
     void closeClientConnectionSession(tab);
@@ -5795,6 +5796,7 @@ export const useQueryStore = defineStore("query", () => {
   function updateCatalog(id: string, catalog: string | undefined, database: string, options: UpdateExecutionTargetOptions = {}) {
     const tab = tabs.value.find((candidate) => candidate.id === id);
     if (!tab || (tab.catalog === catalog && tab.database === database)) return;
+    if (tab.isExplaining) void cancelTabExplain(id);
     rollbackTabTransaction(tab);
     void closeResultSession(tab);
     void closeClientConnectionSession(tab);
@@ -5814,6 +5816,10 @@ export const useQueryStore = defineStore("query", () => {
   function updateSchema(id: string, schema: string | undefined, options: UpdateExecutionTargetOptions = {}) {
     const tab = tabs.value.find((t) => t.id === id);
     if (!tab || tab.schema === schema) return;
+    if (tab.isExplaining) {
+      void cancelTabExplain(id);
+      clearExplain(tab);
+    }
     rollbackTabTransaction(tab);
     const clearsQuerySchema = tab.mode === "query" && tab.schema && !schema && supportsClearableQuerySchema(useConnectionStore().getConfig(tab.connectionId)?.db_type);
     if (clearsQuerySchema) {
@@ -5832,6 +5838,7 @@ export const useQueryStore = defineStore("query", () => {
   function updateConnection(id: string, connectionId: string, database = "", options: UpdateExecutionTargetOptions = {}) {
     const tab = tabs.value.find((t) => t.id === id);
     if (!tab || tab.connectionId === connectionId) return;
+    if (tab.isExplaining) void cancelTabExplain(id);
     rollbackTabTransaction(tab, { resetAutoCommit: true, resetAutoCommitDbType: useConnectionStore().getConfig(connectionId)?.db_type });
     void closeResultSession(tab);
     void closeClientConnectionSession(tab);
@@ -8603,10 +8610,52 @@ export const useQueryStore = defineStore("query", () => {
       await waitForTabSessionReset(id);
     } catch (e: any) {
       // Do not start an explain with a session whose schema reset did not complete.
-      tab.isExplaining = false;
-      tab.explainExecutionId = undefined;
-      tab.explainError = String(e?.message || e);
-      return { ok: false as const, reason: tab.explainError };
+      const reason = String(e?.message || e);
+      const current = tabs.value.find((t) => t.id === id);
+      if (current?.explainExecutionId === executionId) {
+        current.isExplaining = false;
+        current.explainExecutionId = undefined;
+        current.explainError = reason;
+      }
+      return { ok: false as const, reason };
+    }
+
+    // DB2 writes Explain tables on an isolated backend session and returns native JSON.
+    if (databaseType === "db2") {
+      if (tabs.value.find((t) => t.id === id)?.explainExecutionId !== executionId) return { ok: true as const, sql: "" };
+      const { connectionId, database, schema } = tab;
+      let explainSql = sql;
+      try {
+        const built = await buildExplainSql(databaseType, sql);
+        const current = tabs.value.find((t) => t.id === id);
+        if (current?.explainExecutionId !== executionId) return built;
+        if (!built.ok) {
+          current.explainError = built.reason;
+          return built;
+        }
+        explainSql = built.sql;
+        current.explainSql = explainSql;
+        // Always request an estimate, even if an unrelated UI supplies autotrace.
+        const planText = await api.getExplainInfo(connectionId, database, schema, sql, "explain", executionId, queryTimeoutSecs);
+        const target = tabs.value.find((t) => t.id === id);
+        if (target?.explainExecutionId === executionId) {
+          if (typeof planText === "string" && planText.trim()) target.explainPlan = parseDb2ExplainText(planText);
+          else target.explainError = "No explain plan returned";
+        }
+      } catch (error) {
+        const current = tabs.value.find((t) => t.id === id);
+        if (current?.explainExecutionId === executionId) {
+          current.explainPlan = undefined;
+          current.explainError = formatError(error);
+        }
+      } finally {
+        const current = tabs.value.find((t) => t.id === id);
+        if (current?.explainExecutionId === executionId) {
+          current.isExplaining = false;
+          current.explainExecutionId = undefined;
+        }
+      }
+      return { ok: true as const, sql: explainSql };
     }
 
     // DM and Oracle agents expose native text plans. DM also supports autotrace.
