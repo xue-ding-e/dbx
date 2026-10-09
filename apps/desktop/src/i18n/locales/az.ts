@@ -2913,6 +2913,7 @@ export default withEnglishFallback({
     importDatagripSuccess: "{count} DataGrip əlaqəsi idxal edildi, macOS Keychain-dən {filled} parol dolduruldu.",
     importDatagripSelectFiles: "Lütfən, dataSources.xml (məcburi) və istəyə bağlı olaraq dataSources.local.xml / db-forest-config.xml seçin",
     importDatagripDialogTitle: "DataGrip konfiqurasiya fayllarını seçin",
+    importDatagripUsernamesFallbackWarning: "Bəzi DataGrip əlaqələrində istifadəçi adı tapılmadı və standart istifadəçi adı istifadə edildi. Zəhmət olmasa etimadnamələri yoxlayın və yeniləyin.",
     importDbeaverSuccess: "{count} DBeaver əlaqəsi idxal edildi. Sınaqdan əvvəl parolu hələ boş olan əlaqələrin parollarını doldurun.",
     importNone: "İdxal ediləcək yeni əlaqə yoxdur",
     importLayoutConfirm: "İdxal edilən faylda əlaqə qrupları var. Onlar tətbiq edilsin?",

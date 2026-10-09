@@ -3269,6 +3269,7 @@ export default withEnglishFallback({
     importDatagripSuccess: "Импортировано подключений DataGrip: {count}, заполнено паролей из связки ключей macOS: {filled}.",
     importDatagripSelectFiles: "Выберите dataSources.xml (обязательно) и, при необходимости, dataSources.local.xml / db-forest-config.xml",
     importDatagripDialogTitle: "Выберите файлы конфигурации DataGrip",
+    importDatagripUsernamesFallbackWarning: "Для некоторых подключений DataGrip не удалось определить имя пользователя, использованы значения по умолчанию. Проверьте и обновите учетные данные.",
     importDbeaverSuccess: "Импортировано подключений DBeaver: {count}. Перед проверкой заполните пароль для подключений, где он остался пустым.",
     importNone: "Нет новых подключений для импорта",
     importLayoutConfirm: "Импортированный файл содержит группы подключений. Применить их?",

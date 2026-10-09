@@ -3215,6 +3215,7 @@ export default withEnglishFallback({
     importDatagripSuccess: "{count} koneksi DataGrip diimpor, {filled} kata sandi terisi dari macOS Keychain.",
     importDatagripSelectFiles: "Silakan pilih dataSources.xml (wajib), dan secara opsional dataSources.local.xml / db-forest-config.xml",
     importDatagripDialogTitle: "Pilih file konfigurasi DataGrip",
+    importDatagripUsernamesFallbackWarning: "Beberapa koneksi DataGrip tidak dapat menentukan nama pengguna dan menggunakan nama pengguna default. Silakan periksa dan perbarui kredensial koneksi.",
     importDbeaverSuccess: "{count} koneksi DBeaver diimpor. Isi kata sandi untuk setiap koneksi yang masih kosong sebelum menguji.",
     importNone: "Tidak ada koneksi baru untuk diimpor",
     importLayoutConfirm: "File yang diimpor berisi grup koneksi. Terapkan grup tersebut?",

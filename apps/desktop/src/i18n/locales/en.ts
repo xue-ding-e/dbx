@@ -3411,6 +3411,7 @@ export default {
     importDatagripSuccess: "Imported {count} DataGrip connection(s), filled {filled} password(s) from macOS Keychain.",
     importDatagripSelectFiles: "Please select dataSources.xml (required), and optionally dataSources.local.xml / db-forest-config.xml",
     importDatagripDialogTitle: "Select DataGrip configuration files",
+    importDatagripUsernamesFallbackWarning: "Some DataGrip connections could not determine usernames and used default database usernames. Please verify and update connection credentials.",
     importDbeaverSuccess: "Imported {count} DBeaver connection(s). Fill in any connection whose password is still empty before testing.",
     importNone: "No new connections to import",
     importLayoutConfirm: "The imported file contains connection groups. Apply them?",

@@ -3345,6 +3345,7 @@ export default withEnglishFallback({
     importDatagripSuccess: "已导入 {count} 个 DataGrip 连接，已自动读取 {filled} 个密码（来自 macOS 钥匙串）",
     importDatagripSelectFiles: "请选择 dataSources.xml（必需），可同时选择 dataSources.local.xml 和 db-forest-config.xml",
     importDatagripDialogTitle: "选择 DataGrip 配置文件",
+    importDatagripUsernamesFallbackWarning: "部分 DataGrip 连接未找到用户名，已使用数据库默认用户名，请核对并更新连接凭据。",
     importDbeaverSuccess: "已导入 {count} 个 DBeaver 连接，若个别连接密码为空请补填后测试连接",
     importNone: "没有新的连接需要导入",
     importLayoutConfirm: "导入文件包含连接分组信息，是否一并应用？",

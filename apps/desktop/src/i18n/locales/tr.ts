@@ -2888,6 +2888,7 @@ export default withEnglishFallback({
     importDatagripSuccess: "{count} DataGrip bağlantısı içe aktarıldı, macOS Anahtar Zinciri'nden {filled} parola dolduruldu.",
     importDatagripSelectFiles: "Lütfen dataSources.xml (zorunlu) ve isteğe bağlı olarak dataSources.local.xml / db-forest-config.xml dosyalarını seçin",
     importDatagripDialogTitle: "DataGrip yapılandırma dosyalarını seçin",
+    importDatagripUsernamesFallbackWarning: "Bazı DataGrip bağlantılarında kullanıcı adı bulunamadı ve varsayılan kullanıcı adı kullanıldı. Lütfen kimlik bilgilerini kontrol edin ve güncelleyin.",
     importDbeaverSuccess: "{count} DBeaver bağlantısı içe aktarıldı. Test etmeden önce parolası boş kalan bağlantıları doldurun.",
     importNone: "İçe aktarılacak yeni bağlantı yok",
     importLayoutConfirm: "İçe aktarılan dosya bağlantı grupları içeriyor. Uygulansın mı?",

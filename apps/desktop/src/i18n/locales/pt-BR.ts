@@ -3171,6 +3171,7 @@ export default withEnglishFallback({
     importLayoutApply: "Aplicar",
     importDatagripSelectFiles: "Selecione dataSources.xml (obrigatório), você também pode selecionar dataSources.local.xml e db-forest-config.xml",
     importDatagripDialogTitle: "Selecione o arquivo de configuração do DataGrip",
+    importDatagripUsernamesFallbackWarning: "Algumas conexões do DataGrip não conseguiram determinar o nome de usuário e usaram o padrão. Verifique e atualize as credenciais.",
     selectExportTitle: "Selecionar conexões para exportar",
     selectImportTitle: "Selecionar conexões para importar",
     selectAll: "Selecionar tudo",
