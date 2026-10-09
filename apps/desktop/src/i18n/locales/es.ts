@@ -6516,6 +6516,9 @@ export default withEnglishFallback({
     targetColumnsTimeout: "Se agotó el tiempo de espera al cargar los campos de la tabla de destino. Compruebe la conexión e inténtelo de nuevo.",
     retry: "Reintentar",
     decimalSeparator: "Separador decimal",
+    mapByPosition: "Asignar por posición",
+    mapByName: "Asignar por nombre",
+    skipAll: "Omitir todo",
   },
   dataGenerate: {
     title: "Generación de datos",

@@ -6308,6 +6308,9 @@ export default withEnglishFallback({
     targetColumnsTimeout: "Timeout nel caricamento dei campi della tabella di destinazione. Controlla la connessione e riprova.",
     retry: "Riprova",
     decimalSeparator: "Separatore decimale",
+    mapByPosition: "Mappa per posizione",
+    mapByName: "Mappa per nome",
+    skipAll: "Salta tutto",
   },
   dataGenerate: {
     title: "Generazione dati",

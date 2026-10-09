@@ -7497,6 +7497,9 @@ export default withEnglishFallback({
     status_done: "Импорт завершён",
     status_error: "Импорт не выполнен",
     status_cancelled: "Импорт отменён",
+    mapByPosition: "Сопоставление по порядку",
+    mapByName: "Сопоставление по имени",
+    skipAll: "Пропустить все",
   },
   dataGenerate: {
     title: "Генерация данных",

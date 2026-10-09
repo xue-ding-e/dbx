@@ -6338,6 +6338,9 @@ export default withEnglishFallback({
     targetColumnsTimeout: "ターゲットテーブルのフィールド読み込みがタイムアウトしました。接続を確認して再試行してください。",
     retry: "再試行",
     decimalSeparator: "小数点記号",
+    mapByPosition: "順番にマッピング",
+    mapByName: "名前でマッピング",
+    skipAll: "すべてスキップ",
   },
   dataGenerate: {
     title: "データ生成",

@@ -6105,6 +6105,9 @@ export default withEnglishFallback({
     targetColumnsTimeout: "대상 테이블 필드를 로드하는 시간이 초과되었습니다. 연결을 확인한 후 다시 시도하십시오.",
     retry: "재시도",
     decimalSeparator: "소수점 구분 기호",
+    mapByPosition: "순서대로 매핑",
+    mapByName: "이름으로 매핑",
+    skipAll: "모두 건너뛰기",
   },
   dataGenerate: {
     title: "데이터 생성",
