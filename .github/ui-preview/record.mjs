@@ -293,18 +293,37 @@ async function locate(page, step) {
   const attrText = /\[(?:aria-label|title|placeholder|data-slot|data-view)[*^$]?=~?"([^"]+)"/.exec(step.target)?.[1];
   const text = step.text || attrText || "";
   const visible = async (l) => {
+    // the deepest match, not the first: a text filter matches a container and
+    // everything inside it, and the click belongs on the innermost one — the
+    // row, the label — not on the wrapper whose middle is often blank space
     const n = await l.count();
+    let hit = null;
     for (let i = 0; i < n; i++) {
       const one = l.nth(i);
-      if (await one.isVisible()) return one;
+      if (await one.isVisible()) hit = one;
     }
-    return null;
+    return hit;
   };
   const countVisible = async (l) => {
     const n = await l.count();
     let c = 0;
     for (let i = 0; i < n; i++) if (await l.nth(i).isVisible()) c++;
     return c;
+  };
+  // a text match is usually a container whose subtree carries the text: walk
+  // down while exactly one visible child still contains it, so the click
+  // lands on the row or the label, not on a wrapper whose middle is blank
+  const deepest = async (hit, text) => {
+    if (!hit || !text) return hit;
+    try {
+      const el = await hit.evaluateHandle((n, text) => {
+        for (;;) {
+          const kids = [...n.children].filter((c) => (c.textContent || "").includes(text) && c.getBoundingClientRect().width > 0);
+          if (kids.length === 1) n = kids[0]; else return n;
+        }
+      }, text);
+      return el.asElement() || hit;
+    } catch { return hit; }
   };
   let loc = text ? all.filter({ hasText: text }) : all;
   let hit = await visible(loc);
@@ -317,7 +336,7 @@ async function locate(page, step) {
     step = { ...step, text: "" };
     hit = await visible(loc);
   }
-  if (hit) return hit;
+  if (hit) return deepest(hit, text);
   // the selector guessed a role or structure this app doesn't use (a tab, a
   // menuitem, a tree node…): fall back to the one visible thing carrying the
   // text — only when exactly one is on screen, so a wrong guess fails loud
@@ -332,7 +351,7 @@ async function locate(page, step) {
     // at most two on screen (the same text in a parent and its child): take
     // the last, which in DOM order is the innermost; more means the wish for
     // the text is too vague — fail loud rather than click something wrong
-    if (seen.length >= 1 && seen.length <= 2) return seen.at(-1);
+    if (seen.length >= 1 && seen.length <= 2) return deepest(await seen.at(-1), step.text);
   }
   throw new Error(`nothing visible matches ${step.target}${step.text ? ` with "${step.text}"` : ""} (${await loc.count()} in the page)`);
 }
