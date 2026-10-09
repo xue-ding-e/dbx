@@ -87,32 +87,43 @@ pub async fn start_transfer(
     let req = body.request;
     transfer::validate_transfer_request(&req).map_err(AppError::from)?;
 
-    // Reject transfer early if the target connection is read-only
-    if let Some(name) = dbx_core::query::connection_readonly_name(&state.app, &req.target_connection_id).await {
-        return Err(AppError::from(format!(
-            "Read-only mode: target connection '{}' has read-only protection enabled. Transfer blocked.",
-            name
-        )));
-    }
-
-    let source_db_type = transfer::get_db_type(&state.app, &req.source_connection_id).await.map_err(AppError::from)?;
-    let target_db_type = transfer::get_db_type(&state.app, &req.target_connection_id).await.map_err(AppError::from)?;
-    transfer::validate_transfer_database_pair(&req, &source_db_type, &target_db_type).map_err(AppError::from)?;
-
-    // `drop_target_before_create` rebuilds target tables. Gate it before responding so the
-    // caller sees the error code rather than a progress stream that fails later.
-    if req.drop_target_before_create {
-        dbx_core::transfer_rebuild::ensure_drop_target_allowed(
-            &state.app,
-            &req.target_connection_id,
-            &req.target_database,
-            target_db_type,
-            req.drop_target_before_create,
-            req.drop_target_confirmed,
+    // Demo mode skips connection-backed validation: the simulated web build may not
+    // carry the requested connections, and the spawned task reports failures as
+    // terminal progress events instead of HTTP errors.
+    let (source_db_type, target_db_type) = if state.demo_mode {
+        (
+            dbx_core::models::connection::DatabaseType::Sqlite,
+            dbx_core::models::connection::DatabaseType::Sqlite,
         )
-        .await
-        .map_err(AppError::from)?;
-    }
+    } else {
+        // Reject transfer early if the target connection is read-only
+        if let Some(name) = dbx_core::query::connection_readonly_name(&state.app, &req.target_connection_id).await {
+            return Err(AppError::from(format!(
+                "Read-only mode: target connection '{}' has read-only protection enabled. Transfer blocked.",
+                name
+            )));
+        }
+
+        let source_db_type = transfer::get_db_type(&state.app, &req.source_connection_id).await.map_err(AppError::from)?;
+        let target_db_type = transfer::get_db_type(&state.app, &req.target_connection_id).await.map_err(AppError::from)?;
+        transfer::validate_transfer_database_pair(&req, &source_db_type, &target_db_type).map_err(AppError::from)?;
+
+        // `drop_target_before_create` rebuilds target tables. Gate it before responding so the
+        // caller sees the error code rather than a progress stream that fails later.
+        if req.drop_target_before_create {
+            dbx_core::transfer_rebuild::ensure_drop_target_allowed(
+                &state.app,
+                &req.target_connection_id,
+                &req.target_database,
+                target_db_type,
+                req.drop_target_before_create,
+                req.drop_target_confirmed,
+            )
+            .await
+            .map_err(AppError::from)?;
+        }
+        (source_db_type, target_db_type)
+    };
 
     let transfer_id = req.transfer_id.clone();
     let history = if state.demo_mode {
