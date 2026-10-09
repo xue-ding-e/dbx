@@ -1,4 +1,4 @@
-name: Contributors workflow checks
+name: Fork workflow checks
 
 on:
   pull_request:
@@ -6,6 +6,8 @@ on:
       - .github/workflows/contributors.yml
       - .github/workflows/contributors-workflow-check.yml
       - .github/scripts/contributors-workflow.test.py
+      - .github/workflows/notify.yml
+      - .github/scripts/notifications-workflow.test.py
   push:
     branches: [fix/contributors-fork-guard-20261009]
   workflow_dispatch:
@@ -25,4 +27,6 @@ jobs:
       - name: Install YAML parser
         run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
       - name: Validate guards and token preflight
-        run: python .github/scripts/contributors-workflow.test.py
+        run: |
+          python .github/scripts/contributors-workflow.test.py
+          python .github/scripts/notifications-workflow.test.py
