@@ -91,17 +91,22 @@ async function checkLeak(page, where) {
   }
 }
 
-async function deepseek(messages) {
+// any OpenAI-compatible endpoint; PLAN_API_URL/PLAN_API_KEY/PLAN_MODEL move
+// it off DeepSeek (AtlasCloud and friends) without touching this file
+const API_URL = env("PLAN_API_URL", "https://api.deepseek.com/v1/chat/completions");
+const API_KEY = env("PLAN_API_KEY") || env("DEEPSEEK_API_KEY");
+
+async function askPlanner(messages) {
   // a reply cut short or not JSON is asked for again
   let last;
   for (let i = 0; i < 3; i++) {
-    const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env("DEEPSEEK_API_KEY")}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
       body: JSON.stringify({ model: MODEL, messages, response_format: { type: "json_object" }, max_tokens: 16000 }),
       signal: AbortSignal.timeout(240e3),
     });
-    if (!res.ok) throw new Error(`DeepSeek ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new Error(`planner API ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const j = await res.json();
     const text = j.choices?.[0]?.message?.content ?? "";
     try { return JSON.parse(text.replace(/^```(?:json)?\s*|\s+```$/g, "")); }
@@ -542,7 +547,7 @@ async function main() {
       (code ? `\n\n=== the changed frontend files (the PR's version) ===\n${code}` : "") },
   ];
   let plan;
-  try { plan = env("PLAN_FILE") ? JSON.parse(await fs.readFile(env("PLAN_FILE"), "utf8")) : await deepseek(ask); }
+  try { plan = env("PLAN_FILE") ? JSON.parse(await fs.readFile(env("PLAN_FILE"), "utf8")) : await askPlanner(ask); }
   catch (e) { plan = null; manifest.errors.push(`plan: ${e.message}`); }
   if (!plan || plan.ui_change === false || !plan.scenes?.length) {
     manifest.summary = plan?.summary || "";
@@ -602,7 +607,7 @@ async function main() {
           repairs++;
           // the page as it is now, and what went wrong: the rest of the scene again
           try {
-            const fix = await deepseek([...ask, { role: "assistant", content: JSON.stringify(plan) },
+            const fix = await askPlanner([...ask, { role: "assistant", content: JSON.stringify(plan) },
               { role: "user", content: `Step ${i + 1} of scene "${scene.title}" failed: ${e.message.split("\n")[0]}\nThe page now:\n${await page.evaluate(outline)}\n\nIf the failed selector came from the diff, remember the changed-file paths above say which dialog, panel or component holds it — a different one may have to be opened (or closed) first, not just a different selector for this page. Reply with JSON {"steps": [...]}: the steps to do instead of that one and the ones after it in this scene.` }]);
             if (Array.isArray(fix.steps)) { steps = [...steps.slice(0, i + 1), ...fix.steps.slice(0, 20)]; log("repaired:", JSON.stringify(fix.steps)); }
           } catch (e2) { manifest.errors.push(`repair: ${e2.message}`); }

@@ -36,8 +36,11 @@ carries the `ui-preview` label), the workflow does this:
 
 Security: the recording job runs the PR's code without asking anyone — its frontend build
 scripts, and in the rust lane the PR's backend itself. Any PR's code can therefore read
-`DEEPSEEK_API_KEY` (environment `ui-preview`), so the key there should have a low spending
-limit. That job has no write access, and the job that writes never runs the PR's code.
+the planner's API key (`PLAN_API_KEY`, environment `ui-preview`), so the key there should
+have a low spending limit. That job has no write access, and the job that writes never
+runs the PR's code. The planner talks to any OpenAI-compatible endpoint
+(`PLAN_API_URL`, default AtlasCloud; `PLAN_MODEL`, overridable via the
+`UI_PREVIEW_PLAN_MODEL` repo variable).
 
 Known limits: the recording is of the web build, so desktop-shell behaviour (detached tabs,
 OS dialogs) is not covered; in the web lane the backend is the released dbx-web, so a PR
@@ -49,7 +52,7 @@ the starting):
 
 ```sh
 cd .github/ui-preview && npm install && npx playwright install chromium
-DBX_URL=http://127.0.0.1:4280 DEEPSEEK_API_KEY=… DIFF_FILE=pr.diff PR_TITLE=… \
+DBX_URL=http://127.0.0.1:4280 PLAN_API_KEY=… DIFF_FILE=pr.diff PR_TITLE=… \
   OUT_DIR=/tmp/out SRC_DIR=../.. node record.mjs          # a plan from DeepSeek
 PLAN_FILE=plan.json DBX_URL=… … node record.mjs           # or a hand-written plan
 ```
