@@ -90,48 +90,48 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
     {
       name: "JumpServer",
       href: "https://www.jumpserver.org/",
-      logo: "/sponsors/jumpserver-card.png",
-      logoClass: "w-full max-w-[136px] object-contain",
+      logo: "/sponsors/jumpserver-tight.png",
+      logoClass: "w-full object-contain",
       description: t.jumpserverSponsorDesc,
       action: t.jumpserverSponsorAction,
     },
     {
       name: "RainYun",
       href: "https://www.rainyun.com/MTE5Mjc4Ng==_",
-      logo: "https://www.rainyun.com/img/logo.d193755d.png",
-      logoClass: "h-12 w-auto max-w-[150px]",
+      logo: "/sponsors/rainyun-tight.png",
+      logoClass: "max-h-12 w-auto max-w-full object-contain",
       description: t.rainyunSponsorDesc,
       action: t.rainyunSponsorAction,
     },
     {
       name: "Jalapeño Cloud",
       href: "https://www.jalapeno-cloud.ai/DBX",
-      logo: "/sponsors/jalapeno-card.png",
-      logoClass: "w-full max-w-[136px] object-contain",
+      logo: "/sponsors/jalapeno-tight.png",
+      logoClass: "w-full object-contain",
       description: t.jalapenoSponsorDesc,
       action: t.jalapenoSponsorAction,
     },
     {
       name: "AICodeMirror",
       href: "https://www.aicodemirror.ai/register?invitecode=9A50BU",
-      logo: "/sponsors/aicodemirror-card.png",
-      logoClass: "w-full max-w-[160px] object-contain",
+      logo: "/sponsors/aicodemirror-tight.png",
+      logoClass: "w-full object-contain",
       description: t.aicodemirrorSponsorDesc,
       action: t.aicodemirrorSponsorAction,
     },
     {
       name: "HuaLongAI",
       href: "https://api.hualong.online/register?promo=DBX%26HUALONG",
-      logo: "/sponsors/hualong-card.png",
-      logoClass: "w-full max-w-[160px] object-contain",
+      logo: "/sponsors/hualong-tight.png",
+      logoClass: "w-full object-contain",
       description: t.hualongSponsorDesc,
       action: t.hualongSponsorAction,
     },
     {
       name: "AstraFlow",
       href: "https://www.ucloud.cn/site/active/kuaijiesale.html?ytag=geo_waituo_github_dbx",
-      logo: "/sponsors/astraflow-card.png",
-      logoClass: "w-full max-w-[136px] object-contain",
+      logo: "/sponsors/astraflow-tight.png",
+      logoClass: "w-full object-contain",
       description: t.astraflowSponsorDesc,
       action: t.astraflowSponsorAction,
     },
@@ -139,15 +139,15 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
       name: "TrustAsia",
       href: "https://www.trustasia.com/ssl/trustasia/code-signing",
       logo: "/sponsors/trustasia.png",
-      logoClass: "w-full max-w-[160px] object-contain",
+      logoClass: "w-full object-contain",
       description: t.trustasiaSponsorDesc,
       action: t.trustasiaSponsorAction,
     },
     {
       name: "Atlas Cloud",
       href: "https://www.atlascloud.ai/?ref=6YYXWA",
-      logo: "https://www.atlascloud.ai/logo.svg",
-      logoClass: "w-full max-w-[136px] object-contain",
+      logo: "/sponsors/atlas-tight.png",
+      logoClass: "w-full object-contain",
       description: t.atlasCloudSponsorDesc,
       action: t.atlasCloudSponsorAction,
     },
@@ -155,7 +155,7 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
       name: locale === "cn" ? "七牛云" : "Qiniu Cloud",
       href: "https://www.qiniu.com/",
       logo: "https://www-static.qbox.me/_next/static/media/logo.0fc18feaa621d2068a7180631f742256.jpg",
-      logoClass: "h-16 w-16 object-contain",
+      logoClass: "max-h-14 w-auto max-w-full object-contain",
       description: t.qiniuSponsorDesc,
       action: t.qiniuSponsorAction,
     },
@@ -164,8 +164,8 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
     {
       name: "1Panel",
       href: "https://1panel.cn/",
-      logo: "/sponsors/1panel-card.png",
-      logoClass: "w-full max-w-[136px] object-contain",
+      logo: "/sponsors/1panel-tight.png",
+      logoClass: "w-full object-contain",
       description: t.onepanelSponsorDesc,
       action: t.onepanelSponsorAction,
     },
@@ -173,7 +173,7 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
       name: "Easysearch",
       href: "https://easysearch.cn",
       logo: "/sponsors/easysearch.png",
-      logoClass: "w-full max-w-[136px] object-contain",
+      logoClass: "w-full object-contain",
       description: t.easysearchSponsorDesc,
       action: t.easysearchSponsorAction,
     },
@@ -191,7 +191,7 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
         <h2 className="mt-10 text-2xl font-[760]">{t.sponsorsTitle}</h2>
         <div className="mt-5 grid grid-cols-2 gap-5 max-[900px]:grid-cols-1">
           {sponsorItems.map((sponsor) => (
-            <Link key={sponsor.name} href={sponsor.href} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-landing-line bg-landing-panel p-6 transition-colors hover:border-landing-blue">
+            <Link key={sponsor.name} href={sponsor.href} target="_blank" rel="noopener noreferrer" className="flex flex-col justify-center rounded-xl border border-landing-line bg-landing-panel p-6 transition-colors hover:border-landing-blue">
               <div className="flex items-center gap-6 max-[640px]:block">
                 <div className="flex h-24 w-44 shrink-0 items-center justify-center rounded-lg bg-white px-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)] max-[640px]:w-max">
                   <img src={sponsor.logo} alt={sponsor.name} className={sponsor.logoClass} />
@@ -214,7 +214,7 @@ export default async function SponsorsPage({ params }: { params: Promise<{ lang:
         <h2 className="mt-12 text-2xl font-[760]">{t.partnersTitle}</h2>
         <div className="mt-5 grid grid-cols-2 gap-5 max-[900px]:grid-cols-1">
           {partnerItems.map((sponsor) => (
-            <Link key={sponsor.name} href={sponsor.href} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-landing-line bg-landing-panel p-6 transition-colors hover:border-landing-blue">
+            <Link key={sponsor.name} href={sponsor.href} target="_blank" rel="noopener noreferrer" className="flex flex-col justify-center rounded-xl border border-landing-line bg-landing-panel p-6 transition-colors hover:border-landing-blue">
               <div className="flex items-center gap-6 max-[640px]:block">
                 <div className="flex h-24 w-44 shrink-0 items-center justify-center rounded-lg bg-white px-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)] max-[640px]:w-max">
                   <img src={sponsor.logo} alt={sponsor.name} className={sponsor.logoClass} />
