@@ -299,6 +299,11 @@ describe("normalizeEditorSettings", () => {
     expect(normalizeEditorSettings({ sidebarIndent: 999, sidebarFontSize: 1 } as any).sidebarFontSize).toBe(9);
     expect(normalizeEditorSettings({ sidebarIndent: 1.4, sidebarFontSize: 13.6 } as any).sidebarIndent).toBe(4);
     expect(normalizeEditorSettings({ sidebarIndent: 1.4, sidebarFontSize: 13.6 } as any).sidebarFontSize).toBe(14);
+    expect(normalizeEditorSettings({}).sidebarDensity).toBe("default");
+    expect(normalizeEditorSettings({ sidebarDensity: "compact" }).sidebarDensity).toBe("compact");
+    expect(normalizeEditorSettings({ sidebarDensity: "default" }).sidebarDensity).toBe("default");
+    expect(normalizeEditorSettings({ sidebarDensity: "comfortable" } as any).sidebarDensity).toBe("default");
+    expect(normalizeEditorSettings({ sidebarDensity: 123 } as any).sidebarDensity).toBe("default");
   });
 
   it("uses inline comments by default and preserves legacy comment visibility", () => {

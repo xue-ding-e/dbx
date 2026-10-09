@@ -125,6 +125,9 @@ import {
   SIDEBAR_INDENT_MAX,
   SIDEBAR_FONT_SIZE_MIN,
   SIDEBAR_FONT_SIZE_MAX,
+  SIDEBAR_DENSITIES,
+  isSidebarDensity,
+  type SidebarDensity,
 } from "@/stores/settingsStore";
 import { EDITOR_FONT_FAMILY_CSS_VAR, EDITOR_FONT_SIZE_CSS_VAR, createRunStatementButtonDom, loadEditorTheme, editorFontTheme } from "@/lib/editor/editorThemes";
 import { orderAiConfigsForDisplay } from "@/lib/ai/aiConfigOrdering";
@@ -910,6 +913,7 @@ const editSidebarAllowHorizontalScroll = ref(settingsStore.editorSettings.sideba
 const editSidebarShowTooltips = ref(settingsStore.editorSettings.sidebarShowTooltips);
 const editSidebarIndent = ref(settingsStore.editorSettings.sidebarIndent);
 const editSidebarFontSize = ref(settingsStore.editorSettings.sidebarFontSize);
+const editSidebarDensity = ref<SidebarDensity>(settingsStore.editorSettings.sidebarDensity);
 const editExportBatchSize = ref(settingsStore.editorSettings.exportBatchSize);
 const editPreferredExportPath = ref(settingsStore.editorSettings.preferredExportPath);
 const editAutoOpenExportFolder = ref(settingsStore.editorSettings.autoOpenExportFolder);
@@ -1192,6 +1196,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     sidebarShowTooltips: editSidebarShowTooltips.value,
     sidebarIndent: editSidebarIndent.value,
     sidebarFontSize: editSidebarFontSize.value,
+    sidebarDensity: editSidebarDensity.value,
     sidebarHiddenTablePrefixes: normalizeSidebarHiddenTablePrefixes(editSidebarHiddenTablePrefixes.value),
     sidebarCopyTableNameSeparator: editSidebarCopyTableNameSeparator.value,
     sidebarCopyTableNameIncludeSchema: editSidebarCopyTableNameIncludeSchema.value,
@@ -1883,6 +1888,7 @@ function syncEditorSettingsDraftFromStore() {
   editSidebarShowTooltips.value = settingsStore.editorSettings.sidebarShowTooltips;
   editSidebarIndent.value = settingsStore.editorSettings.sidebarIndent;
   editSidebarFontSize.value = settingsStore.editorSettings.sidebarFontSize;
+  editSidebarDensity.value = settingsStore.editorSettings.sidebarDensity;
   editExportBatchSize.value = settingsStore.editorSettings.exportBatchSize;
   editPreferredExportPath.value = settingsStore.editorSettings.preferredExportPath;
   editAutoOpenExportFolder.value = settingsStore.editorSettings.autoOpenExportFolder;
@@ -2037,6 +2043,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   sidebarShowTooltips: editSidebarShowTooltips,
   sidebarIndent: editSidebarIndent,
   sidebarFontSize: editSidebarFontSize,
+  sidebarDensity: editSidebarDensity,
   sidebarHiddenTablePrefixes: editSidebarHiddenTablePrefixes,
   sidebarCopyTableNameSeparator: editSidebarCopyTableNameSeparator,
   sidebarCopyTableNameIncludeSchema: editSidebarCopyTableNameIncludeSchema,
@@ -2553,6 +2560,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editSidebarShowTooltips.value = DEFAULT_EDITOR_SETTINGS.sidebarShowTooltips;
     editSidebarIndent.value = DEFAULT_EDITOR_SETTINGS.sidebarIndent;
     editSidebarFontSize.value = DEFAULT_EDITOR_SETTINGS.sidebarFontSize;
+    editSidebarDensity.value = DEFAULT_EDITOR_SETTINGS.sidebarDensity;
     editSidebarHiddenTablePrefixes.value = DEFAULT_EDITOR_SETTINGS.sidebarHiddenTablePrefixes.join("\n");
     editSidebarCopyTableNameSeparator.value = DEFAULT_EDITOR_SETTINGS.sidebarCopyTableNameSeparator;
     editSidebarCopyTableNameIncludeSchema.value = DEFAULT_EDITOR_SETTINGS.sidebarCopyTableNameIncludeSchema;
@@ -2765,6 +2773,7 @@ function resetAllDefaults() {
   editSidebarShowTooltips.value = DEFAULT_EDITOR_SETTINGS.sidebarShowTooltips;
   editSidebarIndent.value = DEFAULT_EDITOR_SETTINGS.sidebarIndent;
   editSidebarFontSize.value = DEFAULT_EDITOR_SETTINGS.sidebarFontSize;
+  editSidebarDensity.value = DEFAULT_EDITOR_SETTINGS.sidebarDensity;
   editSidebarHiddenTablePrefixes.value = DEFAULT_EDITOR_SETTINGS.sidebarHiddenTablePrefixes.join("\n");
   editSidebarCopyTableNameSeparator.value = DEFAULT_EDITOR_SETTINGS.sidebarCopyTableNameSeparator;
   editSidebarCopyTableNameIncludeSchema.value = DEFAULT_EDITOR_SETTINGS.sidebarCopyTableNameIncludeSchema;
@@ -8304,6 +8313,31 @@ onUnmounted(() => {
                     }
                   "
                 />
+              </div>
+              <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
+                <div class="space-y-1">
+                  <Label for="sidebar-density">{{ t("settings.sidebarDensity") }}</Label>
+                  <p class="text-xs text-muted-foreground">
+                    {{ t("settings.sidebarDensityDescription") }}
+                  </p>
+                </div>
+                <Select
+                  :model-value="editSidebarDensity"
+                  @update:model-value="
+                    (value) => {
+                      if (isSidebarDensity(value)) editSidebarDensity = value;
+                    }
+                  "
+                >
+                  <SelectTrigger id="sidebar-density" class="h-8 w-36 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="end">
+                    <SelectItem v-for="density in SIDEBAR_DENSITIES" :key="density" :value="density" class="text-xs">
+                      {{ t(`settings.sidebarDensity_${density}`) }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div class="space-y-2">
                 <Label for="sidebar-hidden-table-prefixes">{{ t("settings.sidebarHiddenTablePrefixes") }}</Label>

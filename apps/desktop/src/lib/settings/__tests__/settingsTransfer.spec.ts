@@ -169,6 +169,19 @@ describe("settingsTransfer", () => {
     expect(result.error.detail).toContain("appLayout");
   });
 
+  it("round-trips sidebarDensity in navigation category and rejects invalid values", () => {
+    const valid = parseSettingsTransferFile(fileWith({ sidebarDensity: "compact" }));
+    expect(valid.ok).toBe(true);
+    if (!valid.ok) return;
+    expect(valid.value.editorSettings.sidebarDensity).toBe("compact");
+    expect(valid.value.categories).toContain("navigation");
+
+    const invalid = parseSettingsTransferFile(fileWith({ sidebarDensity: "ultra-compact" }));
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) return;
+    expect(invalid.error.detail).toContain("sidebarDensity");
+  });
+
   it("rejects pass-through boolean flags with non-boolean values", () => {
     const result = parseSettingsTransferFile(fileWith({ wordWrap: "yes" }));
     expect(result.ok).toBe(false);

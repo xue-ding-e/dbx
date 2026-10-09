@@ -53,7 +53,7 @@ import {
   type SidebarNodeScrollAlign,
 } from "@/lib/sidebar/sidebarActiveTabTarget";
 import { findLoadedTableTargetForCandidate, queryContextTargetFromCandidate, queryCursorTableCandidate, type QueryCursorTableCandidate } from "@/lib/sql/queryCursorTableTarget";
-import { createFlatTreeIndex, flatTreeRowsChanged, SIDEBAR_TREE_ROW_HEIGHT, SIDEBAR_TREE_PRERENDER_COUNT, SIDEBAR_TREE_SCROLL_BUFFER, SIDEBAR_TREE_VIRTUALIZE_HYSTERESIS, SIDEBAR_TREE_VIRTUALIZE_THRESHOLD, flattenTree, shouldVirtualizeFlatTree, type FlatTreeNode } from "@/composables/useFlatTree";
+import { createFlatTreeIndex, flatTreeRowsChanged, getSidebarTreeRowHeight, SIDEBAR_TREE_PRERENDER_COUNT, SIDEBAR_TREE_SCROLL_BUFFER, SIDEBAR_TREE_VIRTUALIZE_HYSTERESIS, SIDEBAR_TREE_VIRTUALIZE_THRESHOLD, flattenTree, shouldVirtualizeFlatTree, type FlatTreeNode } from "@/composables/useFlatTree";
 import { sidebarTreeContextKey } from "@/lib/sidebar/sidebarTreeContext";
 import { createSidebarTreeRuntime, sidebarTreeRuntimeKey, type SidebarTreeRuntimeHostInstance } from "@/lib/sidebar/sidebarTreeRuntime";
 import { createSidebarPasteHandlerRegistry } from "@/lib/sidebar/sidebarPasteHandlerRegistry";
@@ -111,7 +111,11 @@ const showConnectedConnectionsOnly = ref(false);
 const isDisconnectingAllActiveConnections = ref(false);
 const searchInputRef = ref<HTMLInputElement>();
 const rootRef = ref<HTMLElement>();
-const sidebarRootStyle = computed<Record<string, string>>(() => ({ fontSize: `${settingsStore.editorSettings.sidebarFontSize}px` }));
+const sidebarTreeRowHeight = computed(() => getSidebarTreeRowHeight(settingsStore.editorSettings.sidebarDensity));
+const sidebarRootStyle = computed<Record<string, string>>(() => ({
+  fontSize: `${settingsStore.editorSettings.sidebarFontSize}px`,
+  "--sidebar-tree-row-height": `${sidebarTreeRowHeight.value}px`,
+}));
 const pointerInsideTree = ref(false);
 const treeScrollerRef = ref<InstanceType<typeof RecycleScroller> | null>(null);
 const plainTreeScrollerRef = ref<HTMLElement | null>(null);
@@ -855,7 +859,7 @@ const sidebarLayoutMonitor = createSidebarLayoutMonitor({
   readContext: () => ({
     flatNodeCount: flatNodes.value.length,
     useVirtualTree: useVirtualTree.value,
-    virtualItemSize: SIDEBAR_TREE_ROW_HEIGHT,
+    virtualItemSize: sidebarTreeRowHeight.value,
     scrollerEl: currentTreeScroller(),
     shellEl: treeScrollShellRef.value,
     rootEl: rootRef.value ?? null,
@@ -970,10 +974,14 @@ watch(
   },
 );
 
-watch([sidebarTreeNaturalWidthItems, () => settingsStore.editorSettings.uiFontFamily, () => settingsStore.editorSettings.uiScale, () => settingsStore.editorSettings.sidebarIndent, () => settingsStore.editorSettings.sidebarFontSize], scheduleSidebarTreeContentWidthMeasure, {
-  flush: "post",
-  immediate: true,
-});
+watch(
+  [sidebarTreeNaturalWidthItems, () => settingsStore.editorSettings.uiFontFamily, () => settingsStore.editorSettings.uiScale, () => settingsStore.editorSettings.sidebarIndent, () => settingsStore.editorSettings.sidebarFontSize, () => settingsStore.editorSettings.sidebarDensity],
+  scheduleSidebarTreeContentWidthMeasure,
+  {
+    flush: "post",
+    immediate: true,
+  },
+);
 
 const visibleSidebarTableStorageScopes = computed(() => {
   if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size") return [];
@@ -1143,10 +1151,10 @@ const stickyContainerIndex = computed(() => {
   const len = nodes.length;
   if (len === 0) return -1;
 
-  const topIndex = Math.min(Math.floor(stickyScrollTop.value / SIDEBAR_TREE_ROW_HEIGHT), len - 1);
+  const topIndex = Math.min(Math.floor(stickyScrollTop.value / sidebarTreeRowHeight.value), len - 1);
   const containerIndex = flatTreeIndex.value.stickyContainerIndexByIndex[topIndex] ?? -1;
   if (containerIndex < 0) return -1;
-  return stickyScrollTop.value > containerIndex * SIDEBAR_TREE_ROW_HEIGHT ? containerIndex : -1;
+  return stickyScrollTop.value > containerIndex * sidebarTreeRowHeight.value ? containerIndex : -1;
 });
 
 const stickyNode = computed<FlatTreeNode | null>(() => flatNodes.value[stickyContainerIndex.value] ?? null);
@@ -1160,10 +1168,10 @@ const stickyHeaderStyle = computed<CSSProperties>(() => {
   const nextBoundaryIndex = flatTreeIndex.value.nextBoundaryIndexByIndex[currentIndex] ?? -1;
   const nextCollisionIndex = nextContainerIndex < 0 ? nextBoundaryIndex : nextBoundaryIndex < 0 ? nextContainerIndex : Math.min(nextContainerIndex, nextBoundaryIndex);
   if (nextCollisionIndex < 0) return {};
-  const distanceToNext = nextCollisionIndex * SIDEBAR_TREE_ROW_HEIGHT - stickyScrollTop.value;
-  if (distanceToNext >= SIDEBAR_TREE_ROW_HEIGHT) return {};
+  const distanceToNext = nextCollisionIndex * sidebarTreeRowHeight.value - stickyScrollTop.value;
+  if (distanceToNext >= sidebarTreeRowHeight.value) return {};
   return {
-    transform: `translateY(${Math.min(0, distanceToNext - SIDEBAR_TREE_ROW_HEIGHT)}px)`,
+    transform: `translateY(${Math.min(0, distanceToNext - sidebarTreeRowHeight.value)}px)`,
   };
 });
 
@@ -1494,7 +1502,7 @@ async function flashSidebarNode(nodeId: string) {
 function topOcclusionHeightForSidebarNode(nodeId: string): number {
   const sticky = stickyNode.value;
   if (!sticky || sticky.id === nodeId) return 0;
-  return SIDEBAR_TREE_ROW_HEIGHT;
+  return sidebarTreeRowHeight.value;
 }
 
 /** Select and reveal a freshly created table group. */
@@ -1515,6 +1523,7 @@ async function scrollToSidebarNode(nodeId: string, options?: { align?: SidebarNo
     currentScrollTop: scroller.scrollTop,
     viewportHeight: scroller.clientHeight,
     scrollHeight: scroller.scrollHeight,
+    rowHeight: sidebarTreeRowHeight.value,
     topOcclusionHeight: topOcclusionHeightForSidebarNode(nodeId),
     ...(options?.align ? { align: options.align } : {}),
   });
@@ -2259,6 +2268,7 @@ async function selectActiveTabSidebarNode(options: { scroll: boolean }) {
     currentScrollTop: scroller.scrollTop,
     viewportHeight: scroller.clientHeight,
     scrollHeight: scroller.scrollHeight,
+    rowHeight: sidebarTreeRowHeight.value,
     topOcclusionHeight: topOcclusionHeightForSidebarNode(match.id),
   });
   if (nextScrollTop !== scroller.scrollTop) {
@@ -2626,7 +2636,7 @@ defineExpose({ focusSearch, createNewGroup, collapseAllTreeNodes, locateTabInSid
           :style="sidebarTreeScrollerStyle"
           @click="clearSidebarSelection"
           :items="flatNodes"
-          :item-size="SIDEBAR_TREE_ROW_HEIGHT"
+          :item-size="sidebarTreeRowHeight"
           :buffer="SIDEBAR_TREE_SCROLL_BUFFER"
           :prerender="SIDEBAR_TREE_PRERENDER_COUNT"
           :skip-hover="true"
@@ -2871,12 +2881,12 @@ defineExpose({ focusSearch, createNewGroup, collapseAllTreeNodes, locateTabInSid
 .connection-tree-scroller :deep(.vue-recycle-scroller__item-view) {
   min-width: 100%;
   contain: style;
-  /* The virtual renderer positions rows at fixed item-size offsets (28px, see
-     SIDEBAR_TREE_ROW_HEIGHT). TreeItem rows only guarantee min-h-7, so rename
-     inputs or larger sidebar fonts could grow a row beyond 28px and overlap
-     the next row. Pin every materialized row to the fixed height and clip any
-     overflow instead of letting the layout drift. */
-  height: 28px;
+  /* The virtual renderer positions rows at fixed item-size offsets (see
+     getSidebarTreeRowHeight). TreeItem rows only guarantee min-h, so rename
+     inputs or larger sidebar fonts could grow a row beyond the row height and
+     overlap the next row. Pin every materialized row to the fixed height and clip
+     any overflow instead of letting the layout drift. */
+  height: var(--sidebar-tree-row-height, 28px);
   overflow: hidden;
 }
 
