@@ -6,7 +6,7 @@ pub use dbx_sql_core::{sql, sql_error_position};
 pub use dbx_types::{models, types};
 
 mod postgres;
-mod text_encoding;
+pub mod text_encoding;
 
 pub use postgres::*;
 

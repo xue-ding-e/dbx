@@ -7584,7 +7584,10 @@ async fn get_postgres_owned_sequences_for_transfer(
             _ => return Ok(Vec::new()),
         }
     };
-    let client = pool.get().await.map_err(|e| e.to_string())?;
+    let pool_client = pool.get().await.map_err(|e| e.to_string())?;
+    // Route through the encoding-aware client so legacy-encoded sources return
+    // decoded sequence/owner names (raw pool clients bypass text decoding).
+    let client = db::postgres::text_encoding::Client::new(&pool_client);
     let rows = client.query(POSTGRES_OWNED_SEQUENCES_SQL, &[&schema]).await.map_err(|e| e.to_string())?;
 
     let selected: HashSet<&str> = tables.iter().map(String::as_str).collect();
@@ -7650,7 +7653,9 @@ async fn get_postgres_sequence_snapshots_for_transfer(
             _ => return Ok(Vec::new()),
         }
     };
-    let client = pool.get().await.map_err(|e| e.to_string())?;
+    let pool_client = pool.get().await.map_err(|e| e.to_string())?;
+    // Same encoding-aware wrapper as the owned-sequence listing above.
+    let client = db::postgres::text_encoding::Client::new(&pool_client);
     let rows = client.query(POSTGRES_SEQUENCE_SNAPSHOTS_SQL, &[&schema]).await.map_err(|e| e.to_string())?;
 
     Ok(rows

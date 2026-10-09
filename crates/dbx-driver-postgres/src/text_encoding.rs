@@ -382,36 +382,34 @@ impl<'a> FromSql<'a> for Raw {
 #[derive(Debug)]
 pub struct Row {
     original: tokio_postgres::Row,
-    names: Vec<String>,
+    // Decoded column names exist only for connections with a configured text
+    // encoding; without one the original names are already correct and a
+    // per-row Vec<String> would tax every result row of every ordinary query.
+    names: Option<Vec<String>>,
     values: Option<Vec<Option<Vec<u8>>>>,
 }
 impl Row {
     pub(crate) fn new(original: tokio_postgres::Row, encoding: Option<TextEncoding>) -> Result<Self, PgError> {
-        let names = original
-            .columns()
-            .iter()
-            .map(|c| match encoding {
-                Some(e) => e.decode(c.name()),
-                None => Ok(c.name().into()),
-            })
-            .collect::<Result<_, _>>()?;
-        let values = if let Some(e) = encoding {
-            Some(
-                original
-                    .columns()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, c)| {
-                        if !e.transforms(c.type_()) {
-                            return Ok(None);
-                        }
-                        let value: Option<Raw> = original.try_get(i)?;
-                        value.map(|raw| e.transform(c.type_(), &raw.0, false)).transpose().map_err(PgError::from)
-                    })
-                    .collect::<Result<_, PgError>>()?,
-            )
-        } else {
-            None
+        let (names, values) = match encoding {
+            None => (None, None),
+            Some(e) => {
+                let names = original.columns().iter().map(|c| e.decode(c.name())).collect::<Result<_, _>>()?;
+                let values = Some(
+                    original
+                        .columns()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, c)| {
+                            if !e.transforms(c.type_()) {
+                                return Ok(None);
+                            }
+                            let value: Option<Raw> = original.try_get(i)?;
+                            value.map(|raw| e.transform(c.type_(), &raw.0, false)).transpose().map_err(PgError::from)
+                        })
+                        .collect::<Result<_, PgError>>()?,
+                );
+                (Some(names), values)
+            }
         };
         Ok(Self { original, names, values })
     }
@@ -432,7 +430,11 @@ impl Row {
         I: tokio_postgres::row::RowIndex + fmt::Display,
         T: FromSql<'a>,
     {
-        let Some(i) = idx.__idx(&self.names) else {
+        let resolved = match self.names.as_deref() {
+            Some(names) => idx.__idx(names),
+            None => idx.__idx(self.original.columns()),
+        };
+        let Some(i) = resolved else {
             return Err(PgError::Encoding(format!("Unknown PostgreSQL column {idx}")));
         };
         let Some(values) = &self.values else {
