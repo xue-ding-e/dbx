@@ -586,6 +586,18 @@ async function main() {
           // shows up in the shots that follow: clear it before going on
           await page.keyboard.press("Escape").catch(() => {});
           await sleep(400);
+          // an active sidebar search keeps the tree filtered down to
+          // nothing, starving every later lookup of its targets: empty it
+          // the way a user would
+          try {
+            const box = page.locator(".connection-tree-search input").first();
+            if ((await box.isVisible().catch(() => false)) && (await box.inputValue().catch(() => ""))) {
+              await box.click({ timeout: 1500 });
+              await page.keyboard.press("ControlOrMeta+A");
+              await page.keyboard.press("Delete");
+              await sleep(300);
+            }
+          } catch {}
           if (repairs >= 3) continue;
           repairs++;
           // the page as it is now, and what went wrong: the rest of the scene again
