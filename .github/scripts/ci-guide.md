@@ -13,8 +13,13 @@ cancellations as a failure of the commit that no longer matters.
 
 ## Selection
 
-`scripts/ci-plan.mjs` reads Cargo workspace metadata and the exact event base/head
-diff. Renames include both paths and deleted paths remain visible. Rust package
+`scripts/ci-change-base.mjs` uses the first parent of the checked-out PR test merge
+as its base, not the potentially stale base SHA in the PR event. A depth-two
+checkout preserves both parents; a missing merge parent fails change detection.
+Pushes use the exact event `before` SHA. `paths-filter` uses Git, with an empty API
+token and explicit base/head, so its selection matches `scripts/ci-plan.mjs`
+rather than a mutable PR file list. An unavailable push diff keeps conservative
+planner coverage. Renames include both paths and deleted paths remain visible. Rust package
 selection follows reverse dependencies, including build and test dependencies.
 Connection-type descriptors belong to `dbx-types`; dialect descriptors belong to
 `dbx-sql`. A changed core dependency also selects the standalone DuckDB Agent tests,
@@ -22,7 +27,10 @@ whose development dependency is `dbx-core`.
 
 - Ordinary Rust PRs select foundation, driver, and application test groups from
   `scripts/ci-config.mjs`. Each group contains several packages, not one runner per
-  crate. At most three Rust test groups run concurrently.
+  crate. The application group includes `dbx-tauri-consul` and `dbx-tauri-schema`.
+  At most three Rust test groups run concurrently; a contract checks the groups
+  against actual workspace metadata so extracted crates cannot silently force
+  every PR into the full-workspace fallback.
 - Main pushes, shared Cargo manifests/locks, toolchain/config/vendor changes, CI
   infrastructure changes, an unknown workspace member, or an unavailable diff
   select the original full-workspace test lane instead of duplicating it with all
@@ -34,8 +42,16 @@ whose development dependency is `dbx-core`.
   cases. Shared Agent inputs conservatively select all existing Agent checks.
   Windows DuckDB packaging is selected by its own inputs or shared build/lock
   changes, not every change to its development dependency's source.
-- Existing frontend, package, Windows, JDBC, offline-payload and Nix jobs retain
-  their commands and path filters, except for the snapshot-only routing below.
+- Standard Windows compilation follows desktop reverse dependencies, including
+  ordinary core/driver source changes. Full Win7 packaging runs for Cargo
+  manifests/locks, toolchain/config/vendor changes, platform/update/installer
+  code, Tauri configuration, Win7 fixtures/scripts and release/CI workflow inputs.
+  Unknown Rust paths, unassigned Rust workspace members and unavailable diffs
+  retain both Windows jobs. Other desktop source and test changes keep standard
+  Windows compilation without repeating the full Win7 installer build. The final
+  gate validates each Windows selection independently; release builds are unchanged.
+- Existing frontend, package, JDBC, offline-payload and Nix jobs retain their
+  commands and path filters, except for the snapshot-only routing below.
 
 Contributor snapshots refresh weekly, at 02:00 Monday in Asia/Shanghai, and can
 still be refreshed manually. An unchanged snapshot keeps its existing timestamp
@@ -87,7 +103,9 @@ incompatible SQLite backends.
 | `agent-integration` | Sixteen existing engine/version/authentication cases | 4 |
 
 Matrix jobs set `fail-fast: false`, so one failure does not conceal results from
-the other selected cases. Live test predicates, readiness checks, time limits,
+the other selected cases. Go and live matrix parallelism is bounded at four each
+to reduce bursts competing with other workflows; this is not a reservation or a
+priority guarantee for release jobs. Live test predicates, readiness checks, time limits,
 credentials for disposable fixtures, and failure cleanup are retained.
 Native, Java and live jobs wait for fast checks and Agent source validation before
 starting expensive builds or containers.

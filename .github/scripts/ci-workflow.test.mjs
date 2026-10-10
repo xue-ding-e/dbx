@@ -46,8 +46,8 @@ test("Agent and Rust matrices are bounded and do not cancel sibling failures", (
   for (const [name, output, parallel] of [
     ["rust-test", "rust_matrix", 3],
     ["agent-rust", "agent_rust", 2],
-    ["agent-go", "agent_go", 8],
-    ["agent-integration", "agent_integration", 8],
+    ["agent-go", "agent_go", 4],
+    ["agent-integration", "agent_integration", 4],
   ]) {
     const content = job(name);
     assert.match(content, /fail-fast: false/);
@@ -243,9 +243,8 @@ test("DuckDB Windows builds persist Rust and C++ compiler results", () => {
 });
 
 test("Windows compatibility jobs cache Rust compilation without wrapping C or C++", () => {
-  assert.ok(job("changes").includes("'vendor/webview2-com-sys/**'"));
   const standard = job("windows-standard-check");
-  assert.ok(standard.includes("needs.changes.outputs.windows_win7_bundle == 'true'"));
+  assert.ok(standard.includes("needs.changes.outputs.windows_standard == 'true'"));
   assert.ok(standard.includes("RUSTC_WRAPPER: sccache"));
   assert.ok(standard.includes('SCCACHE_GHA_ENABLED: "true"'));
   assert.ok(standard.includes("SCCACHE_GHA_VERSION: windows-standard-v1"));
@@ -255,6 +254,7 @@ test("Windows compatibility jobs cache Rust compilation without wrapping C or C+
   assert.ok(standard.includes("sccache --show-stats"));
 
   const win7 = job("windows-win7-bundle");
+  assert.ok(win7.includes("needs.changes.outputs.windows_win7_bundle == 'true'"));
   assert.doesNotMatch(win7, /x86_64-pc-windows-msvc|Setup Rust for standard Windows/);
   for (const setting of ["RUSTC_WRAPPER: sccache", 'SCCACHE_GHA_ENABLED: "true"', "SCCACHE_GHA_VERSION: win7-webview2-1.0.902.49-v1", 'SCCACHE_IDLE_TIMEOUT: "0"', 'CARGO_PROFILE_RELEASE_LTO: "off"', 'CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "8"']) assert.ok(win7.includes(setting));
   assert.ok(win7.includes("fc920bf0ec8de6ee65d409111f7ec508035751ba"));
@@ -295,20 +295,23 @@ test("Win7 TLS cache keys ignore the workspace lockfile", () => {
   assert.doesNotMatch(win7, /key: win7-(?:aws-lc|openssl).*hashFiles\('Cargo\.lock'/);
 });
 
-test("the planner uses the exact event base and preserves a single workflow cancellation scope", () => {
+test("path filtering and the planner use the exact test merge first parent and preserve cancellation scope", () => {
   const changes = job("changes");
-  assert.ok(changes.includes("github.event.pull_request.base.sha || github.event.before"));
+  assert.ok(changes.includes("BEFORE_SHA: ${{ github.event.before }}"));
+  assert.ok(changes.includes('BASE_SHA="$(node .github/scripts/ci-change-base.mjs)"'));
+  assert.ok(changes.includes("fetch-depth: 2"));
   assert.ok(changes.includes('git fetch --no-tags --depth=1 origin "$BASE_SHA"'));
   assert.ok(changes.includes("base: ${{ steps.change-base.outputs.sha }}"));
+  assert.match(changes, /with:\s+token: ''\s+base: \$\{\{ steps\.change-base\.outputs\.sha \}\}\s+ref: \$\{\{ github\.sha \}\}/);
   assert.ok(changes.includes("BASE_SHA: ${{ steps.change-base.outputs.sha }}"));
   assert.ok(changes.includes("node .github/scripts/ci-plan.mjs"));
   assert.doesNotMatch(changes, /fetch-depth:\s*0/);
   assert.doesNotMatch(changes, /dtolnay\/rust-toolchain/);
   for (const flag of ["rust", "rust_full", "rust_matrix", "agents", "agent_go", "agent_rust", "agent_integration",
-    "windows_win7_candidate", "windows_win7_affected_packages", "windows_win7_reasons", "plan"]) {
+    "windows_standard", "windows_win7_bundle", "windows_win7_candidate", "windows_win7_affected_packages", "windows_win7_reasons", "plan"]) {
     assert.ok(changes.includes(`steps.plan.outputs.${flag}`));
   }
-  assert.ok(changes.includes("WIN7_CURRENT: ${{ steps.filter.outputs.windows_win7_bundle }}"));
+  assert.doesNotMatch(changes, /steps\.filter\.outputs\.windows_win7_bundle|github\.event\.pull_request\.base\.sha|WIN7_CURRENT/);
   assert.ok(workflow.includes("group: ${{ github.workflow }}-${{ github.ref }}"));
   assert.ok(workflow.includes("cancel-in-progress: true"));
 });
