@@ -2347,6 +2347,30 @@ func TestOracleCompletionRoutinesQueryUsesPublicPackageMetadata(t *testing.T) {
 	}
 }
 
+func TestOracleCompletionRoutinesQueryIncludesSequences(t *testing.T) {
+	query := oracleCompletionRoutinesQuery(completionAssistantRequest{
+		Schema:       "HR",
+		ObjectKinds:  []string{"routine", "sequence"},
+		Mask:         "SEQ",
+		GlobalSearch: false,
+	}, "HR", 100)
+	sqlText := strings.ToUpper(query.SQL)
+	if !strings.Contains(sqlText, "'SEQUENCE'") {
+		t.Fatalf("routines query should include SEQUENCE when requested: %s", query.SQL)
+	}
+
+	seqOnlyQuery := oracleCompletionRoutinesQuery(completionAssistantRequest{
+		Schema:       "HR",
+		ObjectKinds:  []string{"sequence"},
+		Mask:         "SEQ",
+		GlobalSearch: false,
+	}, "HR", 100)
+	seqSQL := strings.ToUpper(seqOnlyQuery.SQL)
+	if !strings.Contains(seqSQL, "IN ('SEQUENCE')") {
+		t.Fatalf("sequence-only query should only include SEQUENCE: %s", seqOnlyQuery.SQL)
+	}
+}
+
 func TestOracleCompletionPackageCandidatesPreserveOverloadsAndReturnTypes(t *testing.T) {
 	rows := []oraclePackageRoutineRow{
 		{

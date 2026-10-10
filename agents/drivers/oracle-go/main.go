@@ -2004,7 +2004,7 @@ func completionRequestHasTableLikeKind(kinds []string) bool {
 func completionRequestHasRoutineKind(kinds []string) bool {
 	for _, kind := range kinds {
 		switch strings.ToLower(strings.TrimSpace(kind)) {
-		case "routine", "procedure", "function":
+		case "routine", "procedure", "function", "sequence":
 			return true
 		}
 	}
@@ -2450,13 +2450,54 @@ func oracleCompletionSynonymTargetsQuery(targets []oracleCompletionSynonymTarget
 	}
 }
 
+func oracleCompletionRoutineObjectTypes(kinds []string) []string {
+	if len(kinds) == 0 {
+		return []string{"'FUNCTION'", "'PROCEDURE'", "'PACKAGE'", "'SEQUENCE'"}
+	}
+	hasRoutine := false
+	hasProc := false
+	hasFunc := false
+	hasSeq := false
+	for _, kind := range kinds {
+		switch strings.ToLower(strings.TrimSpace(kind)) {
+		case "routine":
+			hasRoutine = true
+		case "procedure":
+			hasProc = true
+		case "function":
+			hasFunc = true
+		case "sequence":
+			hasSeq = true
+		}
+	}
+	types := make([]string, 0, 4)
+	if hasRoutine {
+		types = append(types, "'FUNCTION'", "'PROCEDURE'", "'PACKAGE'")
+	} else {
+		if hasProc {
+			types = append(types, "'PROCEDURE'")
+		}
+		if hasFunc {
+			types = append(types, "'FUNCTION'")
+		}
+	}
+	if hasSeq {
+		types = append(types, "'SEQUENCE'")
+	}
+	if len(types) == 0 {
+		return []string{"'FUNCTION'", "'PROCEDURE'", "'PACKAGE'"}
+	}
+	return types
+}
+
 func oracleCompletionRoutinesQuery(request completionAssistantRequest, preferredSchema string, limit int) oracleMetadataListQuery {
 	pattern := oracleCompletionLikePattern(request.Mask, request.MatchMode)
 	args := make([]any, 0, 5)
-	baseSQL := `
+	objectTypes := oracleCompletionRoutineObjectTypes(request.ObjectKinds)
+	baseSQL := fmt.Sprintf(`
 SELECT o.OWNER, o.OBJECT_NAME, o.OBJECT_TYPE, CAST(NULL AS VARCHAR2(128)) AS PARENT_NAME
 FROM ALL_OBJECTS o
-WHERE o.OBJECT_TYPE IN ('FUNCTION', 'PROCEDURE', 'PACKAGE')`
+WHERE o.OBJECT_TYPE IN (%s)`, strings.Join(objectTypes, ", "))
 	args = append(args, pattern)
 	nameParam := len(args)
 

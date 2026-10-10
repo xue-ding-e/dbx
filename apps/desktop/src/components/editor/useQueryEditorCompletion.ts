@@ -1411,6 +1411,12 @@ export function useQueryEditorCompletion(options: QueryEditorCompletionOptions) 
 
   function completionObjectKindsForContext(completionContext: ReturnType<typeof getSqlCompletionContext>): CompletionAssistantObjectKind[] {
     if (completionContext.contextKind === "exec") return ["procedure"];
+    if (isOracleCompletionDatabase(props.databaseType)) {
+      if (completionContext.suggestColumns && completionContext.referencedTables.length > 0 && !completionContext.qualifier) {
+        return ["function", "sequence"];
+      }
+      return ["routine", "sequence"];
+    }
     if (completionContext.suggestColumns && completionContext.referencedTables.length > 0 && !completionContext.qualifier) return ["function"];
     return ["routine"];
   }
