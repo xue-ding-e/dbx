@@ -2279,3 +2279,128 @@ describe("select-list function argument completion", () => {
     expect(getSqlCompletionContext(sql, cursor, options).selectListColumnContext).toBe(false);
   });
 });
+
+describe("smart unpaired SQL keyword completion before existing keywords (#11527)", () => {
+  it("detects following keywords across whitespace and comments", () => {
+    expect(getSqlCompletionContext("SELECT * FROM users CR JOIN orders", "SELECT * FROM users CR".length).followingKeyword).toBe("JOIN");
+    expect(getSqlCompletionContext("SELECT * FROM users CR /* comment */ JOIN orders", "SELECT * FROM users CR".length).followingKeyword).toBe("JOIN");
+    expect(getSqlCompletionContext("SELECT * FROM users CR\n  JOIN orders", "SELECT * FROM users CR".length).followingKeyword).toBe("JOIN");
+    expect(getSqlCompletionContext("SELECT * FROM users ORD BY id", "SELECT * FROM users ORD".length).followingKeyword).toBe("BY");
+    expect(getSqlCompletionContext("SELECT * FROM users CR; SELECT * FROM orders", "SELECT * FROM users CR".length).followingKeyword).toBeUndefined();
+    expect(getSqlCompletionContext("SELECT * FROM users CR", "SELECT * FROM users CR".length).followingKeyword).toBeUndefined();
+  });
+
+  it("suggests standalone CROSS instead of compound CROSS JOIN when JOIN already follows", () => {
+    const sql = "SELECT * FROM users CR JOIN orders";
+    const cursor = "SELECT * FROM users CR".length;
+    const items = buildSqlCompletionItems(sql, cursor, {
+      databaseType: "mysql",
+      tables: [
+        { name: "users", type: "table" },
+        { name: "orders", type: "table" },
+      ],
+      columnsByTable: new Map(),
+    });
+
+    const keywords = items.filter((item) => item.type === "keyword");
+    const labels = keywords.map((item) => item.label);
+
+    // Standalone CROSS should be available and ranked at the top
+    expect(labels[0]).toBe("CROSS");
+    // Compound CROSS JOIN should NOT be suggested because JOIN already follows
+    expect(labels).not.toContain("CROSS JOIN");
+
+    // The CROSS item should not enforce a trailing space that would duplicate the space before JOIN
+    const crossItem = keywords.find((item) => item.label === "CROSS");
+    expect(crossItem?.apply).toBeUndefined();
+  });
+
+  it("suggests both CROSS JOIN and standalone CROSS when JOIN does not follow", () => {
+    const sql = "SELECT * FROM users CR";
+    const cursor = sql.length;
+    const items = buildSqlCompletionItems(sql, cursor, {
+      databaseType: "mysql",
+      tables: [{ name: "users", type: "table" }],
+      columnsByTable: new Map(),
+    });
+
+    const keywords = items.filter((item) => item.type === "keyword");
+    const labels = keywords.map((item) => item.label);
+
+    expect(labels).toContain("CROSS JOIN");
+    expect(labels).toContain("CROSS");
+
+    const crossJoinItem = keywords.find((item) => item.label === "CROSS JOIN");
+    expect(crossJoinItem?.apply).toBe("CROSS JOIN ");
+  });
+
+  it("suggests ORDER without duplicating BY when BY already follows", () => {
+    const sql = "SELECT * FROM users ORD BY id";
+    const cursor = "SELECT * FROM users ORD".length;
+    const items = buildSqlCompletionItems(sql, cursor, {
+      databaseType: "mysql",
+      tables: [{ name: "users", type: "table" }],
+      columnsByTable: new Map(),
+    });
+
+    const keywords = items.filter((item) => item.type === "keyword");
+    const labels = keywords.map((item) => item.label);
+
+    expect(labels[0]).toBe("ORDER");
+    expect(labels).not.toContain("ORDER BY");
+  });
+
+  it("suggests GROUP without duplicating BY when BY already follows", () => {
+    const sql = "SELECT * FROM users GR BY id";
+    const cursor = "SELECT * FROM users GR".length;
+    const items = buildSqlCompletionItems(sql, cursor, {
+      databaseType: "mysql",
+      tables: [{ name: "users", type: "table" }],
+      columnsByTable: new Map(),
+    });
+
+    const keywords = items.filter((item) => item.type === "keyword");
+    const labels = keywords.map((item) => item.label);
+
+    expect(labels[0]).toBe("GROUP");
+    expect(labels).not.toContain("GROUP BY");
+  });
+
+  it("suggests both ORDER and ORDER BY when BY does not follow", () => {
+    const sql = "SELECT * FROM users ORD";
+    const cursor = sql.length;
+    const items = buildSqlCompletionItems(sql, cursor, {
+      databaseType: "mysql",
+      tables: [{ name: "users", type: "table" }],
+      columnsByTable: new Map(),
+    });
+
+    const labels = items.filter((item) => item.type === "keyword").map((item) => item.label);
+    expect(labels).toContain("ORDER");
+    expect(labels).toContain("ORDER BY");
+  });
+
+  it("supports other paired clauses like APPLY and KEY without duplication", () => {
+    const applySql = "SELECT * FROM users a OUT APPLY sys.tables";
+    const applyCursor = "SELECT * FROM users a OUT".length;
+    const applyItems = buildSqlCompletionItems(applySql, applyCursor, {
+      databaseType: "sqlserver",
+      tables: [{ name: "users", type: "table" }],
+      columnsByTable: new Map(),
+    });
+    const applyLabels = applyItems.filter((item) => item.type === "keyword").map((item) => item.label);
+    expect(applyLabels[0]).toBe("OUTER");
+    expect(applyLabels).not.toContain("OUTER APPLY");
+
+    const keySql = "CREATE TABLE t (id INT UNIQ KEY)";
+    const keyCursor = "CREATE TABLE t (id INT UNIQ".length;
+    const keyItems = buildSqlCompletionItems(keySql, keyCursor, {
+      databaseType: "mysql",
+      tables: [],
+      columnsByTable: new Map(),
+    });
+    const keyLabels = keyItems.filter((item) => item.type === "keyword").map((item) => item.label);
+    expect(keyLabels[0]).toBe("UNIQUE");
+    expect(keyLabels).not.toContain("UNIQUE KEY");
+  });
+});
