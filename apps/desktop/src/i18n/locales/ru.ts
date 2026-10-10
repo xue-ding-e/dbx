@@ -9379,6 +9379,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} пересечений между областями ({pairs} дублирующихся пар). Разные области разрешают свои привязки, поэтому срабатывает только одна за раз; это только для сведения и не блокирует применение.",
     shortcutConflictBlocksApply: "{count} конфликтов в одной области ({pairs} дублирующихся пар)",
     shortcutPressShortcut: "Нажмите сочетание клавиш",
+    shortcutModifierDoubleTapHint: "Нажмите сочетание клавиш или быстро нажмите и отпустите одну и ту же клавишу-модификатор дважды (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Поиск сочетаний клавиш",
     shortcutSearchNoResults: "Нет сочетаний клавиш, соответствующих запросу.",
     shortcutConflict: "Это сочетание клавиш конфликтует с другим действием в той же области.",

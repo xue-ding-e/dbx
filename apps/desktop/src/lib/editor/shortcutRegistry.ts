@@ -1,4 +1,5 @@
 import { isMacShortcutPlatform, parseShortcutParts, parseShortcutStrokes, shortcutDisplayParts } from "@/lib/editor/shortcutDisplay";
+import { isModifierDoubleTapShortcut, matchesModifierDoubleTapShortcut } from "@/lib/editor/modifierDoubleTapShortcut";
 
 export type ShortcutActionId =
   | "executeSql"
@@ -100,6 +101,7 @@ export interface ShortcutDefinition {
   scope: ShortcutScope;
   defaultShortcut: string;
   inputKind?: "keyboard" | "modifier-only";
+  supportsModifierDoubleTap?: boolean;
 }
 
 export type ShortcutSettings = Record<ShortcutActionId, string>;
@@ -489,12 +491,14 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
   },
   {
     id: "quickOpen",
+    supportsModifierDoubleTap: true,
     labelKey: "settings.shortcutQuickOpen",
     scope: "global",
     defaultShortcut: "Mod+P",
   },
   {
     id: "globalSearch",
+    supportsModifierDoubleTap: true,
     labelKey: "settings.shortcutGlobalSearch",
     scope: "global",
     defaultShortcut: "Mod+Alt+F",
@@ -733,6 +737,7 @@ function hasExplicitShortcut(settings: Partial<ShortcutSettings> | undefined, ac
 }
 
 function shortcutsUseSameKeys(first: string, second: string, platform = globalThis.navigator?.platform || ""): boolean {
+  if (isModifierDoubleTapShortcut(first) || isModifierDoubleTapShortcut(second)) return matchesModifierDoubleTapShortcut(first, second, platform);
   const comparisonKey = (shortcut: string) =>
     formatShortcut(shortcut, platform)
       .trim()

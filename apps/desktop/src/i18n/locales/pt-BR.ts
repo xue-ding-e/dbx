@@ -8086,6 +8086,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} sobreposições entre escopos ({pairs} pares duplicados). Cada escopo resolve a própria combinação, então apenas uma é acionada por vez; é apenas informativo e não bloqueia a aplicação.",
     shortcutConflictBlocksApply: "Há {count} conflitos no mesmo escopo ({pairs} pares duplicados)",
     shortcutPressShortcut: "Pressione o atalho",
+    shortcutModifierDoubleTapHint: "Pressione uma combinação de teclas ou pressione e solte rapidamente o mesmo modificador duas vezes (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Pesquisar atalhos",
     shortcutSearchNoResults: "Nenhum atalho corresponde à pesquisa.",
     shortcutConflict: "Este atalho conflita com outra ação no mesmo escopo.",

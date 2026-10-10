@@ -7937,6 +7937,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "스코프 간 중복 {count}개(중복 {pairs}쌍). 스코프별로 처리되므로 동시에 하나만 동작합니다. 안내용이며 적용을 막지 않습니다.",
     shortcutConflictBlocksApply: "같은 스코프 충돌 {count}개(중복 {pairs}쌍)",
     shortcutPressShortcut: "단축키를 누르세요",
+    shortcutModifierDoubleTapHint: "키 조합을 누르거나 같은 보조 키(Shift, Cmd, Ctrl, Alt 등)를 빠르게 두 번 눌렀다 놓으세요.",
     shortcutSearchPlaceholder: "단축키 검색",
     shortcutSearchNoResults: "검색과 일치하는 단축키가 없습니다.",
     shortcutConflict: "이 단축키는 같은 범위의 다른 작업과 충돌합니다.",

@@ -9089,6 +9089,7 @@ export default {
     shortcutCrossScopeSummaryTooltip: "{count} cross-scope overlaps ({pairs} duplicate pairs). Different scopes resolve their own bindings, so only one fires at a time; informational only, it does not block applying.",
     shortcutConflictBlocksApply: "{count} conflicts within one scope ({pairs} duplicate pairs)",
     shortcutPressShortcut: "Press shortcut",
+    shortcutModifierDoubleTapHint: "Press a key combination, or quickly press and release the same modifier twice (e.g. Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Search shortcuts",
     shortcutSearchNoResults: "No shortcuts match your search.",
     shortcutConflict: "This shortcut conflicts with another action in the same scope.",

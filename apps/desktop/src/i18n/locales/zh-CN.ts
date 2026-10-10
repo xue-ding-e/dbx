@@ -9075,6 +9075,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "跨作用域同键 {count} 项（{pairs} 组重复）。不同作用域各自生效，同一时刻只触发一个；仅作提示，不影响应用。",
     shortcutConflictBlocksApply: "存在 {count} 项同作用域冲突（{pairs} 组重复）",
     shortcutPressShortcut: "按下快捷键",
+    shortcutModifierDoubleTapHint: "可按下组合键，或快速按下并松开同一个修饰键两次（如 Shift、Cmd、Ctrl、Alt）。",
     shortcutSearchPlaceholder: "搜索快捷键",
     shortcutSearchNoResults: "没有匹配的快捷键。",
     shortcutConflict: "这个快捷键与同一作用域内的其他操作冲突。",

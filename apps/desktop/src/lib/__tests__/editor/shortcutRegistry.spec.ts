@@ -19,6 +19,7 @@ import {
   shortcutToCodeMirrorKey,
   toggleAiPanelDefaultShortcut,
   type ShortcutActionId,
+  type ShortcutSettings,
 } from "@/lib/editor/shortcutRegistry";
 
 describe("shortcutRegistry editor actions", () => {
@@ -683,6 +684,31 @@ describe("shortcutRegistry editor actions", () => {
       expect(countShortcutConflictPairs({})).toBe(0);
       expect(countShortcutConflictPairs({ find: "" })).toBe(0);
       expect(countShortcutConflictPairs({ find: [] })).toBe(0);
+    });
+  });
+
+  describe("modifier double-tap shortcut conflicts", () => {
+    const settingsWith = (overrides: Partial<ShortcutSettings>): ShortcutSettings => ({ ...DEFAULT_SHORTCUT_SETTINGS, ...overrides });
+
+    it("treats Mod Mod and Meta Meta as the same double tap on macOS", () => {
+      const settings = settingsWith({ globalSearch: "Meta Meta" });
+      expect(findShortcutConflict("quickOpen", "Mod Mod", settings, "MacIntel")).toBe("globalSearch");
+    });
+
+    it("keeps Mod Mod and Meta Meta distinct on Windows", () => {
+      const settings = settingsWith({ globalSearch: "Meta Meta" });
+      expect(findShortcutConflict("quickOpen", "Mod Mod", settings, "Win32")).toBeNull();
+    });
+
+    it("matches Mod Mod with Ctrl Ctrl on Windows but not on macOS", () => {
+      const settings = settingsWith({ globalSearch: "Ctrl Ctrl" });
+      expect(findShortcutConflict("quickOpen", "Mod Mod", settings, "Win32")).toBe("globalSearch");
+      expect(findShortcutConflict("quickOpen", "Mod Mod", settings, "MacIntel")).toBeNull();
+    });
+
+    it("never conflicts a double tap with a chord shortcut", () => {
+      const settings = settingsWith({ globalSearch: "Mod+Alt+F" });
+      expect(findShortcutConflict("quickOpen", "Alt Alt", settings, "Win32")).toBeNull();
     });
   });
 });

@@ -8807,6 +8807,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} tumpang tindih lintas cakupan ({pairs} pasangan duplikat). Cakupan yang berbeda menyelesaikan bindingnya masing-masing, sehingga hanya satu yang aktif pada satu waktu; hanya informasional, tidak menghalangi penerapan.",
     shortcutConflictBlocksApply: "{count} konflik dalam satu cakupan ({pairs} pasangan duplikat)",
     shortcutPressShortcut: "Tekan pintasan",
+    shortcutModifierDoubleTapHint: "Tekan kombinasi tombol, atau tekan dan lepaskan tombol pengubah yang sama dua kali dengan cepat (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Cari pintasan",
     shortcutSearchNoResults: "Tidak ada pintasan yang cocok dengan pencarian Anda.",
     shortcutConflict: "Pintasan ini berkonflik dengan aksi lain pada cakupan yang sama.",

@@ -8080,6 +8080,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "スコープ間の重複 {count} 件（重複 {pairs} 組）。スコープごとに解決されるため同時に 1 つだけ動作します。提示のみで、適用は妨げません。",
     shortcutConflictBlocksApply: "同一スコープの競合が {count} 件あります（重複 {pairs} 組）",
     shortcutPressShortcut: "ショートカットを押してください",
+    shortcutModifierDoubleTapHint: "キーの組み合わせ、または同じ修飾キー（Shift、Cmd、Ctrl、Alt など）を素早く2回押して離してください。",
     shortcutSearchPlaceholder: "ショートカットを検索",
     shortcutSearchNoResults: "一致するショートカットはありません。",
     shortcutConflict: "このショートカットは同じスコープ内の別のアクションと競合しています。",

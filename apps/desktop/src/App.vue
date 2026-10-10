@@ -151,6 +151,7 @@ import {
 } from "@/lib/editor/keyboardShortcuts";
 import { canSaveSqlTab } from "@/lib/tabs/sqlTabSaveTarget";
 import { initialTabSwitcherSelection, moveTabSwitcherSelection, tabSwitcherOrder } from "@/lib/tabs/tabSwitcher";
+import { createModifierDoubleTapShortcutController, isModifierDoubleTapShortcut, matchesModifierDoubleTapShortcut } from "@/lib/editor/modifierDoubleTapShortcut";
 import { createTabSwitcherKeyboardController } from "@/lib/tabs/tabSwitcherKeyboard";
 import { formatShortcutDisplay } from "@/lib/editor/shortcutDisplay";
 import { supportsSqlFileExecution } from "@/lib/database/databaseCapabilities";
@@ -4026,7 +4027,35 @@ function closeTabSwitcher(commit: boolean) {
   if (tab) activateQueryTab(tab.id);
 }
 
+const modifierDoubleTapSearch = createModifierDoubleTapShortcutController();
+watch(
+  () => [settingsStore.editorSettings.shortcuts.quickOpen, settingsStore.editorSettings.shortcuts.globalSearch],
+  () => modifierDoubleTapSearch.reset(),
+  { flush: "sync" },
+);
+
+function canCaptureModifierDoubleTapSearch(e: KeyboardEvent): boolean {
+  const target = e.target instanceof Element ? e.target : document.activeElement;
+  const shortcuts = settingsStore.editorSettings.shortcuts;
+  const enabled = isModifierDoubleTapShortcut(shortcuts.quickOpen) || isModifierDoubleTapShortcut(shortcuts.globalSearch);
+  // Capture runs before the settings input can stop propagation.
+  if (e.defaultPrevented || showTabSwitcher.value || !enabled || target?.closest("[data-shortcut-input], [data-sql-shortcut-input]")) {
+    modifierDoubleTapSearch.reset();
+    return false;
+  }
+  return true;
+}
+
 function handleKeyup(e: KeyboardEvent) {
+  const shortcut = canCaptureModifierDoubleTapSearch(e) ? modifierDoubleTapSearch.handleKeyup(e) : null;
+  const shortcuts = settingsStore.editorSettings.shortcuts;
+  const quickOpenMatched = !!shortcut && matchesModifierDoubleTapShortcut(shortcut, shortcuts.quickOpen);
+  if (shortcut && (quickOpenMatched || matchesModifierDoubleTapShortcut(shortcut, shortcuts.globalSearch))) {
+    e.preventDefault();
+    e.stopPropagation();
+    quickOpenForceContent.value = !quickOpenMatched;
+    showQuickOpen.value = true;
+  }
   tabSwitcherKeyboard.handleKeyup(e);
 }
 
@@ -4035,6 +4064,9 @@ function handleTabSwitcherKeydownCapture(e: KeyboardEvent) {
 }
 
 function handleGlobalSearchKeydownCapture(e: KeyboardEvent) {
+  if (canCaptureModifierDoubleTapSearch(e)) modifierDoubleTapSearch.handleKeydown(e);
+  const target = e.target instanceof Element ? e.target : document.activeElement;
+  if (target?.closest("[data-shortcut-input], [data-sql-shortcut-input]")) return;
   if (e.defaultPrevented || !isGlobalSearchShortcut(e, settingsStore.editorSettings.shortcuts)) return;
   e.preventDefault();
   e.stopPropagation();
@@ -4051,10 +4083,12 @@ function handleAuxiliarySearchKeydownCapture(e: KeyboardEvent) {
 }
 
 function handleTabSwitcherWindowBlur() {
+  modifierDoubleTapSearch.reset();
   tabSwitcherKeyboard.handleWindowBlur();
 }
 
 function handleTabSwitcherVisibilityChange() {
+  modifierDoubleTapSearch.reset();
   tabSwitcherKeyboard.handleVisibilityChange(document.visibilityState);
 }
 
@@ -4637,6 +4671,9 @@ onMounted(async () => {
   });
   applyTheme();
   void applyUiScale(settingsStore.editorSettings.uiScale);
+  window.addEventListener("pointerdown", modifierDoubleTapSearch.cancel, true);
+  window.addEventListener("focusin", modifierDoubleTapSearch.cancel, true);
+  window.addEventListener("compositionstart", modifierDoubleTapSearch.cancel, true);
   window.addEventListener("keydown", handleGlobalSearchKeydownCapture, true);
   window.addEventListener("keydown", handleTabSwitcherKeydownCapture, true);
   window.addEventListener("keydown", handleAuxiliarySearchKeydownCapture, true);
@@ -4729,6 +4766,10 @@ onUnmounted(() => {
     clearInterval(updateCheckTimer);
   }
   window.removeEventListener("keydown", handleNativeSelectAll, true);
+  modifierDoubleTapSearch.reset();
+  window.removeEventListener("pointerdown", modifierDoubleTapSearch.cancel, true);
+  window.removeEventListener("focusin", modifierDoubleTapSearch.cancel, true);
+  window.removeEventListener("compositionstart", modifierDoubleTapSearch.cancel, true);
   window.removeEventListener("keydown", handleGlobalSearchKeydownCapture, true);
   window.removeEventListener("keydown", handleTabSwitcherKeydownCapture, true);
   window.removeEventListener("keydown", handleAuxiliarySearchKeydownCapture, true);

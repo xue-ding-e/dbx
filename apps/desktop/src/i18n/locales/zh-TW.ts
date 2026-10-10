@@ -7404,6 +7404,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "跨作用域同鍵 {count} 項（{pairs} 組重複）。不同作用域各自生效，同一時刻只觸發一個；僅作提示，不影響套用。",
     shortcutConflictBlocksApply: "存在 {count} 項同作用域衝突（{pairs} 組重複）",
     shortcutPressShortcut: "按下快速鍵",
+    shortcutModifierDoubleTapHint: "可按下組合鍵，或快速按下並放開同一個修飾鍵兩次（如 Shift、Cmd、Ctrl、Alt）。",
     shortcutSearchPlaceholder: "搜尋快速鍵",
     shortcutSearchNoResults: "沒有符合的快速鍵。",
     shortcutConflict: "這個快速鍵與同一作用域內的其他操作衝突。",

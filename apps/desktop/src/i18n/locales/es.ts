@@ -8325,6 +8325,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} coincidencias entre ámbitos ({pairs} pares duplicados). Cada ámbito resuelve su propia combinación, así que solo se activa una a la vez; es solo informativo y no bloquea la aplicación.",
     shortcutConflictBlocksApply: "Hay {count} conflictos en un mismo ámbito ({pairs} pares duplicados)",
     shortcutPressShortcut: "Presiona un atajo",
+    shortcutModifierDoubleTapHint: "Pulsa una combinación de teclas o pulsa y suelta rápidamente el mismo modificador dos veces (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Buscar atajos",
     shortcutSearchNoResults: "Ningún atajo coincide con la búsqueda.",
     shortcutConflict: "Este atajo entra en conflicto con otra acción del mismo ámbito.",

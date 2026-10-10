@@ -8088,6 +8088,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} sovrapposizioni tra ambiti ({pairs} coppie duplicate). Ogni ambito risolve la propria combinazione, quindi se ne attiva una alla volta; è solo informativo e non blocca l’applicazione.",
     shortcutConflictBlocksApply: "Ci sono {count} conflitti nello stesso ambito ({pairs} coppie duplicate)",
     shortcutPressShortcut: "Premi scorciatoia",
+    shortcutModifierDoubleTapHint: "Premi una combinazione di tasti oppure premi e rilascia rapidamente lo stesso modificatore due volte (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Cerca scorciatoie",
     shortcutSearchNoResults: "Nessuna scorciatoia corrisponde alla ricerca.",
     shortcutConflict: "Questa scorciatoia è in conflitto con un'altra azione nello stesso ambito.",

@@ -206,6 +206,7 @@ import {
   type SyncSnapshotCatalog,
   type WebDavConfig,
 } from "@/lib/backend/api";
+import { createModifierDoubleTapShortcutController } from "@/lib/editor/modifierDoubleTapShortcut";
 import { eventToModifierOnlyShortcut, eventToShortcut } from "@/lib/editor/keyboardShortcuts";
 import { SHORTCUT_DEFINITIONS, countShortcutConflictPairs, findCrossScopeShortcutConflicts, findShortcutConflict, isReservedShortcut, normalizeShortcutSettings, resolveCapturedShortcutEdit, type ShortcutActionId, type ShortcutDefinition, type ShortcutScope } from "@/lib/editor/shortcutRegistry";
 import LightTooltip from "@/components/ui/LightTooltip.vue";
@@ -869,6 +870,8 @@ let tableColumnTemplatePointerDragCleanup: (() => void) | null = null;
 const editSqlFormatter = ref<SqlFormatterSettings>(normalizeSqlFormatterSettings(settingsStore.editorSettings.sqlFormatter));
 const sqlFormatterConfigValid = ref(true);
 const editingShortcutId = ref<ShortcutActionId | null>(null);
+const modifierDoubleTapRecorder = createModifierDoubleTapShortcutController();
+watch(editingShortcutId, () => modifierDoubleTapRecorder.reset(), { flush: "sync" });
 const editSidebarActivation = ref(settingsStore.editorSettings.sidebarActivation);
 const editSidebarObjectDisplay = ref(settingsStore.editorSettings.sidebarObjectDisplay);
 const sidebarObjectDisplayHelp = ref<"grouped" | "simple" | null>(null);
@@ -3154,8 +3157,21 @@ function onShortcutKeydown(actionId: ShortcutActionId, event: KeyboardEvent) {
     return;
   }
   const definition = SHORTCUT_DEFINITIONS.find((item) => item.id === actionId);
+  if (definition?.supportsModifierDoubleTap) modifierDoubleTapRecorder.handleKeydown(event);
   const shortcut = definition?.inputKind === "modifier-only" ? eventToModifierOnlyShortcut(event) : eventToShortcut(event);
   if (!shortcut) return;
+  commitCapturedShortcut(actionId, shortcut);
+}
+
+function onShortcutKeyup(actionId: ShortcutActionId, event: KeyboardEvent) {
+  if (editingShortcutId.value !== actionId || !shortcutDefinitionById(actionId)?.supportsModifierDoubleTap) return;
+  event.stopPropagation();
+  const shortcut = modifierDoubleTapRecorder.handleKeyup(event);
+  if (shortcut) commitCapturedShortcut(actionId, shortcut);
+}
+
+function commitCapturedShortcut(actionId: ShortcutActionId, shortcut: string) {
+  modifierDoubleTapRecorder.reset();
   // macOS 上 ⌘H/⌥⌘H 由系统保留（Hide / Hide Others），配置层一旦绑定并在
   // CodeMirror 中 preventDefault，AppKit 菜单的 key equivalent 就无法触发
   // （#9068 的配置层复现），故此处输入时直接拒绝。
@@ -3215,6 +3231,7 @@ function cancelShortcutEdit() {
 }
 
 function resetShortcut(actionId: ShortcutActionId) {
+  modifierDoubleTapRecorder.reset();
   const definition = SHORTCUT_DEFINITIONS.find((item) => item.id === actionId);
   if (!definition) return;
   // The static definition default is the macOS literal for a few actions
@@ -3228,6 +3245,7 @@ function resetShortcut(actionId: ShortcutActionId) {
 }
 
 function clearShortcut(actionId: ShortcutActionId) {
+  modifierDoubleTapRecorder.reset();
   editShortcuts.value = { ...editShortcuts.value, [actionId]: "" };
 }
 
@@ -5198,6 +5216,10 @@ watch(
 );
 
 onMounted(() => {
+  window.addEventListener("blur", modifierDoubleTapRecorder.reset);
+  document.addEventListener("visibilitychange", modifierDoubleTapRecorder.reset);
+  window.addEventListener("pointerdown", modifierDoubleTapRecorder.cancel, true);
+  window.addEventListener("compositionstart", modifierDoubleTapRecorder.cancel, true);
   void refreshWebDavPasswordStatus();
   checkLayoutDescTruncation();
   initTruncationObservers();
@@ -5205,6 +5227,11 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("blur", modifierDoubleTapRecorder.reset);
+  document.removeEventListener("visibilitychange", modifierDoubleTapRecorder.reset);
+  window.removeEventListener("pointerdown", modifierDoubleTapRecorder.cancel, true);
+  window.removeEventListener("compositionstart", modifierDoubleTapRecorder.cancel, true);
+  modifierDoubleTapRecorder.reset();
   clearThemePaletteOptionPreview();
   clearUiFontOptionPreview();
   restoreLocaleOptionPreview();
@@ -7309,6 +7336,10 @@ onUnmounted(() => {
                           class="h-7 w-auto min-w-12 max-w-64 shrink-0 cursor-default rounded-[6px] border border-transparent bg-background px-2.5 text-center font-mono text-[13px] font-semibold text-foreground/75 shadow-inner outline-none selection:bg-transparent placeholder:text-muted-foreground aria-invalid:border-destructive/70 aria-invalid:text-destructive aria-invalid:ring-destructive/20"
                           :class="editingShortcutId === definition.id ? 'max-w-64 cursor-text border-border/80 bg-background text-left text-foreground shadow-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/35' : ''"
                           @keydown="(event: KeyboardEvent) => onShortcutKeydown(definition.id, event)"
+                          @keyup="(event: KeyboardEvent) => onShortcutKeyup(definition.id, event)"
+                          @blur="modifierDoubleTapRecorder.reset"
+                          @compositionstart="modifierDoubleTapRecorder.cancel"
+                          :title="definition.supportsModifierDoubleTap ? t('settings.shortcutModifierDoubleTapHint') : undefined"
                         />
                         <Button
                           v-if="editingShortcutId !== definition.id"
@@ -9573,6 +9604,10 @@ onUnmounted(() => {
                                 class="settings-shortcut-pill h-7 w-auto min-w-12 max-w-64 shrink-0 cursor-default rounded-[6px] border border-transparent bg-muted px-2.5 text-center font-mono text-[13px] font-semibold text-foreground/75 shadow-inner outline-none selection:bg-transparent placeholder:text-muted-foreground aria-invalid:border-destructive/55 aria-invalid:text-destructive"
                                 :class="editingShortcutId === definition.id ? 'max-w-64 cursor-text border-border/80 bg-background text-left text-foreground shadow-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/35' : ''"
                                 @keydown="(event: KeyboardEvent) => onShortcutKeydown(definition.id, event)"
+                                @keyup="(event: KeyboardEvent) => onShortcutKeyup(definition.id, event)"
+                                @blur="modifierDoubleTapRecorder.reset"
+                                @compositionstart="modifierDoubleTapRecorder.cancel"
+                                :title="definition.supportsModifierDoubleTap ? t('settings.shortcutModifierDoubleTapHint') : undefined"
                               />
                             </LightTooltip>
                             <Button

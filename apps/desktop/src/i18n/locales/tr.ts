@@ -7919,6 +7919,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} kapsamlar arası aynı tuş ({pairs} yinelenen çift). Her kapsam kendi bileşimini çözer, bu yüzden aynı anda yalnızca biri tetiklenir; yalnızca bilgilendirme amaçlıdır ve uygulamayı engellemez.",
     shortcutConflictBlocksApply: "Aynı kapsamda {count} çakışma var ({pairs} yinelenen çift)",
     shortcutPressShortcut: "Kısayola basın",
+    shortcutModifierDoubleTapHint: "Bir tuş birleşimine basın veya aynı değiştirici tuşa hızla iki kez basıp bırakın (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Kısayollarda ara",
     shortcutSearchNoResults: "Aramanızla eşleşen kısayol yok.",
     shortcutConflict: "Bu kısayol aynı kapsamdaki başka bir eylemle çakışıyor.",

@@ -8018,6 +8018,7 @@ export default withEnglishFallback({
     shortcutCrossScopeSummaryTooltip: "{count} əhatələr arası eyni düymə ({pairs} təkrarlanan cüt). Hər əhatə dairəsi öz kombinasiyasını həll edir, ona görə eyni anda yalnızca biri işə düşür; yalnız məlumat üçündür və tətbiqi maneə törətmir.",
     shortcutConflictBlocksApply: "Eyni əhatə dairəsində {count} toqquşma var ({pairs} təkrarlanan cüt)",
     shortcutPressShortcut: "Qısayol düymələrini bas",
+    shortcutModifierDoubleTapHint: "Düymə kombinasiyasını basın və ya eyni dəyişdirici düyməni sürətlə iki dəfə basıb buraxın (Shift, Cmd, Ctrl, Alt).",
     shortcutSearchPlaceholder: "Qısayolları axtar",
     shortcutSearchNoResults: "Axtarışınıza uyğun qısayol yoxdur.",
     shortcutConflict: "Bu qısayol eyni əhatə dairəsində başqa əməliyyatla ziddiyyət təşkil edir.",
