@@ -2,14 +2,35 @@
 
 Paths in this guide are relative to `.github/`.
 
-`workflows/ci.yml` retains one workflow and one cancellation group. Splitting jobs
-does not change release workflows or branch-protection settings. The existing
+`workflows/ci.yml` retains one workflow. Splitting jobs does not change release
+workflows or branch-protection settings. The existing
 `rust` and `agents` aggregate check names remain; `ci` additionally summarizes all
 selected jobs. None of these gates accepts a failed, cancelled, missing, or
 unexpectedly skipped prerequisite. The gates are guarded by
-`if: always() && !cancelled()`: on a superseded commit a newer push cancels the
-run, and `always()` alone would still execute the gate and report those
-cancellations as a failure of the commit that no longer matters.
+`if: always() && !cancelled()`: on a cancelled run, `always()` alone would still
+execute the gate and report cancelled prerequisites as a failure.
+
+## Contributor concurrency
+
+PRs from anyone other than the repository owner share a main `CI` concurrency
+group keyed by the PR author's stable numeric user ID. Only one run in that
+author's group executes at a time; other authors have independent groups.
+The PR author, not the trigger actor or author association, determines this
+policy, so a maintainer retrigger cannot bypass contributor limits.
+`cancel-in-progress: false` preserves the executing PR, and `queue: max` retains
+up to 100 pending runs rather than replacing earlier pending PRs. Further runs
+beyond that limit are cancelled by GitHub. Updates to the same contributor PR
+also enqueue separate runs; this policy does not deduplicate superseded commits.
+
+The repository owner (`t8y2` here, compared with `github.repository_owner`) is
+exempt from author-level limits. Owner PRs retain one cancellation group per PR,
+so separate owner PRs run independently and a new commit cancels that PR's old
+run. Main pushes retain their independent ref-based cancellation group. These
+paths use `queue: single`, never `queue: max` with in-progress cancellation.
+
+This limits main CI workflow runs, not the runner count inside one selected PR.
+Other PR workflows and all release workflows remain unchanged. Existing runs
+retain their original workflow configuration until a new event uses this policy.
 
 ## Selection
 

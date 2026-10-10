@@ -15,6 +15,59 @@ function job(name, content = workflow) {
   return jobs.slice(definitions[index].index, definitions[index + 1]?.index ?? jobs.length);
 }
 
+function concurrencySettings(github) {
+  const block = workflow.match(/^concurrency:\n((?:  [^\n]+\n)+)/m)?.[1];
+  assert.ok(block, "missing workflow concurrency");
+  const format = (template, value) => template.replace("{0}", String(value));
+  return Object.fromEntries(block.trim().split("\n").map((line) => {
+    const [, setting, value] = line.match(/^\s*([\w-]+):\s*(.+)$/);
+    const evaluate = (expression) => new Function("github", "format", `return (${expression});`)(github, format);
+    const expressions = [...value.matchAll(/\$\{\{\s*(.*?)\s*\}\}/g)];
+    return [setting, expressions.length === 1 && expressions[0][0] === value
+      ? evaluate(expressions[0][1]) : value.replace(/\$\{\{\s*(.*?)\s*\}\}/g, (_, expression) => evaluate(expression))];
+  }));
+}
+
+function concurrencyContext({ authorId = 101, author = "contributor", actor = author, ref = "refs/pull/100/merge", eventName = "pull_request" } = {}) {
+  return { workflow: "CI", repository_owner: "t8y2", actor, ref, event_name: eventName,
+    event: eventName === "pull_request" ? { pull_request: { user: { id: authorId, login: author } } } : {} };
+}
+
+test("a contributor shares one main CI queue across all PRs regardless of trigger actor", () => {
+  const settings = concurrencySettings(concurrencyContext());
+  assert.deepEqual(settings, { group: "CI-pr-author-101", "cancel-in-progress": false, queue: "max" });
+  for (const context of [concurrencyContext({ ref: "refs/pull/200/merge" }), concurrencyContext({ actor: "t8y2" }),
+    concurrencyContext({ actor: "github-actions[bot]" }), concurrencyContext({ author: "renamed-contributor" })]) {
+    assert.deepEqual(concurrencySettings(context), settings);
+  }
+  assert.notEqual(concurrencySettings(concurrencyContext({ authorId: 102, author: "another-contributor" })).group, settings.group);
+});
+
+test("repository-owner PRs remain independent and superseded runs are cancelled only within a PR", () => {
+  const first = concurrencySettings(concurrencyContext({ authorId: 1, author: "t8y2" }));
+  const second = concurrencySettings(concurrencyContext({ authorId: 1, author: "t8y2", ref: "refs/pull/200/merge" }));
+  assert.deepEqual(first, { group: "CI-refs/pull/100/merge", "cancel-in-progress": true, queue: "single" });
+  assert.notEqual(first.group, second.group);
+  assert.deepEqual(concurrencySettings(concurrencyContext({ authorId: 1, author: "t8y2", actor: "another-contributor" })), first);
+});
+
+test("main pushes retain their independent cancellation group without PR context", () => {
+  const main = concurrencySettings(concurrencyContext({ eventName: "push", ref: "refs/heads/main", actor: "github-actions[bot]" }));
+  assert.deepEqual(main, { group: "CI-refs/heads/main", "cancel-in-progress": true, queue: "single" });
+  assert.notEqual(main.group, concurrencySettings(concurrencyContext()).group);
+});
+
+test("expanded author queues never combine max queuing with in-progress cancellation", () => {
+  for (const context of [concurrencyContext(), concurrencyContext({ author: "t8y2" }),
+    concurrencyContext({ eventName: "push", ref: "refs/heads/main" })]) {
+    const settings = concurrencySettings(context);
+    assert.ok(settings.queue === "single" || settings.queue === "max");
+    assert.equal(settings.queue === "max" && settings["cancel-in-progress"], false);
+  }
+  const concurrency = workflow.match(/^concurrency:\n((?:  [^\n]+\n)+)/m)[1];
+  assert.doesNotMatch(concurrency, /github\.actor|author_association/);
+});
+
 test("fast checks run format and contracts before graph resolution or compilation", () => {
   const fast = job("fast-checks");
   for (const command of ["cargo fmt --check", "node --test scripts/core-architecture.test.mjs", "node scripts/sync-connection-types.mjs --check", "node .github/scripts/ci-lockfiles.mjs", "node .github/scripts/ci-rust-coverage.mjs"]) assert.ok(fast.includes(command));
@@ -295,7 +348,7 @@ test("Win7 TLS cache keys ignore the workspace lockfile", () => {
   assert.doesNotMatch(win7, /key: win7-(?:aws-lc|openssl).*hashFiles\('Cargo\.lock'/);
 });
 
-test("path filtering and the planner use the exact test merge first parent and preserve cancellation scope", () => {
+test("path filtering and the planner use the exact test merge first parent", () => {
   const changes = job("changes");
   assert.ok(changes.includes("BEFORE_SHA: ${{ github.event.before }}"));
   assert.ok(changes.includes('BASE_SHA="$(node .github/scripts/ci-change-base.mjs)"'));
@@ -312,6 +365,4 @@ test("path filtering and the planner use the exact test merge first parent and p
     assert.ok(changes.includes(`steps.plan.outputs.${flag}`));
   }
   assert.doesNotMatch(changes, /steps\.filter\.outputs\.windows_win7_bundle|github\.event\.pull_request\.base\.sha|WIN7_CURRENT/);
-  assert.ok(workflow.includes("group: ${{ github.workflow }}-${{ github.ref }}"));
-  assert.ok(workflow.includes("cancel-in-progress: true"));
 });
