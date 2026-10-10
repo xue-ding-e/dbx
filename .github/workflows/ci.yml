@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+    # ready_for_review is required: heavy jobs are skipped while a PR is a
+    # draft, so flipping to ready must re-trigger the full CI.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -92,7 +95,7 @@ jobs:
 
   frontend-test:
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     env:
       NPM_CONFIG_LOGLEVEL: error
@@ -164,7 +167,7 @@ jobs:
 
   packages:
     needs: changes
-    if: needs.changes.outputs.packages == 'true'
+    if: needs.changes.outputs.packages == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     env:
       # Unsupported-platform package warnings are expected while validating cross-platform package metadata.
@@ -287,7 +290,7 @@ jobs:
 
   windows-standard-check:
     needs: changes
-    if: needs.changes.outputs.windows_win7_bundle == 'true'
+    if: needs.changes.outputs.windows_win7_bundle == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: windows-2022
     timeout-minutes: 45
     env:
@@ -316,7 +319,7 @@ jobs:
 
   windows-win7-bundle:
     needs: changes
-    if: needs.changes.outputs.windows_win7_bundle == 'true'
+    if: needs.changes.outputs.windows_win7_bundle == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: windows-2022
     timeout-minutes: 120
     env:
@@ -706,7 +709,7 @@ jobs:
 
   duckdb-windows-driver:
     needs: changes
-    if: needs.changes.outputs.duckdb_windows == 'true'
+    if: needs.changes.outputs.duckdb_windows == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: windows-2022
     timeout-minutes: 60
     env:
@@ -855,7 +858,7 @@ jobs:
     needs:
       - changes
       - fast-checks
-    if: needs.changes.outputs.rust == 'true'
+    if: needs.changes.outputs.rust == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     env:
       # sccache cannot reuse Cargo incremental artifacts, so avoid generating them in CI.
@@ -994,7 +997,7 @@ jobs:
 
   jdbc:
     needs: changes
-    if: needs.changes.outputs.jdbc == 'true'
+    if: needs.changes.outputs.jdbc == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -1022,7 +1025,7 @@ jobs:
 
   offline-jdbc-release:
     needs: changes
-    if: needs.changes.outputs.offline_jdbc == 'true'
+    if: needs.changes.outputs.offline_jdbc == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -1062,7 +1065,7 @@ jobs:
 
   nix-packaging:
     needs: changes
-    if: needs.changes.outputs.nix == 'true'
+    if: needs.changes.outputs.nix == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
@@ -1102,6 +1105,9 @@ jobs:
       agent_rust_changed: ${{ steps.plan.outputs.agent_rust_changed }}
       agent_integration_changed: ${{ steps.plan.outputs.agent_integration_changed }}
       plan: ${{ steps.plan.outputs.plan }}
+      # True only for pull_request events on draft PRs; heavy jobs skip and
+      # ci-gate.mjs must not demand them until ready_for_review re-triggers.
+      draft: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -1332,7 +1338,7 @@ jobs:
         run: python3 scripts/validate_agents.py
   agent-java:
     needs: [changes, fast-checks, agent-checks]
-    if: needs.changes.outputs.agent_java == 'true'
+    if: needs.changes.outputs.agent_java == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -1360,7 +1366,7 @@ jobs:
         run: python3 scripts/validate_agent_jars.py
   agent-rust:
     needs: [changes, fast-checks, agent-checks]
-    if: needs.changes.outputs.agent_rust_changed == 'true'
+    if: needs.changes.outputs.agent_rust_changed == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     env:
       # sccache cannot reuse Cargo incremental artifacts, so avoid generating them in CI.
@@ -1472,7 +1478,7 @@ jobs:
       matrix: ${{ fromJSON(needs.changes.outputs.agent_rust) }}
   agent-go:
     needs: [changes, fast-checks, agent-checks]
-    if: needs.changes.outputs.agent_go_changed == 'true'
+    if: needs.changes.outputs.agent_go_changed == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -1496,7 +1502,7 @@ jobs:
       matrix: ${{ fromJSON(needs.changes.outputs.agent_go) }}
   agent-integration:
     needs: [changes, fast-checks, agent-checks]
-    if: needs.changes.outputs.agent_integration_changed == 'true'
+    if: needs.changes.outputs.agent_integration_changed == 'true' && needs.changes.outputs.draft != 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
