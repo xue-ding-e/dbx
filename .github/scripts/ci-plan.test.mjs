@@ -58,6 +58,18 @@ const routedJobs = { frontend: "frontend", packages: "packages", "github-scripts
   "windows-standard-check": "windows_win7_bundle", "windows-win7-bundle": "windows_win7_bundle",
   "duckdb-windows-driver": "duckdb_windows", jdbc: "jdbc", "offline-jdbc-release": "offline_jdbc", "nix-packaging": "nix" };
 
+test("only an exact contributor snapshot diff skips desktop frontend validation", () => {
+  for (const eventName of ["pull_request", "push"]) {
+    assert.equal(plan(["docs/data/contributors.json"], { eventName }).contributor_snapshot_only, true);
+    for (const files of [null, [], ["docs/lib/contributorActivity.test.ts"],
+      ["docs/data/contributors.json", "apps/desktop/src/main.ts"],
+      ["docs/data/contributors.json", "docs/lib/contributorActivity.ts"],
+      ["docs/data/contributors.json", "Cargo.lock"]]) {
+      assert.equal(plan(files, { eventName }).contributor_snapshot_only, false);
+    }
+  }
+});
+
 test("foundation changes select transitive consumers and standalone DuckDB", () => {
   const result = plan(["crates/dbx-types/src/lib.rs"]);
   assert.deepEqual(groups(result), ["foundation", "drivers", "application"]);

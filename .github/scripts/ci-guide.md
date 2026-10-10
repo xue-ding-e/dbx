@@ -35,7 +35,24 @@ whose development dependency is `dbx-core`.
   Windows DuckDB packaging is selected by its own inputs or shared build/lock
   changes, not every change to its development dependency's source.
 - Existing frontend, package, Windows, JDBC, offline-payload and Nix jobs retain
-  their commands and path filters.
+  their commands and path filters, except for the snapshot-only routing below.
+
+Contributor snapshots refresh weekly, at 02:00 Monday in Asia/Shanghai, and can
+still be refreshed manually. An unchanged snapshot keeps its existing timestamp
+and creates no commit. A diff containing only `docs/data/contributors.json` skips
+desktop frontend validation, but the docs deployment still rebuilds the site.
+Mixed diffs and unavailable diffs keep the existing validation routing.
+
+When `fast-checks` is selected, it owns the CI planner and gate tests before
+expensive dependent jobs start. `github-scripts` omits that subset in these runs,
+but runs every GitHub script test when the fast-check lane is not selected.
+
+Issue command and spam jobs reject irrelevant comments before allocating a
+runner. Their existing command parser and malicious-link matcher remain the
+authoritative checks. PR notification triggers are commented out; release
+notifications in the publishing workflow are unchanged. Plugin development
+host lint and formatting run once on Linux before the Linux, macOS and Windows
+runtime, Rust and package checks; cross-platform coverage is unchanged.
 
 Changes to the planner itself select the broad checks. Missing/invalid planning
 data fails the aggregate gates rather than producing a successful skip.

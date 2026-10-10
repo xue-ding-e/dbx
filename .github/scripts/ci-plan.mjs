@@ -128,6 +128,7 @@ export function planCi({ files, metadata, root, eventName = "pull_request", rust
   const java = allAgents || javaDriverChanges;
   const agents = agentsChanged || sharedAgents || nativeChanges.size > 0 || javaDriverChanges;
   return {
+    contributor_snapshot_only: files.length > 0 && files.every((file) => file === "docs/data/contributors.json"),
     rust, rust_full: full, rust_matrix: { include: rustMatrix }, rust_groups_known: !unknownMember,
     affected_packages: [...affected].sort(),
     agents, agent_java: java, agent_go: { include: goMatrix }, agent_rust: { include: nativeRustMatrix },

@@ -159,7 +159,17 @@ jobs:
           node-version: 22.13.0
 
       - name: GitHub script tests
-        run: node --test .github/scripts/*.test.mjs
+        env:
+          FAST_CHECKS: ${{ needs.changes.outputs.fast }}
+        run: |
+          tests=()
+          for file in .github/scripts/*.test.mjs; do
+            if [[ "$FAST_CHECKS" == true && "${file##*/}" == ci-* ]]; then
+              continue
+            fi
+            tests+=("$file")
+          done
+          node --test "${tests[@]}"
 
       - name: Docker mirror config tests
         run: python3 .github/scripts/configure-docker-mirror.test.py
@@ -1093,7 +1103,7 @@ jobs:
   changes:
     runs-on: ubuntu-24.04
     outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
+      frontend: ${{ steps.filter.outputs.frontend == 'true' && steps.plan.outputs.contributor_snapshot_only != 'true' }}
       packages: ${{ steps.filter.outputs.packages }}
       rust: ${{ steps.plan.outputs.rust }}
       rust_full: ${{ steps.plan.outputs.rust_full }}
@@ -1252,7 +1262,14 @@ jobs:
               - 'vendor/wry/**'
             github_scripts:
               - '.github/scripts/**'
+              - 'docs/scripts/contributor-snapshot.mjs'
+              - 'docs/scripts/update-contributors.mjs'
               - 'docs/public/install-mcp*'
+              - '.github/workflows/contributors.yml'
+              - '.github/workflows/issue-claim.yml'
+              - '.github/workflows/notify.yml'
+              - '.github/workflows/plugin-dev-host.yml'
+              - '.github/workflows/spam-comment-guard.yml'
               - '.github/workflows/mcp-release.yml'
               - '.github/workflows/publish-packages.yml'
               - '.github/workflows/plugin-release-reusable.yml'

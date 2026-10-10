@@ -23,6 +23,25 @@ test("fast checks run format and contracts before graph resolution or compilatio
   assert.ok(fast.includes("needs.changes.outputs.rust_groups_known == 'true'"));
 });
 
+test("fast checks retain ownership of the planner subset before expensive jobs", () => {
+  assert.match(job("github-scripts"), /FAST_CHECKS: \$\{\{ needs\.changes\.outputs\.fast \}\}/);
+  assert.match(job("github-scripts"), /for file in \.github\/scripts\/\*\.test\.mjs/);
+  assert.match(job("fast-checks"), /name: CI planner and gate tests\s+run: node --test \.github\/scripts\/ci-\*\.test\.mjs/);
+});
+
+test("contributor snapshot routing preserves docs deployment and mixed frontend validation", () => {
+  assert.ok(job("changes").includes("frontend: ${{ steps.filter.outputs.frontend == 'true' && steps.plan.outputs.contributor_snapshot_only != 'true' }}"));
+  assert.match(job("changes"), /frontend:\s+- 'apps\/desktop\/\*\*'\s+- 'docs\/\*\*'/);
+  const docsWorkflow = readFileSync(new URL("../workflows/docs.yml", import.meta.url), "utf8");
+  assert.match(docsWorkflow, /paths: \["docs\/\*\*"\]/);
+  for (const file of ["contributors", "issue-claim", "notify", "plugin-dev-host", "spam-comment-guard"]) {
+    assert.ok(job("changes").includes(`- '.github/workflows/${file}.yml'`));
+  }
+  for (const file of ["contributor-snapshot", "update-contributors"]) {
+    assert.ok(job("changes").includes(`- 'docs/scripts/${file}.mjs'`));
+  }
+});
+
 test("Agent and Rust matrices are bounded and do not cancel sibling failures", () => {
   for (const [name, output, parallel] of [
     ["rust-test", "rust_matrix", 3],
