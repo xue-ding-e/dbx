@@ -2603,6 +2603,7 @@ export default withEnglishFallback({
     generateEmptyString: "String Kosong",
     generateNull: "NULL",
     generateCurrentDatetime: "Datetime Saat Ini",
+    generateCurrentDatetimeMilliseconds: "Datetime Saat Ini (Milidetik)",
     generateCurrentDate: "Tanggal Saat Ini",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",

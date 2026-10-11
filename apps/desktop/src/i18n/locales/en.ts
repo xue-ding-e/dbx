@@ -2769,6 +2769,7 @@ export default {
     generateEmptyString: "Empty String",
     generateNull: "NULL",
     generateCurrentDatetime: "Current Datetime",
+    generateCurrentDatetimeMilliseconds: "Current Datetime (Milliseconds)",
     generateCurrentDate: "Current Date",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",

@@ -2483,6 +2483,7 @@ export default withEnglishFallback({
     generateEmptyString: "Stringa vuota",
     generateNull: "NULL",
     generateCurrentDatetime: "Data e ora correnti",
+    generateCurrentDatetimeMilliseconds: "Data e ora correnti (millisecondi)",
     generateCurrentDate: "Data corrente",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
