@@ -117,6 +117,7 @@ import { restoreGlobalNavigationEntry } from "@/lib/navigation/globalNavigationE
 import {
   isBrowserReloadShortcut,
   isBrowserTaskManagerShortcut,
+  isCloseAllTabsShortcut,
   isCloseOtherTabsShortcut,
   isCloseTabShortcut,
   isCloseWindowShortcut,
@@ -4358,6 +4359,12 @@ async function handleKeydown(e: KeyboardEvent) {
     e.preventDefault();
     e.stopPropagation();
     appTabBarRef.value?.closeOtherActiveTabs();
+    return;
+  }
+  if (isCloseAllTabsShortcut(e, shortcuts)) {
+    e.preventDefault();
+    e.stopPropagation();
+    appTabBarRef.value?.closeAllTabs();
     return;
   }
   if (isDisconnectAllActiveConnectionsShortcut(e, shortcuts)) {
