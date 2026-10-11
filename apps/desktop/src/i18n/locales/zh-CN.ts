@@ -2110,6 +2110,8 @@ export default withEnglishFallback({
     rows: "{count} 行",
     totalRows: "共 {count} 行",
     loadedRows: "已加载 {count} 行",
+    copyPartialRowsHintWithTotal: "已复制已加载的 {loaded} 行（结果集共 {total} 行，尚未加载全部数据）",
+    copyPartialRowsHint: "已复制已加载的 {loaded} 行（结果集尚未加载全部数据）",
     totalRowCount: "（总计 {count} 行）",
     totalRowCountWithAction: "（{button}总计 {count} 行）",
     totalRowCountAtLeast: "（至少 {count} 行）",

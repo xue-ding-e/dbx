@@ -2015,6 +2015,8 @@ export default withEnglishFallback({
     rows: "{count} baris",
     totalRows: "Total {count} baris",
     loadedRows: "{count} baris dimuat",
+    copyPartialRowsHintWithTotal: "Mengcopy {loaded} baris yang dimuat (total {total} baris; hasil belum dimuat seluruhnya)",
+    copyPartialRowsHint: "Mengcopy {loaded} baris yang dimuat (hasil belum dimuat seluruhnya)",
     totalRowCount: "({count} total)",
     totalRowCountWithAction: "({button}{count} total)",
     totalRowCountAtLeast: "(minimal {count} total)",

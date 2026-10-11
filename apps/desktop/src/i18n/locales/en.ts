@@ -2174,6 +2174,8 @@ export default {
     rows: "{count} rows",
     totalRows: "Total {count} rows",
     loadedRows: "Loaded {count} rows",
+    copyPartialRowsHintWithTotal: "Copied the {loaded} loaded rows ({total} rows in total — the result set is not fully loaded)",
+    copyPartialRowsHint: "Copied the {loaded} loaded rows (the result set is not fully loaded)",
     totalRowCount: "({count} total)",
     totalRowCountWithAction: "({button}{count} total)",
     totalRowCountAtLeast: "(at least {count} total)",

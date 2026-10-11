@@ -8794,6 +8794,15 @@ const {
   fullExportResult: props.fullExportResult,
   queryResultExportRequest: props.queryResultExportRequest,
   hasCompleteLocalResult,
+  partialLoadCopyInfo: computed(() =>
+    hasCompleteLocalResult.value
+      ? null
+      : {
+          loadedRows: props.result.rows.length,
+          totalRows: typeof displayedTotalRowCount.value === "number" ? displayedTotalRowCount.value : null,
+          hasMore: props.result.has_more === true || props.result.truncated === true,
+        },
+  ),
   completeLocalResult: computed(() => (hasCompleteLocalResult.value ? props.result : undefined)),
   allExportResults: computed(() => props.allExportResults),
   currentResultLabel: computed(() => props.result.sourceLabel),

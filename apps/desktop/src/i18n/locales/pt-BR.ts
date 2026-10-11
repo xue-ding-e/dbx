@@ -2026,6 +2026,8 @@ export default withEnglishFallback({
     rows: "{count} linhas",
     totalRows: "Total de {count} linhas",
     loadedRows: "{count} linhas carregadas",
+    copyPartialRowsHintWithTotal: "Copiadas as {loaded} linhas carregadas ({total} linhas no total; o resultado não está totalmente carregado)",
+    copyPartialRowsHint: "Copiadas as {loaded} linhas carregadas (o resultado não está totalmente carregado)",
     totalRowCount: "({count} no total)",
     totalRowCountWithAction: "({button}{count} no total)",
     totalRowCountAtLeast: "(pelo menos {count} no total)",

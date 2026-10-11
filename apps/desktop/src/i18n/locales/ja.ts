@@ -2045,6 +2045,8 @@ export default withEnglishFallback({
     rows: "{count}行",
     totalRows: "{count}件表示",
     loadedRows: "{count}件読み込み済み",
+    copyPartialRowsHintWithTotal: "読み込み済みの {loaded} 行をコピーしました（結果セットは全 {total} 行、未読み込みのデータがあります）",
+    copyPartialRowsHint: "読み込み済みの {loaded} 行をコピーしました（結果セットはまだ全件読み込まれていません）",
     totalRowCount: "（全{count}件）",
     totalRowCountWithAction: "（{button}全{count}件）",
     totalRowCountAtLeast: "（少なくとも{count}件）",

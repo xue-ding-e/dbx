@@ -2021,6 +2021,8 @@ export default withEnglishFallback({
     rows: "{count}행",
     totalRows: "전체 {count}행",
     loadedRows: "{count}행 로드됨",
+    copyPartialRowsHintWithTotal: "로드된 {loaded}행을 복사했습니다(총 {total}행 중, 아직 전체를 로드하지 않음)",
+    copyPartialRowsHint: "로드된 {loaded}행을 복사했습니다(결과 집합이 아직 전체 로드되지 않았습니다)",
     totalRowCount: "(전체 {count})",
     totalRowCountWithAction: "({button}전체 {count})",
     totalRowCountAtLeast: "(최소 {count})",
