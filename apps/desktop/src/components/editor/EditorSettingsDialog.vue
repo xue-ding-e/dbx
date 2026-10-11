@@ -225,6 +225,7 @@ import LightTooltip from "@/components/ui/LightTooltip.vue";
 import { formatShortcutDisplay } from "@/lib/editor/shortcutDisplay";
 import { COLUMN_NAME_COPY_SEPARATOR_LABELS, COLUMN_NAME_COPY_SEPARATOR_OPTIONS, isColumnNameCopySeparator, type ColumnNameCopySeparator } from "@/lib/dataGrid/dataGridColumnNameCopy";
 import { normalizeSidebarHiddenTablePrefixes } from "@/lib/sidebar/sidebarTableNameDisplay";
+import { normalizeExcludedCompletionItems } from "@/lib/editor/excludedCompletions";
 import { normalizeRedisKeyTemplates } from "@/lib/redis/redisKeyTemplates";
 import { REDIS_DATABASE_DISPLAY_LIMIT_MIN, REDIS_DATABASE_DISPLAY_LIMIT_MAX, REDIS_DATABASE_DISPLAY_LIMIT_OPTIONS } from "@/lib/redis/redisDatabaseAlias";
 import { currentStatementFrameRangeTo } from "@/lib/sql/currentStatementFrame";
@@ -724,6 +725,7 @@ const showSqlServerSpaceConfirmsCompletion = computed(() => hasSqlServerConnecti
 const editSortCompletionColumnsAlphabetically = ref(settingsStore.editorSettings.sortCompletionColumnsAlphabetically);
 const editSelectFirstCompletionOnOpen = ref(settingsStore.editorSettings.selectFirstCompletionOnOpen);
 const editCompletionTriggerMode = ref<SqlCompletionTriggerMode>(settingsStore.editorSettings.completionTriggerMode);
+const editExcludedCompletionItems = ref(settingsStore.editorSettings.excludedCompletionItems.join("\n"));
 const completionTriggerModeDescription = computed(() => {
   const key = {
     manual: "settings.completionTriggerModeManualDescription",
@@ -1121,6 +1123,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     sortCompletionColumnsAlphabetically: editSortCompletionColumnsAlphabetically.value,
     selectFirstCompletionOnOpen: editSelectFirstCompletionOnOpen.value,
     completionTriggerMode: editCompletionTriggerMode.value,
+    excludedCompletionItems: normalizeExcludedCompletionItems(editExcludedCompletionItems.value),
     wordWrap: editWordWrap.value,
     showWhitespace: editShowWhitespace.value,
     ddlOpenMode: editDdlOpenMode.value,
@@ -1807,6 +1810,7 @@ function syncEditorSettingsDraftFromStore() {
   editSortCompletionColumnsAlphabetically.value = settingsStore.editorSettings.sortCompletionColumnsAlphabetically;
   editSelectFirstCompletionOnOpen.value = settingsStore.editorSettings.selectFirstCompletionOnOpen;
   editCompletionTriggerMode.value = settingsStore.editorSettings.completionTriggerMode;
+  editExcludedCompletionItems.value = settingsStore.editorSettings.excludedCompletionItems.join("\n");
   editWordWrap.value = settingsStore.editorSettings.wordWrap;
   editShowWhitespace.value = settingsStore.editorSettings.showWhitespace;
   editDdlOpenMode.value = settingsStore.editorSettings.ddlOpenMode;
@@ -2096,6 +2100,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   continueOnErrorOnBatch: editContinueOnErrorOnBatch,
   clickTableNavigationTarget: editClickTableNavigationTarget,
   completionTriggerMode: editCompletionTriggerMode,
+  excludedCompletionItems: editExcludedCompletionItems,
   defaultTransactionMode: editDefaultTransactionMode,
   keepExplicitTransactionInAutoCommit: editKeepExplicitTransactionInAutoCommit,
   tableColumnTemplateFields: editTableColumnTemplateRows,
@@ -2111,6 +2116,7 @@ function applyEditorSettingsKeysToRefs(draft: EditorSettingsDraft, keys: readonl
     shortcuts: (value) => normalizeShortcutSettings(value as Parameters<typeof normalizeShortcutSettings>[0]),
     sqlFormatter: (value) => normalizeSqlFormatterSettings(value as SqlFormatterSettings),
     sidebarHiddenTablePrefixes: (value) => (value as string[]).join("\n"),
+    excludedCompletionItems: (value) => (value as string[]).join("\n"),
     redisKeyTemplates: (value) => normalizeRedisKeyTemplates(value as string[]).join("\n"),
     toolbarItems: (value) => ({ ...(value as EditorSettings["toolbarItems"]) }),
     snippets: (value) => (value as SqlSnippet[]).map(editableSnippet),
@@ -2530,6 +2536,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editSortCompletionColumnsAlphabetically.value = DEFAULT_EDITOR_SETTINGS.sortCompletionColumnsAlphabetically;
     editSelectFirstCompletionOnOpen.value = DEFAULT_EDITOR_SETTINGS.selectFirstCompletionOnOpen;
     editCompletionTriggerMode.value = DEFAULT_EDITOR_SETTINGS.completionTriggerMode;
+    editExcludedCompletionItems.value = DEFAULT_EDITOR_SETTINGS.excludedCompletionItems.join("\n");
     editWordWrap.value = DEFAULT_EDITOR_SETTINGS.wordWrap;
     editShowWhitespace.value = DEFAULT_EDITOR_SETTINGS.showWhitespace;
     editDdlOpenMode.value = DEFAULT_EDITOR_SETTINGS.ddlOpenMode;
@@ -6970,6 +6977,19 @@ onUnmounted(() => {
                       <SelectItem value="positional">{{ t("settings.completionTriggerModePositional") }}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div class="space-y-2 md:col-span-2" data-editor-excluded-completion-items>
+                  <Label for="editor-excluded-completion-items">{{ t("settings.excludedCompletionItems") }}</Label>
+                  <textarea
+                    id="editor-excluded-completion-items"
+                    v-model="editExcludedCompletionItems"
+                    class="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    :placeholder="t('settings.excludedCompletionItemsPlaceholder')"
+                  />
+                  <p class="text-xs text-muted-foreground">
+                    {{ t("settings.excludedCompletionItemsDescription") }}
+                  </p>
                 </div>
 
                 <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
