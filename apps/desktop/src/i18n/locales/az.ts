@@ -2951,7 +2951,7 @@ export default withEnglishFallback({
     astraflowSponsored: "¥50 pulsuz kredit",
     hiapiSponsored: "200 pulsuz Credits",
     hiapiDescription:
-      "HiAPI; şəkil, video, səs və mətn modelləri üçün tərtibatçı yönümlü API platformasıdır. Mətn modelləri OpenAI ilə uyğun uç nöqtələrdən istifadə edir, Remote MCP və Agent Skills isə eyni hesabı Claude Code, Cursor və digər kodlaşdırma agentlərinə qoşur.\n🎁 Yeni istifadəçilər qeydiyyatda 200 Credits, ilk dolduruşda isə 12%-ə qədər əlavə Credits qazanır.",
+      "HiAPI; şəkil, video, səs və mətn modelləri üçün tərtibatçı yönümlü API platformasıdır. Mətn modelləri OpenAI ilə uyğun uç nöqtələrdən istifadə edir, Remote MCP və Agent Skills isə eyni hesabı Claude Code, Cursor və digər kodlaşdırma agentlərinə qoşur.\n🎁 Yeni istifadəçilər qeydiyyatda 200 Credits, dolduruşlarda isə 10% əlavə Credits qazanır.",
     visitPartner: "Tərəfdaşın saytına keç",
     getApiKey: "API açarı əldə et",
     defaultModel: "Standart model",

@@ -3307,7 +3307,7 @@ export default withEnglishFallback({
     astraflowSponsored: "50 юаней бесплатного кредита",
     hiapiSponsored: "200 Credits в подарок",
     hiapiDescription:
-      "HiAPI — платформа API для разработчиков: модели изображений, видео, аудио и текста. Текстовые модели используют OpenAI-совместимые эндпоинты, а Remote MCP и Agent Skills подключают аккаунт к Claude Code, Cursor и другим агентам.\n🎁 Новым пользователям — 200 Credits при регистрации и до 12% дополнительных Credits при первом пополнении.",
+      "HiAPI — платформа API для разработчиков: модели изображений, видео, аудио и текста. Текстовые модели используют OpenAI-совместимые эндпоинты, а Remote MCP и Agent Skills подключают аккаунт к Claude Code, Cursor и другим агентам.\n🎁 Новым пользователям — 200 Credits при регистрации и 10% дополнительных Credits при пополнении.",
     visitPartner: "Посетить сайт партнёра",
     getApiKey: "Получить ключ API",
     defaultModel: "Модель по умолчанию",

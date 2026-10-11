@@ -3252,7 +3252,7 @@ export default withEnglishFallback({
     astraflowSponsored: "Kredit gratis ¥50",
     hiapiSponsored: "200 Credits gratis",
     hiapiDescription:
-      "HiAPI adalah platform API untuk developer dengan model gambar, video, audio, dan teks; model teks menggunakan endpoint yang kompatibel dengan OpenAI, sementara Remote MCP dan Agent Skills menghubungkan akun yang sama ke Claude Code, Cursor, dan agen coding lainnya.\n🎁 Pengguna baru mendapat 200 Credits saat mendaftar dan hingga 12% Credits ekstra pada top-up pertama.",
+      "HiAPI adalah platform API untuk developer dengan model gambar, video, audio, dan teks; model teks menggunakan endpoint yang kompatibel dengan OpenAI, sementara Remote MCP dan Agent Skills menghubungkan akun yang sama ke Claude Code, Cursor, dan agen coding lainnya.\n🎁 Pengguna baru mendapat 200 Credits saat mendaftar dan 10% Credits ekstra pada setiap top-up.",
     visitPartner: "Kunjungi situs web mitra",
     getApiKey: "Dapatkan API key",
     defaultModel: "Model Default",

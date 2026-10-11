@@ -3154,7 +3154,7 @@ export default withEnglishFallback({
     astraflowSponsored: "50위안 무료 크레딧",
     hiapiSponsored: "가입 시 200 Credits 증정",
     hiapiDescription:
-      "HiAPI는 이미지·비디오·오디오·텍스트 모델을 위한 개발자 중심 API 플랫폼입니다. 텍스트 모델은 OpenAI 호환 엔드포인트를 제공하며, Remote MCP와 Agent Skills로 Claude Code, Cursor 등 코딩 에이전트에 연결할 수 있습니다.\n🎁 신규 가입 시 200 Credits를 증정하고, 첫 충전 시 최대 12% 추가 Credits를 제공합니다.",
+      "HiAPI는 이미지·비디오·오디오·텍스트 모델을 위한 개발자 중심 API 플랫폼입니다. 텍스트 모델은 OpenAI 호환 엔드포인트를 제공하며, Remote MCP와 Agent Skills로 Claude Code, Cursor 등 코딩 에이전트에 연결할 수 있습니다.\n🎁 신규 가입 시 200 Credits를 증정하고, 충전 시 10% 추가 Credits를 제공합니다.",
     visitPartner: "파트너 웹사이트 방문",
     getApiKey: "API 키 받기",
     defaultModel: "기본 모델",

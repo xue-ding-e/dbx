@@ -3351,7 +3351,7 @@ export default withEnglishFallback({
     astraflowSponsored: "¥50 de crédito gratis",
     hiapiSponsored: "200 Credits gratis",
     hiapiDescription:
-      "HiAPI es una plataforma de API para desarrolladores con modelos de imagen, vídeo, audio y texto; los modelos de texto usan endpoints compatibles con OpenAI, y Remote MCP y Agent Skills conectan la cuenta a Claude Code, Cursor y otros agentes de código.\n🎁 Los nuevos usuarios reciben 200 Credits al registrarse y hasta un 12% de Credits extra en la primera recarga.",
+      "HiAPI es una plataforma de API para desarrolladores con modelos de imagen, vídeo, audio y texto; los modelos de texto usan endpoints compatibles con OpenAI, y Remote MCP y Agent Skills conectan la cuenta a Claude Code, Cursor y otros agentes de código.\n🎁 Los nuevos usuarios reciben 200 Credits al registrarse y un 10% de Credits extra en las recargas.",
     visitPartner: "Visitar el sitio web del socio",
     getApiKey: "Obtener clave API",
     defaultModel: "Modelo predeterminado",

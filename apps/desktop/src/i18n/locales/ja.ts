@@ -3226,7 +3226,7 @@ export default withEnglishFallback({
     astraflowSponsored: "50元無料クレジット",
     hiapiSponsored: "登録で200 Credits進呈",
     hiapiDescription:
-      "HiAPI は画像・動画・音声・テキストモデル向けの開発者向け API プラットフォームです。テキストモデルは OpenAI 互換エンドポイントを提供し、Remote MCP と Agent Skills で Claude Code や Cursor などのコーディングエージェントに接続できます。\n🎁 新規登録で 200 Credits を進呈、初回チャージで最大 12% の Credits を追加プレゼント。",
+      "HiAPI は画像・動画・音声・テキストモデル向けの開発者向け API プラットフォームです。テキストモデルは OpenAI 互換エンドポイントを提供し、Remote MCP と Agent Skills で Claude Code や Cursor などのコーディングエージェントに接続できます。\n🎁 新規登録で 200 Credits を進呈、チャージで 10% の Credits を追加プレゼント。",
     visitPartner: "パートナーサイトを開く",
     getApiKey: "APIキーを取得",
     defaultModel: "デフォルトモデル",

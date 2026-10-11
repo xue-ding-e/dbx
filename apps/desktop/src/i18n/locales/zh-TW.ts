@@ -3207,7 +3207,7 @@ export default withEnglishFallback({
     astraflowDescription: "UCloud 優刻得旗下星圖 AstraFlow 大模型平台，一個 API Key 即可呼叫 200+ 主流大模型，相容 OpenAI API。",
     astraflowSponsored: "50 元免費額度",
     hiapiSponsored: "註冊送 200 Credits",
-    hiapiDescription: "HiAPI 是面向開發者的圖片、影片、音訊及文字模型 API 平台，文字模型提供 OpenAI 相容介面，Remote MCP 和 Agent Skills 可接入 Claude Code、Cursor 等 AI 編程工具。\n🎁 新用戶註冊贈送 200 Credits，首次儲值最高加贈 12% 積分。",
+    hiapiDescription: "HiAPI 是面向開發者的圖片、影片、音訊及文字模型 API 平台，文字模型提供 OpenAI 相容介面，Remote MCP 和 Agent Skills 可接入 Claude Code、Cursor 等 AI 編程工具。\n🎁 新用戶註冊贈送 200 Credits，儲值送 10% 積分。",
     visitPartner: "前往合作夥伴網站",
     getApiKey: "取得 API Key",
     defaultModel: "預設模型",
