@@ -2103,6 +2103,7 @@ defineExpose({
                           class="group/result-run inline-flex h-7 shrink-0 select-none items-center overflow-hidden rounded-md border transition-colors"
                           :class="run.active ? 'border-border bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/70 hover:text-foreground'"
                           @contextmenu="onContextMenu"
+                          @mousedown.middle.stop.prevent="removeResultRun(run.id)"
                         >
                           <button
                             type="button"
@@ -2114,6 +2115,7 @@ defineExpose({
                             class="flex h-full select-none items-center gap-1 whitespace-nowrap pl-2.5 pr-1 text-xs font-medium outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
                             @click="selectResultRunFromTab(run.id)"
                             @keydown="onResultRunTabKeydown($event, runIndex)"
+                            @mousedown.middle.stop.prevent="removeResultRun(run.id)"
                           >
                             <Pin v-if="run.pinned" class="h-3 w-3 shrink-0 fill-current text-primary" />
                             {{ run.title || run.sourceLabel || resultRunFallbackLabel(run.sequence) }}
@@ -2132,7 +2134,7 @@ defineExpose({
                     </div>
                   </div>
                 </div>
-                <div v-else-if="showResultRunSelector" class="min-w-0" :class="{ 'flex-1': visibleResultItems.length === 0 }">
+                <div v-else-if="showResultRunSelector" class="min-w-0" :class="{ 'flex-1': visibleResultItems.length <= 1 }">
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                       <Button variant="ghost" size="sm" class="h-6 max-w-48 gap-1 px-2 text-xs">
@@ -2142,7 +2144,7 @@ defineExpose({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" class="w-48">
                       <CustomContextMenu v-for="run in resultRuns" :key="run.id" :items="() => resultRunContextMenuItems(run)" v-slot="{ onContextMenu }">
-                        <DropdownMenuItem class="flex items-center gap-2 pr-1" @select="selectResultRunFromTab(run.id)" @contextmenu="onContextMenu">
+                        <DropdownMenuItem class="flex items-center gap-2 pr-1" @select="selectResultRunFromTab(run.id)" @contextmenu="onContextMenu" @mousedown.middle.stop.prevent="removeResultRun(run.id)">
                           <Check v-if="run.active" class="h-3.5 w-3.5 shrink-0" />
                           <span v-else class="h-3.5 w-3.5 shrink-0" />
                           <Pin v-if="run.pinned" class="h-3 w-3 shrink-0 fill-current text-primary" />
@@ -2162,9 +2164,9 @@ defineExpose({
                   </DropdownMenu>
                 </div>
                 <div v-else-if="resultRuns.length > 0" class="min-w-0 flex-1" />
-                <span v-if="resultRuns.length > 0 && visibleResultItems.length > 0" class="mx-1 h-4 w-px shrink-0 bg-border" />
+                <span v-if="resultRuns.length > 0 && visibleResultItems.length > 1" class="mx-1 h-4 w-px shrink-0 bg-border" />
                 <ResultSetNavigator
-                  v-if="visibleResultItems.length > 0"
+                  v-if="resultRuns.length > 0 ? visibleResultItems.length > 1 : visibleResultItems.length > 0"
                   :key="`${activeTab.id}:${activeTab.activeResultRunId ?? 'current'}`"
                   :items="visibleResultItems"
                   :busy="resultBatchBusy"
@@ -2172,6 +2174,7 @@ defineExpose({
                   :active-index="activeTab.activeResultIndex ?? 0"
                   :active="activeOutputView === 'result'"
                   :display-mode="resultRunDisplayMode"
+                  :has-sibling-run-tabs="resultRuns.length > 0"
                   @select="selectResultItem"
                   @copy-sql="copySelectedResultSql"
                   @copy-query-sql="copySelectedResultQueries"
