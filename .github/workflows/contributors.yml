@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   update:
+    # The contributor snapshot belongs to the upstream repository; forks need no owner PAT.
+    if: github.repository == 't8y2/dbx'
     runs-on: ubuntu-latest
     steps:
       # main 的 ruleset 要求改动走 PR，默认 GITHUB_TOKEN 直推会被 GH013 拒掉；
