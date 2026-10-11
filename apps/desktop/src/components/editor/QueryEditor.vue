@@ -69,7 +69,7 @@ import { executableStatementRangeAtCursor, executableStatementRangeCacheForDoc, 
 
 import { looksLikeDmlStatement } from "@/lib/sql/dmlChangePreview";
 
-import { canFormatSqlForDatabaseType, formatSqlForEditing, compressSqlText } from "@/lib/sql/sqlFormatter";
+import { canFormatSqlForDatabaseType, formatSqlText, compressSqlText } from "@/lib/sql/sqlFormatter";
 import { detectAndFormatStructured } from "@/lib/sql/autoFormat";
 import { restoreSqlFromSourcePaste } from "@/lib/sql/sqlSourcePaste";
 import { enabledSqlParameterSyntaxes, resolveSqlVariableSyntaxToggles } from "@/lib/sql/sqlVariableSyntax";
@@ -1735,7 +1735,12 @@ async function formatCurrentSql() {
           return;
         } else {
           formattedAsSql = true;
-          formatted = await formatSqlForEditing(source, formatDialect, settingsStore.editorSettings.sqlFormatter);
+          // The explicit Format command has to say why it did nothing:
+          // `formatSqlForEditing` returns unparseable input unchanged (the right
+          // contract for format-on-save, which must never fail), which turned
+          // this command into a silent no-op. A thrown error reaches the
+          // `formatError` toast below.
+          formatted = await formatSqlText(source, formatDialect, settingsStore.editorSettings.sqlFormatter);
         }
       }
     }
