@@ -1541,6 +1541,10 @@ export interface ExecuteMultiProgress {
   error?: BackendError;
 }
 
+export async function subscribeQueryMessages(_executionId: string, _onMessages: (messages: import("@/types/database").QueryMessage[]) => void): Promise<() => void> {
+  return () => {};
+}
+
 export async function executeMultiWithProgress(
   connectionId: string,
   database: string,
