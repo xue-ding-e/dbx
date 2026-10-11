@@ -2764,8 +2764,8 @@ fn postgres_connection_key_from_row(row: &tokio_postgres::Row) -> Option<Postgre
 type PostgresNoticeBuffers = HashMap<PostgresConnectionKey, Weak<Mutex<PostgresNoticeBuffer>>>;
 
 #[derive(Default)]
-struct PostgresNoticeBuffer {
-    messages: dbx_driver_support::query_messages::QueryMessageBuffer,
+pub(crate) struct PostgresNoticeBuffer {
+    pub(crate) messages: dbx_driver_support::query_messages::QueryMessageBuffer,
     sink: Option<dbx_driver_support::query_messages::QueryMessageSink>,
 }
 
@@ -2777,7 +2777,7 @@ impl Drop for PostgresNoticeSubscription {
     }
 }
 
-fn capture_postgres_notice(buffer: &Mutex<PostgresNoticeBuffer>, message: QueryMessage) {
+pub(crate) fn capture_postgres_notice(buffer: &Mutex<PostgresNoticeBuffer>, message: QueryMessage) {
     let mut buffer = buffer.lock().unwrap_or_else(|error| error.into_inner());
     if let (Some(message), Some(sink)) = (buffer.messages.push(message), buffer.sink.as_ref()) {
         sink(message);
@@ -3068,7 +3068,7 @@ async fn postgres_client_key(client: &deadpool_postgres::Client) -> Option<Postg
 
 pub(crate) fn postgres_query_message_buffer(
     client: &deadpool_postgres::Client,
-) -> Option<Arc<Mutex<Vec<QueryMessage>>>> {
+) -> Option<Arc<Mutex<PostgresNoticeBuffer>>> {
     let key = cached_postgres_client_key(client)??;
     postgres_notice_buffers().lock().unwrap_or_else(|e| e.into_inner()).get(&key).and_then(Weak::upgrade)
 }

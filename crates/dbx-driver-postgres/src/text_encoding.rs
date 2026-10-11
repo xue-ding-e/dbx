@@ -566,18 +566,17 @@ impl Statement for tokio_postgres::Statement {
     }
 }
 
-type WarningBuffer = Arc<Mutex<Vec<crate::types::QueryMessage>>>;
+type WarningBuffer = Arc<Mutex<crate::postgres::PostgresNoticeBuffer>>;
 const FALLBACK_WARNING_CODE: &str = "DBX_PG_TEXT_ENCODING_FALLBACK";
 
 fn report_encoding_fallback(buffer: Option<&WarningBuffer>, encoding: Option<TextEncoding>) {
     let (Some(buffer), Some(encoding)) = (buffer, encoding) else {
         return;
     };
-    let mut messages = buffer.lock().unwrap_or_else(|e| e.into_inner());
-    if messages.iter().any(|m| m.code.as_deref() == Some(FALLBACK_WARNING_CODE)) {
+    if buffer.lock().unwrap_or_else(|e| e.into_inner()).messages.contains_code(FALLBACK_WARNING_CODE) {
         return;
     }
-    messages.push(crate::types::QueryMessage {
+    crate::postgres::capture_postgres_notice(buffer, crate::types::QueryMessage {
         severity: "WARNING".into(),
         code: Some(FALLBACK_WARNING_CODE.into()),
         message: format!("Some text could not be decoded as {}; original text was retained without conversion.", encoding.0.name()),
