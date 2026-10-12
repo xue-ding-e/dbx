@@ -2656,6 +2656,7 @@ export default {
     filterNotLike: "Does Not Contain",
     filterLessThan: "Less Than Value",
     filterGreaterThan: "Greater Than Value",
+    filterCustom: "Custom Filter",
     filterIsNull: "Show NULL Values",
     filterIsNotNull: "Show Non-NULL Values",
     clearFilter: "Clear Filter",

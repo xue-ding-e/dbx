@@ -1340,6 +1340,7 @@ watch([conditionalBulkEditConditionSource, conditionalBulkEditCurrentWhereInput,
 
 const structuredFilterRules = filterBuilder.rules;
 const filterBuilderOpen = filterBuilder.open;
+const filterWorkbenchRef = ref<{ focusRuleValue: (ruleId: string) => void }>();
 const filterBuilderColumnSearch = filterBuilder.columnSearch;
 const filteredFilterBuilderColumnOptions = filterBuilder.filteredColumns;
 const appliedStructuredWhereInput = filterBuilder.appliedWhereInput;
@@ -7294,6 +7295,24 @@ async function applyContextFilter(mode: FilterMode) {
   }
 }
 
+async function openContextCustomFilter() {
+  if (!canUseWhereSearch.value) return;
+  const target = contextFilterTarget.value;
+  if (!target) return;
+  const rule = filterBuilder.addRule({
+    columnName: target.columnName,
+    rawValue: target.requiresHydration ? "" : formatFilterRawValue(target.sourceValue),
+  });
+  // The quick and text views only expose a raw WHERE string, so a hand-tuned
+  // condition needs the rule builder; select it and open its panel.
+  settingsStore.updateEditorSettings({ dataGridFilterEditorView: "conditions" });
+  await nextTick();
+  filterBuilderOpen.value = true;
+  await nextTick();
+  filterWorkbenchRef.value?.focusRuleValue(rule.id);
+  if (contextFilterTarget.value?.id === target.id) contextFilterTarget.value = null;
+}
+
 async function clearContextFilter() {
   await clearAllFilters();
 }
@@ -13165,11 +13184,13 @@ function filterSubmenu(): ContextMenuItem {
       notLike: t("grid.filterNotLike"),
       lessThan: t("grid.filterLessThan"),
       greaterThan: t("grid.filterGreaterThan"),
+      custom: t("grid.filterCustom"),
       isNull: t("grid.filterIsNull"),
       isNotNull: t("grid.filterIsNotNull"),
       clear: t("grid.clearFilter"),
     },
     apply: applyContextFilter,
+    applyCustom: openContextCustomFilter,
     clear: clearContextFilter,
   });
 }
@@ -13943,6 +13964,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
         </div>
         <DataGridFilterWorkbench
           v-if="canUseWhereSearch && filterEditorView === 'conditions' && filterBuilderOpen"
+          ref="filterWorkbenchRef"
           :sql-preview="filterSqlPreview"
           :rules="structuredFilterRules"
           :columns="filterBuilderColumnOptions"

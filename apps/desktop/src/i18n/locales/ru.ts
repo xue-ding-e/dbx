@@ -2549,6 +2549,7 @@ export default withEnglishFallback({
     filterNotLike: "Не содержит",
     filterLessThan: "Меньше значения",
     filterGreaterThan: "Больше значения",
+    filterCustom: "Пользовательский фильтр",
     filterIsNull: "Показать значения NULL",
     filterIsNotNull: "Показать значения, отличные от NULL",
     clearFilter: "Очистить фильтр",

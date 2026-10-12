@@ -2490,6 +2490,7 @@ export default withEnglishFallback({
     filterNotLike: "Tidak Mengandung",
     filterLessThan: "Kurang dari Nilai",
     filterGreaterThan: "Lebih dari Nilai",
+    filterCustom: "Filter khusus",
     filterIsNull: "Tampilkan Nilai NULL",
     filterIsNotNull: "Tampilkan Nilai Non-NULL",
     clearFilter: "Bersihkan Filter",

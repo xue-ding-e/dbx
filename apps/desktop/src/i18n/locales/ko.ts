@@ -2433,6 +2433,7 @@ export default withEnglishFallback({
     filterNotLike: "포함하지 않음",
     filterLessThan: "값보다 작음",
     filterGreaterThan: "값보다 큼",
+    filterCustom: "사용자 지정 필터",
     filterIsNull: "NULL 값 표시",
     filterIsNotNull: "NULL이 아닌 값 표시",
     clearFilter: "필터 지우기",

@@ -2194,6 +2194,7 @@ export default withEnglishFallback({
     filterNotLike: "Ehtiva etmir",
     filterLessThan: "Dəyərdən kiçikdir",
     filterGreaterThan: "Dəyərdən böyükdür",
+    filterCustom: "Fərdi süzgəc",
     filterIsNull: "NULL dəyərləri göstər",
     filterIsNotNull: "NULL olmayan dəyərləri göstər",
     clearFilter: "Süzgəci təmizlə",

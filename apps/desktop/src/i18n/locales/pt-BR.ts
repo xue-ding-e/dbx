@@ -2387,6 +2387,7 @@ export default withEnglishFallback({
     filterNotLike: "Não Contém",
     filterLessThan: "Menor Que o Valor",
     filterGreaterThan: "Maior Que o Valor",
+    filterCustom: "Filtro personalizado",
     filterIsNull: "Mostrar Valores NULL",
     filterIsNotNull: "Mostrar Valores Não NULL",
     clearFilter: "Limpar Filtro",

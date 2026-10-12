@@ -2387,6 +2387,7 @@ export default withEnglishFallback({
     filterNotLike: "不包含此值",
     filterLessThan: "小於此值",
     filterGreaterThan: "大於此值",
+    filterCustom: "自訂篩選",
     filterIsNull: "僅顯示 NULL",
     filterIsNotNull: "僅顯示非 NULL",
     clearFilter: "清除篩選",

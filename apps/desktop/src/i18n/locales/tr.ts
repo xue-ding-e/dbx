@@ -2187,6 +2187,7 @@ export default withEnglishFallback({
     filterNotLike: "İçermez",
     filterLessThan: "Değerden Küçük",
     filterGreaterThan: "Değerden Büyük",
+    filterCustom: "Özel filtre",
     filterIsNull: "NULL Değerleri Göster",
     filterIsNotNull: "NULL Olmayan Değerleri Göster",
     clearFilter: "Filtreyi Temizle",
