@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != github.repository_owner && format('pr-author-{0}', github.event.pull_request.user.id) || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != github.repository_owner && format('pr-author-{0}-{1}', github.event.pull_request.user.id, (endsWith(github.event.pull_request.number, '0') || endsWith(github.event.pull_request.number, '2') || endsWith(github.event.pull_request.number, '4') || endsWith(github.event.pull_request.number, '6') || endsWith(github.event.pull_request.number, '8')) && 'even' || 'odd') || github.ref }}
   cancel-in-progress: ${{ github.event_name != 'pull_request' || github.event.pull_request.user.login == github.repository_owner }}
   queue: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != github.repository_owner && 'max' || 'single' }}
 
