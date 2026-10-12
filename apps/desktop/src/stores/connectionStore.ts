@@ -641,6 +641,7 @@ export const useConnectionStore = defineStore("connection", () => {
     tableName?: string;
   } | null>(null);
   const mongoDatabaseDumpSource = ref<{ connectionId: string; database: string; mode: "dump" | "restore" } | null>(null);
+  const damengDumpSource = ref<{ connectionId: string; database: string; mode: "export" | "import" } | null>(null);
   const mongoImportSource = ref<{
     connectionId: string;
     database: string;
@@ -10638,6 +10639,7 @@ export const useConnectionStore = defineStore("connection", () => {
     dataDictionarySource,
     tableImportSource,
     mongoDatabaseDumpSource,
+    damengDumpSource,
     mongoImportSource,
     mongoImportCompleted,
     tableDataGenerateSource,
