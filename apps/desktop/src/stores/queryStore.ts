@@ -108,7 +108,7 @@ import { elasticsearchRestRequestRanges, executableStatementRanges, splitSqlStat
 import type { SqlParameterOptions } from "@/lib/sql/sqlParameters";
 import { replaceSqlServerLeadingUseQuery, sqlServerLeadingUseScript, switchesDatabaseWithUseStatement, useDatabaseFromStatement } from "@/lib/sql/sqlCompletionLookupTarget";
 import { classifySqlRisk } from "@/lib/sql/sqlRisk";
-import { externalSqlFileDisplayTitles, normalizeExternalSqlPath } from "@/lib/sql/sqlFileOpen";
+import { externalSqlFileDisplayTitles, normalizeExternalSqlPath, relocateExternalSqlPathWithinFolder } from "@/lib/sql/sqlFileOpen";
 import { clearDataGridPendingSnapshot, clearDataGridPendingSnapshotsForTab } from "@/composables/useDataGridEditor";
 import { combineDataGridOrderByInputs, copyDataGridSortBuilderStatesForTab } from "@/composables/useDataGridSortBuilder";
 import { beginClosingDataGridViewSnapshotsForTab, clearDataGridViewSnapshot, clearDataGridViewSnapshotsForTab } from "@/lib/dataGrid/dataGridViewStateCache";
@@ -4294,12 +4294,36 @@ export const useQueryStore = defineStore("query", () => {
     refreshExternalSqlFileTitles();
   }
 
+  function relocateExternalSqlFolderPath(previousPath: string, nextPath: string) {
+    const previous = normalizeExternalSqlPath(previousPath);
+    const next = normalizeExternalSqlPath(nextPath);
+    if (!previous || !next || previous === next) return;
+    for (const tab of tabs.value) {
+      if (tab.mode !== "query" || !tab.externalSqlPath) continue;
+      const relocated = relocateExternalSqlPathWithinFolder(tab.externalSqlPath, previousPath, nextPath);
+      if (relocated) tab.externalSqlPath = relocated;
+    }
+    refreshExternalSqlFileTitles();
+  }
+
   function markExternalSqlFileMissingForPath(path: string) {
     const normalizedPath = normalizeExternalSqlPath(path);
     if (!normalizedPath) return;
     for (const tab of tabs.value) {
       if (tab.mode === "query" && tab.externalSqlPath && normalizeExternalSqlPath(tab.externalSqlPath) === normalizedPath) {
         tab.externalSqlFileMissing = true;
+      }
+    }
+  }
+
+  function markExternalSqlFolderMissingForPath(path: string) {
+    const normalized = normalizeExternalSqlPath(path);
+    if (!normalized) return;
+    const prefix = `${normalized}/`;
+    for (const tab of tabs.value) {
+      if (tab.mode === "query" && tab.externalSqlPath) {
+        const tabPath = normalizeExternalSqlPath(tab.externalSqlPath);
+        if (tabPath === normalized || tabPath.startsWith(prefix)) tab.externalSqlFileMissing = true;
       }
     }
   }
@@ -10105,7 +10129,9 @@ export const useQueryStore = defineStore("query", () => {
     ignoreExternalSqlFileVersion,
     acknowledgeExternalSqlFileMissing,
     relocateExternalSqlFilePath,
+    relocateExternalSqlFolderPath,
     markExternalSqlFileMissingForPath,
+    markExternalSqlFolderMissingForPath,
     discardTabChanges,
     requestAppCloseConfirmation,
     closeOtherTabs,

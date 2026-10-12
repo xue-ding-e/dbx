@@ -2942,7 +2942,7 @@ export interface SqlFileEntry {
   children: SqlFileEntry[];
 }
 
-export async function listSqlFilesInFolder(_folderPath: string, _fileFilter?: string): Promise<SqlFileEntry[]> {
+export async function listSqlFilesInFolder(_folderPath: string, _fileFilter?: string, _includeEmptyDirectories?: boolean): Promise<SqlFileEntry[]> {
   throw new Error("Listing SQL files in a folder is only available in the desktop app");
 }
 
@@ -2956,6 +2956,18 @@ export async function renameSqlFileInFolder(_rootPath: string, _filePath: string
 
 export async function deleteSqlFileInFolder(_rootPath: string, _filePath: string): Promise<void> {
   throw new Error("Managing SQL files in folders is only available in the desktop app");
+}
+
+export async function createSqlFolderInFolder(_rootPath: string, _directoryPath: string, _folderName: string): Promise<string> {
+  throw new Error("Managing SQL folders is only available in the desktop app");
+}
+
+export async function renameSqlFolderInFolder(_rootPath: string, _folderPath: string, _folderName: string): Promise<string> {
+  throw new Error("Managing SQL folders is only available in the desktop app");
+}
+
+export async function deleteSqlFolderInFolder(_rootPath: string, _folderPath: string): Promise<void> {
+  throw new Error("Managing SQL folders is only available in the desktop app");
 }
 
 export interface GlobalSearchRequest {

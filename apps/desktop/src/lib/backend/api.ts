@@ -499,6 +499,9 @@ export const saveGlobalSearchSettings = forward("saveGlobalSearchSettings");
 export const createSqlFileInFolder = forward("createSqlFileInFolder");
 export const renameSqlFileInFolder = forward("renameSqlFileInFolder");
 export const deleteSqlFileInFolder = forward("deleteSqlFileInFolder");
+export const createSqlFolderInFolder = forward("createSqlFolderInFolder");
+export const renameSqlFolderInFolder = forward("renameSqlFolderInFolder");
+export const deleteSqlFolderInFolder = forward("deleteSqlFolderInFolder");
 
 // Nacos
 export const nacosTestConnection = forward("nacosTestConnection");

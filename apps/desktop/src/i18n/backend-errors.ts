@@ -82,6 +82,13 @@ const taggedAiCliErrorKeys: Record<string, string> = {
 };
 
 const exactMessageKeys: Record<string, string> = {
+  "Folder name must not contain a path": "sqlFileTree.folderNameInvalid",
+  "This folder name is excluded from the SQL file browser": "sqlFileTree.folderNameExcluded",
+  "The maximum SQL folder depth has been reached": "sqlFileTree.folderDepthExceeded",
+  "A file or folder with this name already exists": "sqlFileTree.folderNameExists",
+  "Only directories can be managed here": "sqlFileTree.directoryRequired",
+  "The opened root folder cannot be renamed or deleted": "sqlFileTree.rootFolderProtected",
+  "SQL folder is outside the opened root folder": "sqlFileTree.folderOutsideRoot",
   "Plugin update is in progress. Please try again after it finishes.": "pluginPlatform.updateInProgress",
   "Plugin update blocked by active operations. Please wait for them to finish.": "pluginPlatform.updateBlockedByOperations",
   [PHOENIX_DRIVER_NOT_INSTALLED_ERROR]: "connection.phoenixDriverNotInstalled",
