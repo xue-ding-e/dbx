@@ -2716,6 +2716,8 @@ export default withEnglishFallback({
     largeValueLocalSortUnavailable: "Esta columna contiene vistas previas de valores grandes y no se puede ordenar localmente por su contenido. Use la ordenación de la base de datos.",
     copyValue: "Copiar valor",
     downloadBinaryValue: "Descargar valor",
+    downloadSnapshotValue: "Descargar la instantánea completa del resultado",
+    largeValueSnapshotPreview: "{value} (vista previa de la instantánea del resultado)",
     downloadSaved: "Guardado en {path}",
     downloadStarted: "Descarga iniciada: {fileName}",
     binaryDownload: {

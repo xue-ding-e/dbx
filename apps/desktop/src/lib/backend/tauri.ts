@@ -2032,6 +2032,27 @@ export async function cancelConditionalUpdate(executionId: string): Promise<Cond
   return invoke("cancel_conditional_update", { executionId });
 }
 
+export async function readLargeValueChunk(request: import("./http").LargeValueRequest): Promise<import("./http").LargeValueChunk> {
+  return invoke("read_large_value_chunk", { request });
+}
+
+export async function releaseLargeValue(request: import("./http").LargeValueRequest): Promise<boolean> {
+  return invoke("release_large_value", { request });
+}
+
+export async function downloadLargeValue(request: import("./http").LargeValueRequest, filePath: string, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+  await invoke("download_large_value", { request, filePath });
+  // A native command may already have persisted the file; this only retires its local caller.
+  signal?.throwIfAborted();
+}
+
+export async function exportSnapshotResult(request: import("./http").SnapshotExportRequest, filePath: string, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+  await invoke("export_snapshot_result", { request, filePath });
+  signal?.throwIfAborted();
+}
+
 export async function closeQuerySession(connectionId: string, database: string, sessionId: string, clientSessionId?: string, catalog?: string): Promise<boolean> {
   return invoke("close_query_session", {
     connectionId,
@@ -2051,7 +2072,7 @@ export async function closeClientConnectionSession(connectionId: string, databas
   });
 }
 
-export async function executeBatch(connectionId: string, database: string, statements: string[], schema?: string, timeoutSecs?: number, useTransaction?: boolean): Promise<QueryResult> {
+export async function executeBatch(connectionId: string, database: string, statements: string[], schema?: string, timeoutSecs?: number, useTransaction?: boolean, boundStatements?: BlobBoundStatement[]): Promise<QueryResult> {
   return invoke("execute_batch", {
     connectionId,
     database,
@@ -2059,6 +2080,7 @@ export async function executeBatch(connectionId: string, database: string, state
     schema,
     timeoutSecs,
     useTransaction,
+    boundStatements,
   });
 }
 
@@ -2076,13 +2098,14 @@ export async function executeScriptWith2pc(connectionId: string, database: strin
   });
 }
 
-export async function executeInTransaction(connectionId: string, database: string, statements: string[], schema?: string, catalog?: string): Promise<QueryResult> {
+export async function executeInTransaction(connectionId: string, database: string, statements: string[], schema?: string, catalog?: string, boundStatements?: BlobBoundStatement[]): Promise<QueryResult> {
   return invoke("execute_in_transaction", {
     connectionId,
     database,
     statements,
     schema,
     catalog,
+    boundStatements,
   });
 }
 
@@ -2102,6 +2125,7 @@ export async function executeInManualTransaction(
   classificationSql?: string,
   executionId?: string,
   timeoutSecs?: number,
+  boundStatements?: BlobBoundStatement[],
 ): Promise<QueryResult[]> {
   return invokeBackend("execute_in_manual_transaction", {
     txnSessionId,
@@ -2115,6 +2139,7 @@ export async function executeInManualTransaction(
     classificationSql,
     executionId,
     timeoutSecs,
+    boundStatements,
   });
 }
 
@@ -2383,12 +2408,19 @@ export interface DataGridSaveGuard {
   message: string;
 }
 
+export interface BlobBoundStatement {
+  previewSql: string;
+  sql: string;
+  blobParameters: string[];
+}
+
 export interface DataGridSavePreparation {
   validationError?: string;
   statements: string[];
   rollbackStatements: string[];
   executionSchema?: string;
   keylessGuards?: DataGridSaveGuard[];
+  boundStatements?: BlobBoundStatement[];
 }
 
 export async function prepareDataGridSave(options: DataGridSaveStatementOptions, driverProfile?: string): Promise<DataGridSavePreparation> {

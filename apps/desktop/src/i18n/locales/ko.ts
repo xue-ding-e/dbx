@@ -2655,6 +2655,8 @@ export default withEnglishFallback({
     largeValueLocalSortUnavailable: "이 열에는 큰 값 미리보기가 포함되어 있어 미리보기 내용으로 현재 페이지를 정렬할 수 없습니다. 데이터베이스 정렬을 사용하세요.",
     copyValue: "값 복사",
     downloadBinaryValue: "값 다운로드",
+    downloadSnapshotValue: "전체 결과 스냅샷 다운로드",
+    largeValueSnapshotPreview: "{value} (결과 스냅샷 미리보기)",
     binaryImportTooLarge: "파일이 너무 큽니다({size}, 상한 {limit}). 큰 파일을 단일 셀에 가져오는 것은 지원되지 않습니다.",
     downloadSaved: "{path}에 저장됨",
     downloadStarted: "다운로드 시작됨: {fileName}",
