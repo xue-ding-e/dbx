@@ -7681,7 +7681,7 @@ export default withEnglishFallback({
     folderDeleted: "文件夹已删除",
     deleteFolderFailed: "删除文件夹失败：{message}",
     title: "SQL 文件",
-    storageHelp: "此处列出通过「打开文件夹」打开的磁盘上真实 .sql 文件，编辑后直接保存回原文件。",
+    storageHelp: "此处列出通过「打开文件夹」打开的磁盘文件，默认显示 .sql 和 .ddl 文件，可通过过滤设置调整；编辑后直接保存回原文件。",
     openFolder: "打开文件夹",
     closePanel: "关闭",
     loading: "加载中...",

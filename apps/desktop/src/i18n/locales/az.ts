@@ -6716,7 +6716,7 @@ export default withEnglishFallback({
     folderDeleted: "Qovluq silindi",
     deleteFolderFailed: "Qovluq silinə bilmədi: {message}",
     title: "SQL faylları",
-    storageHelp: "Bunlar Qovluq aç ilə açılan diskdəki real .sql fayllarıdır; düzəlişlər birbaşa orijinal fayla yazılır.",
+    storageHelp: "Bunlar Qovluq aç ilə açılan diskdəki fayllardır. Standart olaraq .sql və .ddl faylları göstərilir; fayl süzgəcini dəyişə bilərsiniz. Düzəlişlər birbaşa orijinal fayla yazılır.",
     openFolder: "Qovluq aç",
     closePanel: "Bağla",
     loading: "Yüklənir...",

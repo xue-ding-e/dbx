@@ -6645,7 +6645,7 @@ export default withEnglishFallback({
     folderDeleted: "폴더를 삭제했습니다",
     deleteFolderFailed: "폴더 삭제 실패: {message}",
     title: "SQL 파일",
-    storageHelp: "폴더 열기로 연 디스크의 실제 .sql 파일을 표시하며, 편집 내용은 원본 파일에 바로 저장됩니다.",
+    storageHelp: "폴더 열기로 연 디스크의 파일을 표시합니다. 기본적으로 .sql 및 .ddl 파일이 표시되며 필터 설정에서 변경할 수 있습니다. 편집 내용은 원본 파일에 바로 저장됩니다.",
     openFolder: "폴더 열기",
     closePanel: "닫기",
     loading: "불러오는 중...",

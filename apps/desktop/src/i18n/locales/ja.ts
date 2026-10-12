@@ -9637,7 +9637,7 @@ export default withEnglishFallback({
     folderDeleted: "フォルダーを削除しました",
     deleteFolderFailed: "フォルダーの削除に失敗しました: {message}",
     title: "SQL ファイル",
-    storageHelp: "「フォルダーを開く」で開いたディスク上の実際の.sqlファイルを表示し、編集内容は元のファイルに直接保存されます。",
+    storageHelp: "「フォルダーを開く」で開いたディスク上のファイルを表示します。既定では.sqlと.ddlファイルが表示され、フィルター設定で変更できます。編集内容は元のファイルに直接保存されます。",
     openFolder: "フォルダーを開く",
     closePanel: "閉じる",
     loading: "読み込み中...",

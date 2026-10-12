@@ -9596,7 +9596,7 @@ export default withEnglishFallback({
     folderDeleted: "Pasta excluída",
     deleteFolderFailed: "Falha ao excluir pasta: {message}",
     title: "Arquivos SQL",
-    storageHelp: "São os arquivos .sql reais no disco abertos com Abrir pasta; as edições são salvas diretamente no arquivo original.",
+    storageHelp: "São arquivos no disco abertos com Abrir pasta. Por padrão, são exibidos arquivos .sql e .ddl; você pode personalizar o filtro. As edições são salvas diretamente no arquivo original.",
     openFolder: "Abrir pasta",
     closePanel: "Fechar",
     loading: "Carregando...",

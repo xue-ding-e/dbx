@@ -44,7 +44,7 @@ interface FolderState {
 const folders = ref<FolderState[]>([]);
 const filterSettingsOpen = ref(false);
 const fileFilterDraft = ref(getSqlFileFilter());
-const fileFilterRegexExample = ".*[.](sql|sh|py)$";
+const fileFilterRegexExample = "(?i)[.](sql|ddl|sh|py)$";
 
 // Right-click target. `kind` discriminates between a folder header, a tree
 // directory entry, and a tree file entry. `folderPath` is the owning top-level

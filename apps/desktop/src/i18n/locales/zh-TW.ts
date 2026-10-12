@@ -9611,7 +9611,7 @@ export default withEnglishFallback({
     folderDeleted: "資料夾已刪除",
     deleteFolderFailed: "刪除資料夾失敗：{message}",
     title: "SQL 檔案",
-    storageHelp: "此處列出透過「開啟資料夾」開啟的磁碟上真實 .sql 檔案，編輯後直接儲存回原檔案。",
+    storageHelp: "此處列出透過「開啟資料夾」開啟的磁碟檔案，預設顯示 .sql 和 .ddl 檔案，可透過篩選設定調整；編輯後直接儲存回原檔案。",
     openFolder: "開啟資料夾",
     closePanel: "關閉",
     loading: "載入中...",

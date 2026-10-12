@@ -7698,7 +7698,7 @@ export default {
     folderDeleted: "Folder deleted",
     deleteFolderFailed: "Failed to delete folder: {message}",
     title: "SQL Files",
-    storageHelp: "These are the real .sql files on disk opened via Open Folder; edits are saved straight back to the original file.",
+    storageHelp: "These are files on disk opened via Open Folder. By default, .sql and .ddl files are shown; you can customize the file filter. Edits are saved straight back to the original file.",
     openFolder: "Open Folder",
     closePanel: "Close",
     loading: "Loading...",

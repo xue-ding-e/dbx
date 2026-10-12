@@ -6597,7 +6597,7 @@ export default withEnglishFallback({
     folderDeleted: "Klasör silindi",
     deleteFolderFailed: "Klasör silinemedi: {message}",
     title: "SQL Dosyaları",
-    storageHelp: "Klasör Aç ile açılan diskteki gerçek .sql dosyalarıdır; düzenlemeler doğrudan özgün dosyaya kaydedilir.",
+    storageHelp: "Klasör Aç ile açılan diskteki dosyalardır. Varsayılan olarak .sql ve .ddl dosyaları gösterilir; dosya filtresini özelleştirebilirsiniz. Düzenlemeler doğrudan özgün dosyaya kaydedilir.",
     openFolder: "Klasör Aç",
     closePanel: "Kapat",
     loading: "Yükleniyor...",

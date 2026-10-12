@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 const MAX_SCAN_DEPTH: usize = 10;
-const DEFAULT_FILE_FILTER: &str = "*.sql";
+const DEFAULT_FILE_FILTER: &str = r"(?i)\.(sql|ddl)$";
 
 /// Directories that are never interesting for SQL file browsing but are huge
 /// (often tens of thousands of entries), which makes a recursive scan take
@@ -161,13 +161,8 @@ fn is_glob_filter(file_filter: &str) -> bool {
 
 fn compile_file_filter(file_filter: &str) -> Result<Regex, String> {
     let file_filter = file_filter.trim();
-    let pattern = if file_filter.is_empty() {
-        glob_to_regex(DEFAULT_FILE_FILTER)
-    } else if is_glob_filter(file_filter) {
-        glob_to_regex(file_filter)
-    } else {
-        file_filter.to_string()
-    };
+    let file_filter = if file_filter.is_empty() { DEFAULT_FILE_FILTER } else { file_filter };
+    let pattern = if is_glob_filter(file_filter) { glob_to_regex(file_filter) } else { file_filter.to_string() };
     Regex::new(&pattern).map_err(|error| format!("Invalid file filter regular expression: {error}"))
 }
 
