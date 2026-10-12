@@ -6063,11 +6063,12 @@ fn mysql_error_is_syntax_error(error: &mysql_async::Error) -> bool {
 }
 
 /// Compute per-execution-statement proven-read-only markers for the sticky
-/// manual-transaction UX (#7122 Oracle, #9018 MySQL/PostgreSQL). The user-facing
-/// classification SQL is split with the same dialect-aware splitter as the
-/// execution SQL and paired by count/position; any mismatch is fail-closed (no
-/// markers). Oracle/OceanBase-Oracle keep the lexical classifier, MySQL and
-/// PostgreSQL use the strict `sql_risk` proof; every other dialect is unproven.
+/// manual-transaction UX (#7122 Oracle, #9018 MySQL/PostgreSQL, ... GaussDB).
+/// The user-facing classification SQL is split with the same dialect-aware
+/// splitter as the execution SQL and paired by count/position; any mismatch is
+/// fail-closed (no markers). Oracle/OceanBase-Oracle keep the lexical
+/// classifier, the PostgreSQL family (MySQL is separate) use the strict
+/// `sql_risk` proof; every other dialect is unproven.
 fn classify_manual_transaction_statements(
     database_type: Option<DatabaseType>,
     execution_statement_count: usize,
@@ -6076,7 +6077,12 @@ fn classify_manual_transaction_statements(
     let Some(database_type) = database_type.filter(|database_type| {
         matches!(
             database_type,
-            DatabaseType::Oracle | DatabaseType::OceanbaseOracle | DatabaseType::Mysql | DatabaseType::Postgres
+            DatabaseType::Oracle
+                | DatabaseType::OceanbaseOracle
+                | DatabaseType::Mysql
+                | DatabaseType::Postgres
+                | DatabaseType::Gaussdb
+                | DatabaseType::OpenGauss
         )
     }) else {
         return Vec::new();
@@ -6092,7 +6098,7 @@ fn classify_manual_transaction_statements(
     user_statements
         .iter()
         .map(|statement| match database_type {
-            DatabaseType::Mysql | DatabaseType::Postgres => {
+            DatabaseType::Mysql | DatabaseType::Postgres | DatabaseType::Gaussdb | DatabaseType::OpenGauss => {
                 crate::sql_risk::prove_read_only_for_database(statement, database_type)
                     == crate::sql_risk::ReadProof::ProvenReadOnly
             }
@@ -6447,7 +6453,14 @@ pub async fn execute_in_manual_transaction_with_options(
         );
         if matches!(
             db_type,
-            Some(DatabaseType::Oracle | DatabaseType::OceanbaseOracle | DatabaseType::Mysql | DatabaseType::Postgres)
+            Some(
+                DatabaseType::Oracle
+                    | DatabaseType::OceanbaseOracle
+                    | DatabaseType::Mysql
+                    | DatabaseType::Postgres
+                    | DatabaseType::Gaussdb
+                    | DatabaseType::OpenGauss
+            )
         ) {
             result = result.with_manual_transaction_no_statement();
         }
@@ -12094,6 +12107,15 @@ for line in sys.stdin:
         assert_eq!(
             classify_manual_transaction_statements(Some(DatabaseType::Postgres), 1, Some("SELECT * FROM users")),
             vec![true]
+        );
+        // GaussDB/openGauss share the PostgreSQL-family proof.
+        assert_eq!(
+            classify_manual_transaction_statements(Some(DatabaseType::Gaussdb), 1, Some("SELECT * FROM users")),
+            vec![true]
+        );
+        assert_eq!(
+            classify_manual_transaction_statements(Some(DatabaseType::OpenGauss), 1, Some("UPDATE users SET x = 1")),
+            vec![false]
         );
         // Mixed script: every statement is classified individually.
         assert_eq!(
