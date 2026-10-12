@@ -4670,6 +4670,8 @@ export default withEnglishFallback({
     schema: "スキーマ",
     search: "テーブル、ビュー、関数、シーケンス、プロシージャを検索...",
     searchCollections: "コレクションを検索...",
+    pagedRegexUnsupported: "ページ分割されたオブジェクト検索では正規表現を使用できません。名前またはコメントを入力してください。",
+    pagedOrder: "データベースの順序で {count} 個のオブジェクトを読み込みました。オブジェクトを変更した後は更新してください。",
     loading: "オブジェクトを読み込み中...",
     empty: "オブジェクトが見つかりません",
     selectedTables: "{count}テーブル選択中",

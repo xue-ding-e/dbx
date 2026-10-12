@@ -5344,6 +5344,8 @@ export default withEnglishFallback({
     schema: "Schema",
     search: "搜索表、视图、函数、序列或存储过程...",
     searchCollections: "搜索集合...",
+    pagedRegexUnsupported: "分页对象搜索暂不支持正则表达式，请输入名称或注释文本。",
+    pagedOrder: "已加载 {count} 个对象，按数据库顺序排列。对象变更后请刷新。",
     loading: "正在加载对象...",
     empty: "没有找到对象",
     selectedTables: "已选择 {count} 张表",

@@ -4788,6 +4788,8 @@ export default withEnglishFallback({
     schema: "Esquema",
     search: "Buscar tablas, vistas, funciones, secuencias o procedimientos...",
     searchCollections: "Buscar colecciones...",
+    pagedRegexUnsupported: "La búsqueda paginada de objetos no admite expresiones regulares. Introduzca un nombre o un comentario.",
+    pagedOrder: "Se han cargado {count} objetos en el orden de la base de datos. Actualice después de modificar los objetos.",
     loading: "Cargando objetos...",
     empty: "No se encontraron objetos",
     selectedTables: "{count} tablas seleccionadas",

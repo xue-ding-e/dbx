@@ -5353,6 +5353,8 @@ export default {
     schema: "Schema",
     search: "Search tables, views, functions, sequences, or procedures...",
     searchCollections: "Search collections...",
+    pagedRegexUnsupported: "Regular expressions are unavailable for paged object searches. Search by name or comment text.",
+    pagedOrder: "{count} loaded in database order. Refresh after object changes.",
     loading: "Loading objects...",
     empty: "No objects found",
     selectedTables: "{count} tables selected",
