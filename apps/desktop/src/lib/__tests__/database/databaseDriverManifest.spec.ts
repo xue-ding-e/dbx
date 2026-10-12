@@ -72,4 +72,8 @@ describe("databaseDriverManifest", () => {
     expect(databaseConnectionFormKind("mqtt")).toBe("mqtt");
     expect(databaseConnectionFormKind("nacos")).toBe("nacos");
   });
+
+  it("advertises tableDataEdit capability for InterSystems IRIS / Caché (#11808)", () => {
+    expect(supportsDatabaseFeature("iris", "tableDataEdit")).toBe(true);
+  });
 });
