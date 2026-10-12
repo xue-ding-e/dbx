@@ -180,7 +180,7 @@ test('uses the approved CNB mirror images and matching recipe versions', () => {
     'mongodb@8.2': { version: '8.2.3', image: 'docker.cnb.cool/znb/images/mongo:8.2.3-noble', platforms: ['linux/amd64', 'linux/arm64'] },
     'mysql@5.7': { version: '5.7.44', image: 'docker.cnb.cool/znb/images/mysql:5.7.44', platforms: ['linux/amd64', 'linux/arm64'] },
     'mysql@8.4': { version: '8.4.6', image: 'docker.cnb.cool/znb/images/mysql:8.4.6', platforms: ['linux/amd64', 'linux/arm64'] },
-    'nacos@2.5': { version: '2.5.2', image: 'docker.cnb.cool/znb/images/nacos-server:v2.5.2', platforms: ['linux/amd64', 'linux/arm64'] },
+    'nacos@2.5': { version: '2.5.4', image: 'docker.cnb.cool/znb/images/nacos-server:v2.5.4', platforms: ['linux/amd64', 'linux/arm64'] },
     'nacos@3.2': { version: '3.2.3', image: 'docker.cnb.cool/znb/images/nacos-server:v3.2.3', platforms: ['linux/amd64', 'linux/arm64'] },
     'postgresql@14.23': { version: '14.23', image: 'docker.cnb.cool/znb/images/postgres:14.23', platforms: ['linux/amd64', 'linux/arm64'] },
     'postgresql@17.4': { version: '17.4', image: 'docker.cnb.cool/znb/images/postgres:17.4', platforms: ['linux/amd64', 'linux/arm64'] },
