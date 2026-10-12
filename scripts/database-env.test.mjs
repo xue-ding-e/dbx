@@ -188,7 +188,7 @@ test('uses the approved CNB mirror images and matching recipe versions', () => {
     'qdrant@1.8': { version: '1.8.3', image: 'docker.cnb.cool/znb/images/qdrant:v1.8.3', platforms: ['linux/amd64', 'linux/arm64'] },
     'redis@3.0.7': { version: '3.0.7', image: 'docker.cnb.cool/znb/images/redis:3.0.7-alpine', platforms: ['linux/amd64'] },
     'redis@7.4': { version: '7.4.9', image: 'docker.cnb.cool/znb/images/redis:7.4.9-alpine', platforms: ['linux/amd64', 'linux/arm64'] },
-    'rnacos@0.8': { version: '0.8.5', image: 'docker.cnb.cool/znb/images/rnacos:v0.8.5', platforms: ['linux/amd64', 'linux/arm64'] },
+    'rnacos@0.8': { version: '0.8.7', image: 'docker.cnb.cool/znb/images/rnacos:v0.8.7', platforms: ['linux/amd64', 'linux/arm64'] },
     'zookeeper@3.9': { version: '3.9.5', image: 'docker.cnb.cool/znb/images/zookeeper:3.9.5', platforms: ['linux/amd64', 'linux/arm64'] },
   });
   assert.equal(discoverRecipes().find((recipe) => recipeSelector(recipe) === 'redis@3.0.7').connection.username, undefined);
