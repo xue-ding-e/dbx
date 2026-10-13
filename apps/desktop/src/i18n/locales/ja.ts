@@ -8218,6 +8218,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "サイドバー接続を切断",
     shortcutOpenDataInNewTab: "新しいデータタブで開く（マウスクリック）",
     shortcutViewTableDdl: "テーブルDDLを表示",
+    shortcutEditSidebarTableStructure: "テーブル構造を編集",
     shortcutSendSelectionToAi: "選択範囲をAIに送信",
     shortcutToggleAiPanel: "AIパネルを切り替え",
     shortcutSqlIntentionActions: "SQL インテント操作（* の展開 / 識別子の修飾）",

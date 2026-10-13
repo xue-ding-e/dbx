@@ -9595,6 +9595,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "Отключить подключение в боковой панели",
     shortcutOpenDataInNewTab: "Открыть данные в новой вкладке (клик мышью)",
     shortcutViewTableDdl: "Просмотреть DDL таблицы",
+    shortcutEditSidebarTableStructure: "Изменить структуру таблицы",
     shortcutSendSelectionToAi: "Отправить выделенное в AI",
     shortcutToggleAiPanel: "Переключить панель AI",
     shortcutSqlIntentionActions: "SQL-действия по намерению (развернуть * / уточнить идентификатор)",

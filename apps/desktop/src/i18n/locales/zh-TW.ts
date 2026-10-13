@@ -7538,6 +7538,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "中斷側邊欄連線",
     shortcutOpenDataInNewTab: "在新資料分頁中開啟（滑鼠點擊）",
     shortcutViewTableDdl: "檢視資料表 DDL",
+    shortcutEditSidebarTableStructure: "編輯資料表結構",
     shortcutSendSelectionToAi: "傳送選取程式碼至 AI",
     shortcutToggleAiPanel: "切換 AI 面板",
     shortcutSqlIntentionActions: "SQL 意圖操作（展開 * / 限定識別碼）",

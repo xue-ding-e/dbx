@@ -8229,6 +8229,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "Disconnetti connessione barra laterale",
     shortcutOpenDataInNewTab: "Apri dati in una nuova scheda (clic del mouse)",
     shortcutViewTableDdl: "Visualizza DDL tabella",
+    shortcutEditSidebarTableStructure: "Modifica struttura tabella",
     shortcutSendSelectionToAi: "Invia selezione ad AI",
     shortcutToggleAiPanel: "Attiva/disattiva pannello AI",
     shortcutSqlIntentionActions: "Azioni di intento SQL (Espandi * / Qualifica identificatore)",

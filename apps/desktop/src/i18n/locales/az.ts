@@ -8107,6 +8107,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "Yan paneldəki əlaqəni kəs",
     shortcutOpenDataInNewTab: "Məlumatları yeni vərəqdə aç (siçan klikləməsi)",
     shortcutViewTableDdl: "Cədvəlin DDL-inə bax",
+    shortcutEditSidebarTableStructure: "Cədvəlin quruluşunu redaktə et",
     shortcutSendSelectionToAi: "Seçimi AI-yə göndər",
     shortcutToggleAiPanel: "AI panelini aç/bağla",
     shortcutSqlIntentionActions: "SQL niyyət əməliyyatları (* işarəsini genişləndir / identifikatoru tam adla göstər)",

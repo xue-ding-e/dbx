@@ -8008,6 +8008,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "Kenar çubuğu bağlantısını kes",
     shortcutOpenDataInNewTab: "Verileri yeni sekmede aç (fare tıklaması)",
     shortcutViewTableDdl: "Tablo DDL'ini görüntüle",
+    shortcutEditSidebarTableStructure: "Tablo yapısını düzenle",
     shortcutSendSelectionToAi: "Seçimi yapay zekâya gönder",
     shortcutToggleAiPanel: "Yapay zeka panelini değiştir",
     shortcutSqlIntentionActions: "SQL Amaç İşlemleri (* Genişlet / Tanımlayıcıyı Nitele)",

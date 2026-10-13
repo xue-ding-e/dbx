@@ -8919,6 +8919,7 @@ export default withEnglishFallback({
     shortcutDisconnectSidebarConnection: "Putuskan koneksi bilah sisi",
     shortcutOpenDataInNewTab: "Buka data di tab baru (klik mouse)",
     shortcutViewTableDdl: "Lihat DDL tabel",
+    shortcutEditSidebarTableStructure: "Edit struktur tabel",
     shortcutSendSelectionToAi: "Kirim seleksi ke AI",
     shortcutToggleAiPanel: "Aktifkan/nonaktifkan panel AI",
     shortcutSqlIntentionActions: "Aksi Intensi SQL (Perluas * / Kualifikasi Identifier)",
