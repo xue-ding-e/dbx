@@ -8010,6 +8010,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "套用到所有資料庫中未單獨設定欄位格式的日期時間欄位。",
     globalDateTimeExportFormat: "全域匯出格式",
     globalDateTimeExportFormatDescription: "匯出 CSV、Excel、JSON、Markdown 和文字時統一格式化日期時間欄位。",
+    applyColumnFormattersOnExport: "匯出時套用欄位格式化",
+    applyColumnFormattersOnExportDescription: "匯出 CSV、Excel、JSON、Markdown、HTML 和文字時，將已設定欄位格式化（時間、遮罩、自訂範本等）的欄位匯出為格式化後的文字。",
     globalDateTimeImportFormat: "全域匯入格式",
     globalDateTimeImportFormatDescription: "依此格式解析匯入檔案中的日期時間；留空時自動辨識常見格式。",
     dateTimeFormatRaw: "保留資料庫原始值",

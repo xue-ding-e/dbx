@@ -9440,6 +9440,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "Применяется к временным столбцам без собственного форматтера в любой базе данных.",
     globalDateTimeExportFormat: "Глобальный формат экспорта",
     globalDateTimeExportFormatDescription: "Единообразно форматирует временные столбцы при экспорте в CSV, Excel, JSON, Markdown и текст.",
+    applyColumnFormattersOnExport: "Применять форматирование столбцов при экспорте",
+    applyColumnFormattersOnExportDescription: "Экспортировать отформатированный текст для столбцов с активными модулями форматирования (дата/время, маска, шаблон и др.) при экспорте в CSV, Excel, JSON, Markdown, HTML и текст.",
     globalDateTimeImportFormat: "Глобальный формат импорта",
     globalDateTimeImportFormatDescription: "Разбирает импортируемые временные значения с этим форматом. Оставьте пустым для автоматического определения распространённых форматов.",
     dateTimeFormatRaw: "Сохранять значение базы данных",

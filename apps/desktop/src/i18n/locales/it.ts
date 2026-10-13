@@ -8683,6 +8683,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "Applicato a tutti i campi data/ora nei database che non hanno una configurazione di formato colonna individuale.",
     globalDateTimeExportFormat: "Formato di esportazione globale",
     globalDateTimeExportFormatDescription: "Formatta uniformemente i campi data/ora durante l'esportazione in CSV, Excel, JSON, Markdown e testo.",
+    applyColumnFormattersOnExport: "Applica formattatori di colonna durante l'esportazione",
+    applyColumnFormattersOnExportDescription: "Esporta testo formattato per le colonne con formattatori attivi (data/ora, maschera, modello personalizzato, ecc.) durante l'esportazione in CSV, Excel, JSON, Markdown, HTML e testo.",
     globalDateTimeImportFormat: "Formato di importazione globale",
     globalDateTimeImportFormatDescription: "Analizza i campi data/ora nei file importati secondo questo formato; lascia vuoto per rilevare automaticamente i formati comuni.",
     dateTimeFormatRaw: "Mantieni il valore originale del database",

@@ -8787,6 +8787,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "Berlaku untuk kolom temporal tanpa formatter khusus kolom di setiap database.",
     globalDateTimeExportFormat: "Format ekspor global",
     globalDateTimeExportFormatDescription: "Memformat kolom temporal secara konsisten dalam ekspor CSV, Excel, JSON, Markdown, dan teks.",
+    applyColumnFormattersOnExport: "Terapkan pemformat kolom saat mengekspor",
+    applyColumnFormattersOnExportDescription: "Ekspor teks berformat untuk kolom dengan pemformat aktif (tanggal/waktu, topeng, templat kustom, dll.) saat mengekspor CSV, Excel, JSON, Markdown, HTML, dan teks.",
     globalDateTimeImportFormat: "Format impor global",
     globalDateTimeImportFormatDescription: "Mengurai nilai temporal yang diimpor dengan format ini. Kosongkan untuk mendeteksi format umum secara otomatis.",
     dateTimeFormatRaw: "Pertahankan nilai database",

@@ -9085,6 +9085,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "应用于所有数据库中未单独配置列格式的日期时间字段。",
     globalDateTimeExportFormat: "全局导出格式",
     globalDateTimeExportFormatDescription: "导出 CSV、Excel、JSON、Markdown 和文本时统一格式化日期时间字段。",
+    applyColumnFormattersOnExport: "导出时应用列格式化",
+    applyColumnFormattersOnExportDescription: "导出 CSV、Excel、JSON、Markdown、HTML 和文本时，将已配置列格式化（时间、掩码、自定义模板等）的列导出为格式化后的文本。",
     globalDateTimeImportFormat: "全局导入格式",
     globalDateTimeImportFormatDescription: "按此格式解析导入文件中的日期时间；留空时自动识别常见格式。",
     dateTimeFormatRaw: "保持数据库原始值",

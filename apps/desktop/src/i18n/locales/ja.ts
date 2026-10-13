@@ -8693,6 +8693,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "すべてのデータベースで列形式が個別に設定されていない日時フィールドに適用されます。",
     globalDateTimeExportFormat: "グローバルエクスポート形式",
     globalDateTimeExportFormatDescription: "CSV、Excel、JSON、Markdown、テキストをエクスポートする際に日時フィールドを統一フォーマットします。",
+    applyColumnFormattersOnExport: "エクスポート時に列フォーマッターを適用",
+    applyColumnFormattersOnExportDescription: "CSV、Excel、JSON、Markdown、HTML、テキストのエクスポート時に、列フォーマッターが設定された列の表示用テキストを出力します。",
     globalDateTimeImportFormat: "グローバルインポート形式",
     globalDateTimeImportFormatDescription: "この形式でインポートファイル内の日時を解析します。空欄の場合は一般的な形式を自動認識します。",
     dateTimeFormatRaw: "データベースの元の値を保持",

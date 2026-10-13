@@ -7966,6 +7966,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "컬럼별 포매터가 없는 시간 컬럼에 모든 데이터베이스에서 적용됩니다.",
     globalDateTimeExportFormat: "전역 내보내기 형식",
     globalDateTimeExportFormatDescription: "CSV, Excel, JSON, Markdown 및 텍스트 내보내기에서 시간 컬럼을 일관되게 서식합니다.",
+    applyColumnFormattersOnExport: "내보내기 시 열 서식 적용",
+    applyColumnFormattersOnExportDescription: "CSV, Excel, JSON, Markdown, HTML 및 텍스트를 내보낼 때 열 서식이 설정된 열의 서식 지정된 텍스트를 내보냅니다.",
     globalDateTimeImportFormat: "전역 가져오기 형식",
     globalDateTimeImportFormatDescription: "가져온 시간 값을 이 형식으로 파싱합니다. 자동 감지하려면 비워 두세요.",
     dateTimeFormatRaw: "데이터베이스 값 유지",

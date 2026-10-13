@@ -950,6 +950,7 @@ const editExportBatchSize = ref(settingsStore.editorSettings.exportBatchSize);
 const editPreferredExportPath = ref(settingsStore.editorSettings.preferredExportPath);
 const editDamengClientBinDir = ref(settingsStore.editorSettings.damengClientBinDir);
 const editAutoOpenExportFolder = ref(settingsStore.editorSettings.autoOpenExportFolder);
+const editApplyColumnFormattersOnExport = ref(settingsStore.editorSettings.applyColumnFormattersOnExport);
 const editCsvQuoteMode = ref<CsvQuoteMode>(settingsStore.editorSettings.csvQuoteMode);
 const editCsvNullMode = ref<CsvNullMode>(settingsStore.editorSettings.csvNullMode);
 const editGlobalDateTimeDisplayFormat = ref(settingsStore.editorSettings.globalDateTimeDisplayFormat);
@@ -1241,6 +1242,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     preferredExportPath: editPreferredExportPath.value,
     damengClientBinDir: editDamengClientBinDir.value,
     autoOpenExportFolder: editAutoOpenExportFolder.value,
+    applyColumnFormattersOnExport: editApplyColumnFormattersOnExport.value,
     csvQuoteMode: editCsvQuoteMode.value,
     csvNullMode: editCsvNullMode.value,
     globalDateTimeDisplayFormat: editGlobalDateTimeDisplayFormat.value,
@@ -1931,6 +1933,7 @@ function syncEditorSettingsDraftFromStore() {
   editPreferredExportPath.value = settingsStore.editorSettings.preferredExportPath;
   editDamengClientBinDir.value = settingsStore.editorSettings.damengClientBinDir;
   editAutoOpenExportFolder.value = settingsStore.editorSettings.autoOpenExportFolder;
+  editApplyColumnFormattersOnExport.value = settingsStore.editorSettings.applyColumnFormattersOnExport;
   editCsvQuoteMode.value = settingsStore.editorSettings.csvQuoteMode;
   editCsvNullMode.value = settingsStore.editorSettings.csvNullMode;
   editGlobalDateTimeDisplayFormat.value = settingsStore.editorSettings.globalDateTimeDisplayFormat;
@@ -2093,6 +2096,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   preferredExportPath: editPreferredExportPath,
   damengClientBinDir: editDamengClientBinDir,
   autoOpenExportFolder: editAutoOpenExportFolder,
+  applyColumnFormattersOnExport: editApplyColumnFormattersOnExport,
   csvQuoteMode: editCsvQuoteMode,
   csvNullMode: editCsvNullMode,
   exportRowLimitEnabled: editExportRowLimitEnabled,
@@ -2695,6 +2699,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editPreferredExportPath.value = DEFAULT_EDITOR_SETTINGS.preferredExportPath;
     editDamengClientBinDir.value = DEFAULT_EDITOR_SETTINGS.damengClientBinDir;
     editAutoOpenExportFolder.value = DEFAULT_EDITOR_SETTINGS.autoOpenExportFolder;
+    editApplyColumnFormattersOnExport.value = DEFAULT_EDITOR_SETTINGS.applyColumnFormattersOnExport;
     editCsvQuoteMode.value = DEFAULT_EDITOR_SETTINGS.csvQuoteMode;
     editCsvNullMode.value = DEFAULT_EDITOR_SETTINGS.csvNullMode;
     editGlobalDateTimeDisplayFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeDisplayFormat;
@@ -2862,6 +2867,7 @@ function resetAllDefaults() {
   editPreferredExportPath.value = DEFAULT_EDITOR_SETTINGS.preferredExportPath;
   editDamengClientBinDir.value = DEFAULT_EDITOR_SETTINGS.damengClientBinDir;
   editAutoOpenExportFolder.value = DEFAULT_EDITOR_SETTINGS.autoOpenExportFolder;
+  editApplyColumnFormattersOnExport.value = DEFAULT_EDITOR_SETTINGS.applyColumnFormattersOnExport;
   editCsvQuoteMode.value = DEFAULT_EDITOR_SETTINGS.csvQuoteMode;
   editCsvNullMode.value = DEFAULT_EDITOR_SETTINGS.csvNullMode;
   editGlobalDateTimeDisplayFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeDisplayFormat;
@@ -9517,6 +9523,15 @@ onUnmounted(() => {
                     </p>
                   </div>
                   <Switch id="export-auto-open-folder" v-model="editAutoOpenExportFolder" class="mt-0.5" />
+                </div>
+                <div data-settings-search-id="data-export-apply-column-formatters" :class="['flex items-start justify-between gap-3', settingsSearchTargetClass('data-export-apply-column-formatters')]">
+                  <div class="space-y-0.5">
+                    <Label for="export-apply-column-formatters">{{ t("settings.applyColumnFormattersOnExport") }}</Label>
+                    <p class="text-xs text-muted-foreground">
+                      {{ t("settings.applyColumnFormattersOnExportDescription") }}
+                    </p>
+                  </div>
+                  <Switch id="export-apply-column-formatters" v-model="editApplyColumnFormattersOnExport" class="mt-0.5" />
                 </div>
                 <div class="space-y-2">
                   <Label>{{ t("settings.exportBatchSize") }}</Label>

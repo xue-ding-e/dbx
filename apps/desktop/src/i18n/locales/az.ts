@@ -7975,6 +7975,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "Bütün verilənlər bazalarında sütuna məxsus formatlayıcısı olmayan tarix və vaxt sütunlarına tətbiq olunur.",
     globalDateTimeExportFormat: "Qlobal ixrac formatı",
     globalDateTimeExportFormatDescription: "CSV, Excel, JSON, Markdown və mətn ixraclarında tarix və vaxt sütunlarını vahid qaydada formatlayır.",
+    applyColumnFormattersOnExport: "İxrac zamanı sütun formatlayıcılarını tətbiq et",
+    applyColumnFormattersOnExportDescription: "CSV, Excel, JSON, Markdown, HTML və mətn ixraclarında aktiv formatlayıcısı olan sütunları formatlanmış mətn kimi ixrac edir.",
     globalDateTimeImportFormat: "Qlobal idxal formatı",
     globalDateTimeImportFormatDescription: "İdxal edilən tarix və vaxt dəyərlərini bu formatla təhlil edir. Ümumi formatları avtomatik aşkarlamaq üçün boş buraxın.",
     dateTimeFormatRaw: "Verilənlər bazasının dəyərini saxla",

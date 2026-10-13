@@ -9105,6 +9105,8 @@ export default {
     globalDateTimeDisplayFormatDescription: "Applies to temporal columns without a column-specific formatter in every database.",
     globalDateTimeExportFormat: "Global export format",
     globalDateTimeExportFormatDescription: "Formats temporal columns consistently in CSV, Excel, JSON, Markdown, and text exports.",
+    applyColumnFormattersOnExport: "Apply column formatters on export",
+    applyColumnFormattersOnExportDescription: "Export formatted text for columns with active formatters (date/time, mask, custom template, etc.) when exporting CSV, Excel, JSON, Markdown, HTML, and text.",
     globalDateTimeImportFormat: "Global import format",
     globalDateTimeImportFormatDescription: "Parses imported temporal values with this format. Leave empty to detect common formats automatically.",
     dateTimeFormatRaw: "Keep database value",

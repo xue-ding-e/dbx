@@ -8936,6 +8936,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "Se aplica a todos los campos de fecha y hora que no tienen un formato de columna configurado individualmente en las bases de datos.",
     globalDateTimeExportFormat: "Formato de exportación global",
     globalDateTimeExportFormatDescription: "Formatea uniformemente los campos de fecha y hora al exportar a CSV, Excel, JSON, Markdown y texto.",
+    applyColumnFormattersOnExport: "Aplicar formatos de columna al exportar",
+    applyColumnFormattersOnExportDescription: "Exporta texto formateado para columnas con formateadores activos (fecha/hora, máscara, plantilla personalizada, etc.) al exportar a CSV, Excel, JSON, Markdown, HTML y texto.",
     globalDateTimeImportFormat: "Formato de importación global",
     globalDateTimeImportFormatDescription: "Analiza las fechas y horas en los archivos importados según este formato; si se deja vacío, se reconocen automáticamente los formatos comunes.",
     dateTimeFormatRaw: "Mantener el valor original de la base de datos",

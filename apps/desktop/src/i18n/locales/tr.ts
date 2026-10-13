@@ -7877,6 +7877,8 @@ export default withEnglishFallback({
     globalDateTimeDisplayFormatDescription: "Her veritabanında, sütuna özgü biçimlendiricisi olmayan zaman sütunları için geçerlidir.",
     globalDateTimeExportFormat: "Genel dışa aktarma biçimi",
     globalDateTimeExportFormatDescription: "Zaman sütunlarını CSV, Excel, JSON, Markdown ve metin dışa aktarımlarında tutarlı biçimlendirir.",
+    applyColumnFormattersOnExport: "Dışa aktarmada sütun biçimlendiricilerini uygula",
+    applyColumnFormattersOnExportDescription: "CSV, Excel, JSON, Markdown, HTML ve metin dışa aktarımlarında etkin biçimlendiriciye sahip sütunları biçimlendirilmiş metin olarak dışa aktarır.",
     globalDateTimeImportFormat: "Genel içe aktarma biçimi",
     globalDateTimeImportFormatDescription: "İçe aktarılan zaman değerlerini bu biçimle ayrıştırır. Yaygın biçimleri otomatik algılamak için boş bırakın.",
     dateTimeFormatRaw: "Veritabanı değerini koru",
