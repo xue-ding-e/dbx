@@ -1847,6 +1847,7 @@ export default withEnglishFallback({
       find: "尋找",
       replace: "取代",
       replaceAll: "全部取代",
+      searchFailed: "搜尋失敗或逾時，請簡化運算式後重試。",
       caseSensitive: "區分大小寫",
       regex: "正規表示式",
       collapseReplace: "收起取代",

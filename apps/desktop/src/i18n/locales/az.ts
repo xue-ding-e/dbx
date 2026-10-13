@@ -1590,6 +1590,7 @@ export default withEnglishFallback({
       find: "Tap",
       replace: "Əvəz et",
       replaceAll: "Hamısını əvəz et",
+      searchFailed: "Axtarış uğursuz oldu və ya vaxtı bitdi. İfadəni sadələşdirib yenidən cəhd edin.",
       caseSensitive: "Böyük və kiçik hərflərə həssas",
       regex: "Müntəzəm ifadə",
       collapseReplace: "Əvəzetməni yığ",

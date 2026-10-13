@@ -1871,6 +1871,7 @@ export default withEnglishFallback({
       find: "Найти",
       replace: "Заменить",
       replaceAll: "Заменить всё",
+      searchFailed: "Поиск не выполнен или превышено время ожидания. Упростите выражение и повторите попытку.",
       caseSensitive: "Учитывать регистр",
       regex: "Регулярное выражение",
       collapseReplace: "Свернуть замену",

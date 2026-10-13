@@ -1589,6 +1589,7 @@ export default withEnglishFallback({
       find: "Bul",
       replace: "Değiştir",
       replaceAll: "Tümünü Değiştir",
+      searchFailed: "Arama başarısız oldu veya zaman aşımına uğradı. İfadeyi basitleştirip tekrar deneyin.",
       caseSensitive: "Büyük/küçük harfe duyarlı",
       regex: "Düzenli ifade",
       collapseReplace: "Değiştirmeyi daralt",

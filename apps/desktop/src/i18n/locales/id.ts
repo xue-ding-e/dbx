@@ -1854,6 +1854,7 @@ export default withEnglishFallback({
       find: "Cari",
       replace: "Ganti",
       replaceAll: "Ganti Semua",
+      searchFailed: "Pencarian gagal atau kehabisan waktu. Sederhanakan ekspresi dan coba lagi.",
       caseSensitive: "Case sensitive",
       regex: "Ekspresi reguler",
       collapseReplace: "Ciutkan ganti",

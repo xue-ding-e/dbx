@@ -1900,6 +1900,7 @@ export default withEnglishFallback({
       find: "查找",
       replace: "替换",
       replaceAll: "全部替换",
+      searchFailed: "搜索失败或超时，请简化表达式后重试。",
       caseSensitive: "区分大小写",
       regex: "正则表达式",
       collapseReplace: "收起替换",

@@ -1863,6 +1863,7 @@ export default withEnglishFallback({
       find: "検索",
       replace: "置換",
       replaceAll: "すべて置換",
+      searchFailed: "検索に失敗したかタイムアウトしました。式を簡略化して再試行してください。",
       caseSensitive: "大文字/小文字を区別",
       regex: "正規表現",
       collapseReplace: "置換を折りたたむ",

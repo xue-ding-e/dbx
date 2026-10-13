@@ -1934,6 +1934,7 @@ export default withEnglishFallback({
       find: "Buscar",
       replace: "Reemplazar",
       replaceAll: "Reemplazar todo",
+      searchFailed: "La búsqueda falló o agotó el tiempo. Simplifica la expresión e inténtalo de nuevo.",
       caseSensitive: "Distinguir mayúsculas",
       regex: "Expresión regular",
       collapseReplace: "Contraer reemplazo",
