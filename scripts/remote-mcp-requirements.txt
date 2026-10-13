@@ -1,0 +1,2 @@
+# Test-only synthetic RS256 signing; not shipped with DBX binaries.
+cryptography==50.0.0
