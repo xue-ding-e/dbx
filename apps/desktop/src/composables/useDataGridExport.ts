@@ -568,17 +568,13 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
         const exportedSpatialColumns = projected?.spatialColumns ?? result.spatial_columns;
         const exportedSpatialValues = projected?.spatialValues ?? result.spatial_values;
         const columnComments = buildXlsxHeaderOverrides(exportedColumns, commentsForExportColumns(exportedColumns), headerMode);
-        const resolvedRows = preserveMongoExtendedJson ? mongoDocumentRowsForJson(exportedColumns, exportedRows, result.mongo_copy_documents) : externalizeRows(exportedRows, undefined, formatDateTime, projectionSourceIndexes);
+        // fullExportResult returns source rows, not the collection grid's
+        // marker-encoded rows. Applying the Mongo externalCellValue decode here would
+        // mistake a real BSON string in the reserved namespace for a grid marker and
+        // corrupt the exported value — only the formatter-gated displayValue may run.
+        const resolvedRows = preserveMongoExtendedJson ? mongoDocumentRowsForJson(exportedColumns, exportedRows, result.mongo_copy_documents) : exportedRows.map((row) => row.map((value, colIdx) => externalCellValue(value, colIdx, projectionSourceIndexes?.[colIdx] ?? colIdx, formatDateTime, true)));
         return {
-          ...applyGlobalDateTimeExportFormat(
-            // fullExportResult returns source rows, not the collection grid's
-            // marker-encoded rows. Applying externalCellValue here would
-            // mistake a real BSON string in the reserved namespace for a grid
-            // marker and corrupt the exported value.
-            { columns: exportedColumns, columnTypes: exportedColumnTypes, rows: resolvedRows },
-            formatDateTime && !preserveMongoExtendedJson,
-            projectionSourceIndexes,
-          ),
+          ...applyGlobalDateTimeExportFormat({ columns: exportedColumns, columnTypes: exportedColumnTypes, rows: resolvedRows }, formatDateTime && !preserveMongoExtendedJson, projectionSourceIndexes),
           columnComments,
           spatialColumns: exportedSpatialColumns,
           spatialValues: exportedSpatialValues,
@@ -782,8 +778,11 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
     return isTemporalColumnType(colType);
   }
 
-  function externalCellValue(value: CellValue, columnIndex: number, sourceIndex?: number, applyFormatters = true): CellValue {
-    const externalValue = options.externalCellValue?.(value, columnIndex);
+  function externalCellValue(value: CellValue, columnIndex: number, sourceIndex?: number, applyFormatters = true, skipExternal = false): CellValue {
+    // skipExternal serves source-row exports (full-result snapshot): those rows never
+    // went through the grid's marker encoding, so decoding would mistake a real BSON
+    // string in the reserved namespace for a marker (see the warning in resultToExport).
+    const externalValue = skipExternal ? undefined : options.externalCellValue?.(value, columnIndex);
     const resolvedValue = externalValue === undefined ? value : externalValue;
     if (resolvedValue !== null && resolvedValue !== undefined && options.displayValue) {
       const resolvedSourceIndex = sourceIndex ?? visibleColumnIndexes.value[columnIndex] ?? columnIndex;
@@ -1065,7 +1064,7 @@ export function useDataGridExport(options: UseDataGridExportOptions) {
     const editorSettings = useSettingsStore().editorSettings;
     const originalRows = editorSettings.exportRowLimitEnabled ? original.rows.slice(0, editorSettings.exportRowLimit) : original.rows;
     const items = exportAll
-      ? originalRows.map((row, sourceIndex) => ({ sourceIndex, data: sourceIndexes.map((index) => externalCellValue(row[index], index, index)) }))
+      ? originalRows.map((row, sourceIndex) => ({ sourceIndex, data: sourceIndexes.map((index) => externalCellValue(row[index], index, index, true, true)) }))
       : rowsToExport(rowIds).map((item) => ({
           sourceIndex: item.sourceIndex,
           isNew: item.isNew,
