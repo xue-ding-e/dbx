@@ -422,6 +422,13 @@ function formatMessagePayload(msg: MqttMessage): string {
   return decodePayload(msg.payloadBase64, displayEncoding.value);
 }
 
+function formatMessageTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "-";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 watch(
   () => props.initialTopic,
   (topic) => {
@@ -572,14 +579,14 @@ onUnmounted(stopPolling);
               </Button>
             </div>
           </div>
-          <div ref="messageListRef" data-testid="mqtt-message-list" class="flex min-h-0 flex-1 flex-col overflow-auto">
+          <div ref="messageListRef" data-testid="mqtt-message-list" class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-3">
             <div v-if="messages.length === 0" class="p-4 text-center text-xs text-muted-foreground">{{ t("connection.mqttNoMessages") }}</div>
             <div v-else-if="filteredMessages.length === 0" data-testid="mqtt-no-matching-messages" class="p-4 text-center text-xs text-muted-foreground">{{ t("connection.mqttNoMatchingMessages") }}</div>
             <div
               v-for="msg in filteredMessages"
               :key="msg.previewKey"
               data-testid="mqtt-message"
-              class="w-full cursor-pointer border-b px-3 py-2 text-xs"
+              class="w-full cursor-pointer border px-3 py-2 text-xs"
               :class="
                 msg.direction === 'sent'
                   ? 'ml-auto max-w-[85%] rounded-l-md border-r-2 border-emerald-400 bg-emerald-50/70 hover:bg-emerald-100/70 dark:border-emerald-500 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50'
@@ -613,7 +620,7 @@ onUnmounted(stopPolling);
               <div :id="msg.payloadElementId" data-testid="mqtt-message-payload" class="break-all whitespace-pre-wrap font-mono text-muted-foreground" :hidden="isMessagePayloadCollapsed(msg.previewKey)">
                 <template v-if="!isMessagePayloadCollapsed(msg.previewKey)">{{ formatMessagePayload(msg) }}</template>
               </div>
-              <div class="mt-0.5 text-[10px] text-muted-foreground/60">{{ new Date(msg.receivedAtMs).toLocaleTimeString() }}</div>
+              <time class="mt-1 block text-[10px] tabular-nums text-muted-foreground/70">{{ formatMessageTimestamp(msg.receivedAtMs) }}</time>
             </div>
           </div>
         </div>
