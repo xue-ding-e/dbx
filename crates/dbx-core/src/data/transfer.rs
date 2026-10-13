@@ -224,28 +224,15 @@ pub struct TransferObjectSelection {
     pub names: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TransferObjectFamily {
-    Mysql,
-    Postgres,
-    Oracle,
-    SqlServer,
-}
+pub use dbx_types::database_manifest::DatabaseTransferObjectFamily as TransferObjectFamily;
+pub use dbx_types::database_manifest::DatabaseTransferSupportLevel as TransferSupportLevel;
 
 pub fn transfer_object_family(db_type: &DatabaseType) -> Option<TransferObjectFamily> {
-    match db_type {
-        DatabaseType::Mysql | DatabaseType::Gbase => Some(TransferObjectFamily::Mysql),
-        DatabaseType::Postgres
-        | DatabaseType::Kingbase
-        | DatabaseType::Gaussdb
-        | DatabaseType::Kwdb
-        | DatabaseType::OpenGauss => Some(TransferObjectFamily::Postgres),
-        DatabaseType::Oracle | DatabaseType::Dameng | DatabaseType::OceanbaseOracle => {
-            Some(TransferObjectFamily::Oracle)
-        }
-        DatabaseType::SqlServer => Some(TransferObjectFamily::SqlServer),
-        _ => None,
-    }
+    dbx_types::database_manifest::transfer_object_family(db_type)
+}
+
+pub fn transfer_support_level(db_type: &DatabaseType) -> Option<TransferSupportLevel> {
+    dbx_types::database_manifest::transfer_support_level(db_type)
 }
 
 pub fn is_same_transfer_family(a: &DatabaseType, b: &DatabaseType) -> bool {
@@ -1045,6 +1032,12 @@ pub fn validate_transfer_database_pair(
     source_db_type: &DatabaseType,
     target_db_type: &DatabaseType,
 ) -> Result<(), String> {
+    if transfer_support_level(source_db_type).is_none() {
+        return Err(format!("{} 暂未声明数据传输兼容级别", source_db_type.as_str()));
+    }
+    if transfer_support_level(target_db_type).is_none() {
+        return Err(format!("{} 暂未声明数据传输兼容级别", target_db_type.as_str()));
+    }
     if !matches!(source_db_type, DatabaseType::Xugu) && !matches!(target_db_type, DatabaseType::Xugu) {
         return Ok(());
     }
@@ -14366,6 +14359,14 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
                 .contains("追加或覆盖"));
             let rebuild = TransferRequest { drop_target_before_create: true, ..request.clone() };
             assert!(validate_transfer_database_pair(&rebuild, &DatabaseType::Xugu, &DatabaseType::Xugu).is_err());
+        }
+
+        #[test]
+        fn transfer_pair_requires_declared_endpoint_compatibility() {
+            let request = base_request();
+            let error = validate_transfer_database_pair(&request, &DatabaseType::Gbase, &DatabaseType::Mysql)
+                .expect_err("GBase data transfer is disabled in the shared manifest");
+            assert!(error.contains("gbase"));
         }
 
         #[test]

@@ -8206,9 +8206,9 @@ export default withEnglishFallback({
     noDifferences: "数据完全一致，无需生成同步 SQL",
     syncSuccess: "数据同步执行成功",
     truncatedTitle: "部分表未完整比较",
-    truncatedHint: "行数超过单次比较上限的表只比较了前若干行，超出部分的新增、修改和删除不会被发现。建议加上过滤条件缩小范围后分批比较。",
+    truncatedHint: "行数超过单次比较上限的表只检查了部分数据，未检查范围内的新增、修改和删除不会被发现，因此不会生成或执行同步 SQL。建议缩小范围后分批完整比较。",
     truncatedTable: "{table}：源 {source} 行、目标 {target} 行，仅比较前 {budget} 行",
-    truncatedBadge: "仅比较前 {budget} 行",
+    truncatedBadge: "仅检查部分数据（单侧上限 {budget} 行），同步已禁用",
   },
   settings: {
     historyRetentionLimit: "查询历史保留条数",

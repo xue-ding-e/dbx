@@ -8223,9 +8223,9 @@ export default {
     noDifferences: "Data is identical, no sync SQL needed",
     syncSuccess: "Data sync executed successfully",
     truncatedTitle: "Some tables were not compared in full",
-    truncatedHint: "Tables with more rows than a single compare can read were compared only over their first rows, so added, modified, or deleted rows beyond that point are not reported. Narrow the range with a filter and compare in batches.",
+    truncatedHint: "Tables above the single-compare limit were inspected only over a subset, so changes outside it are not reported. Synchronization SQL is disabled for these results; narrow the range and run complete comparisons in batches.",
     truncatedTable: "{table}: {source} source rows, {target} target rows, compared the first {budget} rows only",
-    truncatedBadge: "Compared the first {budget} rows only",
+    truncatedBadge: "Inspected a subset (up to {budget} rows per side); synchronization disabled",
   },
   settings: {
     historyRetentionLimit: "Query history retention",
