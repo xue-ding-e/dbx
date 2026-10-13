@@ -120,6 +120,7 @@ import {
   isCloseAllTabsShortcut,
   isCloseOtherTabsShortcut,
   isCloseTabShortcut,
+  isReopenClosedTabShortcut,
   isCloseWindowShortcut,
   isDisconnectAllActiveConnectionsShortcut,
   isEditTableStructureShortcut,
@@ -4423,6 +4424,12 @@ async function handleKeydown(e: KeyboardEvent) {
   if (isCloseTabShortcut(e, shortcuts)) {
     e.preventDefault();
     await closeActiveSurface();
+    return;
+  }
+  if (isReopenClosedTabShortcut(e, shortcuts)) {
+    e.preventDefault();
+    e.stopPropagation();
+    queryStore.reopenClosedTab();
     return;
   }
   if (isSaveShortcut(e, shortcuts) && e.target instanceof Element && isObjectSourceSaveShortcutTarget(e.target)) {
