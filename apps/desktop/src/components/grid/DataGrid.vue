@@ -2486,7 +2486,6 @@ function actualColumnIndex(visibleColumnIndex: number): number {
   return visibleColumnIndexes.value[visibleColumnIndex] ?? visibleColumnIndex;
 }
 function scrollToColumn(columnIndex: number) {
-  goToColumnSearch.value = "";
   scrollToColumnIndex(columnIndex);
   gridRef.value?.focus();
 }
@@ -2505,8 +2504,10 @@ function openGoToColumn(): boolean {
   if (!displayableColumnIndexes.value.length) return false;
 
   const alreadyOpen = goToColumnOpen.value;
-  goToColumnSearch.value = "";
-  goToColumnSelectedIndex.value = 0;
+  if (!alreadyOpen) {
+    goToColumnSearch.value = "";
+    goToColumnSelectedIndex.value = 0;
+  }
   goToColumnOpen.value = true;
   if (alreadyOpen) void nextTick(focusGoToColumnSearch);
   return true;
