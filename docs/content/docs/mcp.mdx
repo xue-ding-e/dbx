@@ -122,9 +122,11 @@ DBX MCP provides the following tools (availability depends on build features and
 
 | Tool | Description |
 | --- | --- |
-| `dbx_list_connections` | List connections visible to the MCP session |
+| `dbx_list_connections` | List connections visible to the MCP session, including saved notes |
 | `dbx_list_databases` | List databases available through a connection, respecting its MCP database scope |
 | `dbx_add_connection` | Add a connection to DBX storage |
+| `dbx_get_connection` | Get safe saved settings without credentials |
+| `dbx_update_connection` | Patch saved settings while preserving omitted fields and credentials |
 | `dbx_duplicate_connection` | Duplicate a DBX connection with its complete settings |
 | `dbx_remove_connection` | Remove a connection from DBX storage |
 | `dbx_list_tables` | List tables, views, or collections |
@@ -147,6 +149,8 @@ DBX MCP provides the following tools (availability depends on build features and
 | `dbx_send_message` | Send a message to a supported message queue topic or queue |
 | `dbx_open_table` | Open a table in the running DBX desktop app |
 | `dbx_execute_and_show` | Execute a query and display the result in DBX |
+
+`dbx_list_connections` and `dbx://connections` include saved connection notes regardless of the sidebar display setting. Notes are visible to MCP clients that can access the connection; do not store passwords or other secrets in notes.
 
 `dbx_execute_query` row controls:
 
@@ -233,7 +237,7 @@ Set `enable_transactions: true` when calling `dbx_open_session` to reserve one p
 
 This opt-in mode is available only for local native MySQL connections. DBX Web/`DBX_WEB_URL`, external driver profiles, compatibility engines, and other database types return `TRANSACTION_UNSUPPORTED` instead of falling back to auto-commit. Transaction-session SQL accepts one parsed `SELECT` (including locking reads), `INSERT`, `UPDATE`, `DELETE`, or `REPLACE` statement per operation. It rejects raw transaction control, DDL and temporary DDL, `CALL`, `LOAD`, table locks, `SET`, `USE`, XA, file/output clauses, executable comments, optimizer hints, and multi-statements. Complete batches hold one operation slot and report the resulting transaction state for every statement.
 
-Responses include `transaction_state` (`idle`, `active`, or `unknown`) and, when known, `transaction_outcome` (`committed`, `rolled_back`, or `unknown`). A normal MySQL statement error can leave the transaction active; DBX probes fresh state on the same connection before reporting it. A timeout, cancellation, transport failure, or lost `COMMIT` acknowledgement makes the outcome `unknown`, permanently blocks more SQL on that session, and disposes the connection without replaying the statement or `COMMIT`. A positive connection query timeout applies to transaction operations; when the connection is configured as unlimited (`0`), transaction owners still apply their default 300-second operation cap so busy work remains bounded. Closing, expiry, protocol-session deletion, and server shutdown attempt bounded rollback for a known active transaction and then dispose the connection.
+Responses include `transaction_state` (`idle`, `active`, or `unknown`) and, when known, `transaction_outcome` (`committed`, `rolled_back`, or `unknown`). A normal MySQL statement error can leave the transaction active; DBX probes fresh state on the same connection before reporting it. A timeout, cancellation, transport failure, or lost `COMMIT` acknowledgement makes the outcome `unknown`, permanently blocks more SQL on that session, and disposes the connection without replaying the statement or `COMMIT`. A positive connection query timeout applies to transaction operations; when the connection is configured as unlimited (`0`), transaction owners still apply their default 300-second operation cap so busy work remains bounded. Closing, expiry, and server shutdown attempt bounded rollback for a known active transaction and then dispose the connection. Sessions are reclaimed by `dbx_close_session`, by the idle timeout, or by MCP server shutdown; ending an HTTP transport session with `DELETE` does not reclaim the stateful session an agent opened through it, and a stateless `2026-07-28` agent has no transport session to end.
 
 <Callout type="warn">Rollback guarantees require transactional storage such as InnoDB. Triggers, stored functions, nontransactional tables, and external side effects can have effects that MySQL cannot roll back. DBX rechecks the current connection/database scope, tool allowlist, read-only and production protections, and confirmed SQL after queue waiting. Rollback and close remain available for cleanup after write permission is revoked.</Callout>
 
@@ -287,6 +291,15 @@ Use the generated values in an HTTP-capable MCP client. The transport-specific f
 ```
 
 Keep the default loopback binding for local clients. Binding to a LAN address requires turning on **Allow remote access** and setting the exact allowed `Host` authorities; browser clients also need their exact `Origin` values. Use `host:port` in an allowed Host when the client sends a non-default port. Rotating the token immediately invalidates the previous credential.
+
+DBX answers both MCP protocol generations on the same endpoint, so any agent can connect without a version-specific setup:
+
+| Agent | Handshake | Transport state |
+| --- | --- | --- |
+| Older clients | `initialize` (protocol `2025-11-25` and earlier) | Stateful: the response carries `Mcp-Session-Id`, and GET/DELETE manage the stream |
+| Modern clients | `server/discover` (protocol `2026-07-28`) | Stateless: every request carries its own protocol version and capabilities in `_meta`, with no session header |
+
+A modern agent negotiating `2026-07-28` is served statelessly while an older agent keeps its session on the same listener. Stateful DBX sessions (`dbx_open_session`) work in both cases because the session id is an explicit handle that the agent passes back on later calls.
 
 ### Local connections
 
@@ -427,3 +440,17 @@ Do not put `--authorize-keychain` in your MCP client's arguments: it is a one-ti
 - DBX installed with at least one connection configured
 - Matching DBX Agent, JDBC driver, and JRE for Agent/JDBC connections
 - DBX desktop app running when using the two UI tools
+
+## Connection configuration CRUD / 连接配置管理
+
+`dbx_get_connection` accepts `connection_id` or `connection_name`, and returns safe settings as JSON. `dbx_update_connection` uses the same selector plus a `changes` object, for example:
+
+```json
+{"connection_id":"saved-id","changes":{"read_only":false,"name":"Renamed"}}
+```
+
+Updates support `name`, `note`, `host`, `port`, `username`, `password`, `database`, `driver_profile`, `ssl`, `read_only`, `save_password`, `is_production`, and the four `*_timeout_secs` / `keepalive_interval_secs` settings documented in the CLI guide. Omitted fields and unrelated secrets remain unchanged. Empty `password` clears it; null clears `database` or `driver_profile`. IDs and database types cannot change. Unsupported fields fail validation.
+
+`dbx_add_connection` also accepts `read_only`. `dbx_remove_connection` requires `confirmed: true` after the caller has reviewed the exact target and obtained confirmation. Removal deletes saved configuration and credentials, cannot be undone by MCP, and does not touch database contents. Keep an authorized DBX backup if recovery is needed. All mutations recheck global read-only and connection scope in the storage transaction; update is unavailable in scoped AI sessions. The per-connection `read_only` field can be edited only when the global management policy allows it. Updating invalidates cached connections and pinned transactions.
+
+中文：详情和局部更新按 ID 或名称选择连接；`changes` 只写需要修改的字段。未提供的密码及隧道/插件凭据保持不变，空字符串密码表示明确清除，`database`/`driver_profile` 用 null 清除。新增支持 `read_only`；删除须确认目标后传 `confirmed: true`，会删除配置与凭据，无法通过 MCP 撤销，业务数据不受影响。所有修改在存储事务中重新检查全局只读和连接范围，限定范围的 AI 会话不开放更新；不能通过修改连接自身的 `read_only` 绕过全局只读。
