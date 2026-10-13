@@ -49,12 +49,12 @@ async function refresh() {
 }
 
 async function downloadSnapshot() {
-  const snapshot = await api.consulSnapshotGenerate(props.connectionId);
-  const binary = atob(snapshot.dataBase64);
+  const snapshotResult = await api.consulSnapshotGenerate(props.connectionId);
+  const binary = atob(snapshotResult.dataBase64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
-  link.download = `consul-${snapshot.datacenter || "snapshot"}.snap`;
+  link.download = `consul-${snapshotResult.datacenter || "snapshot"}.snap`;
   link.click();
   URL.revokeObjectURL(link.href);
 }
