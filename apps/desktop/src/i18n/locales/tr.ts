@@ -7768,6 +7768,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "Yalnızca sözcüğü seç",
     vimMode: "Vim modu",
     vimModeDescription: "SQL düzenleyicisinde Vim biçemli kipli düzenleme kullan",
+    caretBrowsing: "Gezinme imleci (F7)",
+    caretBrowsingDescription: "Tarayıcının metin imleciyle gezinme modunu değiştirmek için F7 tuşuna basılmasına izin verin. Devre dışı bırakıldığında yanlışlıkla iletişim kutusu açılmasını önlemek için F7 engellenir.",
     autoCloseBrackets: "Parantezleri otomatik kapat",
     restoreSqlFromSourcePaste: "Kaynak koddan yapıştırılan SQL'i geri yükle",
     restoreSqlFromSourcePasteDescription:

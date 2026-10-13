@@ -95,6 +95,7 @@ const SETTINGS_TRANSFER_CATEGORY_KEYS: Record<SettingsTransferCategoryId, readon
     "wordWrap",
     "showWhitespace",
     "vimModeEnabled",
+    "caretBrowsingEnabled",
     "doubleClickStringSelectionMode",
     "autoCloseBrackets",
     "restoreSqlFromSourcePasteEnabled",

@@ -7872,6 +7872,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "단어만 선택",
     vimMode: "Vim 모드",
     vimModeDescription: "SQL 편집기에서 Vim 스타일의 모달 편집을 사용합니다",
+    caretBrowsing: "캐럿 브라우징 (F7)",
+    caretBrowsingDescription: "F7 키를 눌러 브라우저의 캐럿 브라우징 모드를 전환할 수 있도록 허용합니다. 비활성화 시 F7 키를 가로채어 실수로 인한 대화상자 표시를 방지합니다.",
     autoCloseBrackets: "괄호 자동 닫기",
     restoreSqlFromSourcePaste: "붙여넣기 시 소스 코드 SQL 복원",
     restoreSqlFromSourcePasteDescription: "Java, JavaScript, Python 등 소스에서 복사한 문자열 연결 SQL(따옴표, 더하기 기호, 이스케이프 줄바꿈 포함)을 붙여넣을 때 일반 SQL로 복원합니다. 명확한 연결만 변환하며 그 외에는 원문 그대로 붙여넣습니다.",

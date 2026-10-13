@@ -143,6 +143,7 @@ export const SETTINGS_SEARCH_DEFINITIONS: readonly SettingsSearchDefinition[] = 
   { id: "editor-show-whitespace", category: "editor", titleKey: "settings.showWhitespace", descriptionKey: "settings.showWhitespaceDescription", targetId: "editor" },
   { id: "editor-word-wrap", category: "editor", titleKey: "settings.wordWrap", descriptionKey: "settings.wordWrapDescription", targetId: "editor" },
   { id: "editor-vim", category: "editor", titleKey: "settings.vimMode", descriptionKey: "settings.vimModeDescription", targetId: "editor" },
+  { id: "editor-caret-browsing", category: "editor", titleKey: "settings.caretBrowsing", descriptionKey: "settings.caretBrowsingDescription", targetId: "editor" },
   { id: "editor-brackets", category: "editor", titleKey: "settings.autoCloseBrackets", descriptionKey: "settings.autoCloseBracketsDescription", targetId: "editor" },
   { id: "editor-source-paste-restore", category: "editor", titleKey: "settings.restoreSqlFromSourcePaste", descriptionKey: "settings.restoreSqlFromSourcePasteDescription", targetId: "editor" },
   { id: "editor-double-click-string", category: "editor", titleKey: "settings.doubleClickStringSelectionMode", descriptionKey: "settings.doubleClickStringSelectionModeDescription", targetId: "editor" },

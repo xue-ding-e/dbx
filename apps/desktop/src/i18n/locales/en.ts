@@ -8995,6 +8995,8 @@ export default {
     doubleClickStringSelectionModeWord: "Select single word",
     vimMode: "Vim mode",
     vimModeDescription: "Use Vim-style modal editing in the SQL editor",
+    caretBrowsing: "Caret browsing (F7)",
+    caretBrowsingDescription: "Allow pressing F7 to toggle browser caret browsing. When disabled, the F7 key is intercepted to prevent accidental prompts.",
     autoCloseBrackets: "Auto-close brackets",
     restoreSqlFromSourcePaste: "Restore SQL pasted from source code",
     restoreSqlFromSourcePasteDescription: "When pasting SQL assembled from string literals in Java, JavaScript, Python or similar source files (quotes, plus signs, escaped newlines), restore it to plain SQL. Only clear concatenations are rewritten; anything else is pasted as-is.",

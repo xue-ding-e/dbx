@@ -8975,6 +8975,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "只选中单词",
     vimMode: "Vim 模式",
     vimModeDescription: "在 SQL 编辑器中使用 Vim 风格的模态编辑",
+    caretBrowsing: "光标浏览 (F7)",
+    caretBrowsingDescription: "允许按 F7 切换浏览器的插入光标浏览模式。关闭时拦截 F7 键，避免误触弹出提示。",
     autoCloseBrackets: "自动成对补全",
     restoreSqlFromSourcePaste: "粘贴时自动还原源码 SQL",
     restoreSqlFromSourcePasteDescription: "粘贴从 Java、JavaScript、Python 等源码复制的字符串拼接 SQL（含引号、加号与转义换行）时，自动还原为普通 SQL；只识别明确的拼接写法，其余内容原样粘贴。",

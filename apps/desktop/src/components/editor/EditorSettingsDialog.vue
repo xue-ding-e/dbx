@@ -738,6 +738,7 @@ const editWordWrap = ref(settingsStore.editorSettings.wordWrap);
 const editShowWhitespace = ref(settingsStore.editorSettings.showWhitespace);
 const editDdlOpenMode = ref<EditorSettings["ddlOpenMode"]>(settingsStore.editorSettings.ddlOpenMode);
 const editVimModeEnabled = ref(settingsStore.editorSettings.vimModeEnabled);
+const editCaretBrowsingEnabled = ref(settingsStore.editorSettings.caretBrowsingEnabled);
 const editDoubleClickStringSelectionMode = ref<EditorSettings["doubleClickStringSelectionMode"]>(settingsStore.editorSettings.doubleClickStringSelectionMode);
 const editAutoCloseBrackets = ref(settingsStore.editorSettings.autoCloseBrackets);
 const editRestoreSqlFromSourcePasteEnabled = ref(settingsStore.editorSettings.restoreSqlFromSourcePasteEnabled);
@@ -1129,6 +1130,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     showWhitespace: editShowWhitespace.value,
     ddlOpenMode: editDdlOpenMode.value,
     vimModeEnabled: editVimModeEnabled.value,
+    caretBrowsingEnabled: editCaretBrowsingEnabled.value,
     doubleClickStringSelectionMode: editDoubleClickStringSelectionMode.value,
     autoCloseBrackets: editAutoCloseBrackets.value,
     restoreSqlFromSourcePasteEnabled: editRestoreSqlFromSourcePasteEnabled.value,
@@ -1817,6 +1819,7 @@ function syncEditorSettingsDraftFromStore() {
   editShowWhitespace.value = settingsStore.editorSettings.showWhitespace;
   editDdlOpenMode.value = settingsStore.editorSettings.ddlOpenMode;
   editVimModeEnabled.value = settingsStore.editorSettings.vimModeEnabled;
+  editCaretBrowsingEnabled.value = settingsStore.editorSettings.caretBrowsingEnabled;
   editDoubleClickStringSelectionMode.value = settingsStore.editorSettings.doubleClickStringSelectionMode;
   editAutoCloseBrackets.value = settingsStore.editorSettings.autoCloseBrackets;
   editRestoreSqlFromSourcePasteEnabled.value = settingsStore.editorSettings.restoreSqlFromSourcePasteEnabled;
@@ -1982,6 +1985,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   showWhitespace: editShowWhitespace,
   ddlOpenMode: editDdlOpenMode,
   vimModeEnabled: editVimModeEnabled,
+  caretBrowsingEnabled: editCaretBrowsingEnabled,
   doubleClickStringSelectionMode: editDoubleClickStringSelectionMode,
   autoCloseBrackets: editAutoCloseBrackets,
   restoreSqlFromSourcePasteEnabled: editRestoreSqlFromSourcePasteEnabled,
@@ -2550,6 +2554,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editShowWhitespace.value = DEFAULT_EDITOR_SETTINGS.showWhitespace;
     editDdlOpenMode.value = DEFAULT_EDITOR_SETTINGS.ddlOpenMode;
     editVimModeEnabled.value = DEFAULT_EDITOR_SETTINGS.vimModeEnabled;
+    editCaretBrowsingEnabled.value = DEFAULT_EDITOR_SETTINGS.caretBrowsingEnabled;
     editDoubleClickStringSelectionMode.value = DEFAULT_EDITOR_SETTINGS.doubleClickStringSelectionMode;
     editAutoCloseBrackets.value = DEFAULT_EDITOR_SETTINGS.autoCloseBrackets;
     editRestoreSqlFromSourcePasteEnabled.value = DEFAULT_EDITOR_SETTINGS.restoreSqlFromSourcePasteEnabled;
@@ -2735,6 +2740,7 @@ function resetAllDefaults() {
   editShowWhitespace.value = DEFAULT_EDITOR_SETTINGS.showWhitespace;
   editDdlOpenMode.value = DEFAULT_EDITOR_SETTINGS.ddlOpenMode;
   editVimModeEnabled.value = DEFAULT_EDITOR_SETTINGS.vimModeEnabled;
+  editCaretBrowsingEnabled.value = DEFAULT_EDITOR_SETTINGS.caretBrowsingEnabled;
   editDoubleClickStringSelectionMode.value = DEFAULT_EDITOR_SETTINGS.doubleClickStringSelectionMode;
   editAutoCloseBrackets.value = DEFAULT_EDITOR_SETTINGS.autoCloseBrackets;
   editRestoreSqlFromSourcePasteEnabled.value = DEFAULT_EDITOR_SETTINGS.restoreSqlFromSourcePasteEnabled;
@@ -7189,6 +7195,16 @@ onUnmounted(() => {
                     </p>
                   </div>
                   <Switch id="editor-vim-mode" v-model="editVimModeEnabled" class="mt-0.5" />
+                </div>
+
+                <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
+                  <div class="space-y-1">
+                    <Label for="editor-caret-browsing">{{ t("settings.caretBrowsing") }}</Label>
+                    <p class="text-xs text-muted-foreground">
+                      {{ t("settings.caretBrowsingDescription") }}
+                    </p>
+                  </div>
+                  <Switch id="editor-caret-browsing" v-model="editCaretBrowsingEnabled" class="mt-0.5" />
                 </div>
 
                 <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">

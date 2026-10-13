@@ -7333,6 +7333,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "只選取單詞",
     vimMode: "Vim 模式",
     vimModeDescription: "在 SQL 編輯器中使用 Vim 風格的模態編輯",
+    caretBrowsing: "游標瀏覽 (F7)",
+    caretBrowsingDescription: "允許按 F7 切換瀏覽器的游標瀏覽模式。關閉時攔截 F7 鍵，避免誤觸彈出提示。",
     autoCloseBrackets: "自動成對補全",
     restoreSqlFromSourcePaste: "貼上時自動還原來源 SQL",
     restoreSqlFromSourcePasteDescription: "貼上從 Java、JavaScript、Python 等原始碼複製的字串拼接 SQL（含引號、加號與轉義換行）時，自動還原為一般 SQL；只辨識明確的拼接寫法，其餘內容原樣貼上。",

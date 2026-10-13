@@ -7870,6 +7870,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "Yalnız sözü seç",
     vimMode: "Vim rejimi",
     vimModeDescription: "SQL redaktorunda Vim üslublu modal redaktədən istifadə et",
+    caretBrowsing: "Kursorla naviqasiya (F7)",
+    caretBrowsingDescription: "Brauzerin kursorla naviqasiya rejimini dəyişmək üçün F7 düyməsinə basmağa icazə verin. Deaktiv edildikdə təsadüfi dialoqların qarşısını almaq üçün F7 qarşılanır.",
     autoCloseBrackets: "Mötərizələri avtomatik bağla",
     restoreSqlFromSourcePaste: "Mənbə koddan yapışdırılan SQL-i bərpa et",
     restoreSqlFromSourcePasteDescription: "Java, JavaScript, Python və bənzər mənbələrdən kopyalanan sətir birləşdirməli SQL (dırnaqlar, plus işarələri və escape sətir keçidləri) yapışdırılarkən adi SQL-ə bərpa olunur. Yalnız aydın birləşdirmələr çevrilir, digər məzmun olduğu kimi yapışdırılır.",

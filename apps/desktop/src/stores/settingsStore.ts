@@ -967,6 +967,8 @@ export interface EditorSettings {
   refreshDdlOnOpen: boolean;
   excludeDdlStorage: boolean;
   vimModeEnabled: boolean;
+  /** 是否允许按 F7 切换浏览器的插入光标浏览模式（关闭时拦截 F7 避免误触）。 */
+  caretBrowsingEnabled: boolean;
   /** Double click inside a string literal selects the whole value ("content") or a single word ("word"). */
   doubleClickStringSelectionMode: DoubleClickStringSelectionMode;
   autoCloseBrackets: boolean;
@@ -1328,6 +1330,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   refreshDdlOnOpen: false,
   excludeDdlStorage: true,
   vimModeEnabled: false,
+  caretBrowsingEnabled: false,
   doubleClickStringSelectionMode: "content",
   autoCloseBrackets: true,
   restoreSqlFromSourcePasteEnabled: true,
@@ -1976,6 +1979,7 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
     ddlOpenMode: settings.ddlOpenMode === "tab" ? "tab" : DEFAULT_EDITOR_SETTINGS.ddlOpenMode,
     refreshDdlOnOpen: typeof settings.refreshDdlOnOpen === "boolean" ? settings.refreshDdlOnOpen : DEFAULT_EDITOR_SETTINGS.refreshDdlOnOpen,
     vimModeEnabled: typeof settings.vimModeEnabled === "boolean" ? settings.vimModeEnabled : DEFAULT_EDITOR_SETTINGS.vimModeEnabled,
+    caretBrowsingEnabled: typeof settings.caretBrowsingEnabled === "boolean" ? settings.caretBrowsingEnabled : DEFAULT_EDITOR_SETTINGS.caretBrowsingEnabled,
     doubleClickStringSelectionMode: normalizeDoubleClickStringSelectionMode(settings.doubleClickStringSelectionMode),
     autoCloseBrackets: typeof settings.autoCloseBrackets === "boolean" ? settings.autoCloseBrackets : DEFAULT_EDITOR_SETTINGS.autoCloseBrackets,
     restoreSqlFromSourcePasteEnabled: typeof settings.restoreSqlFromSourcePasteEnabled === "boolean" ? settings.restoreSqlFromSourcePasteEnabled : DEFAULT_EDITOR_SETTINGS.restoreSqlFromSourcePasteEnabled,
@@ -2855,6 +2859,7 @@ export const useSettingsStore = defineStore("settings", () => {
     if (partial.ddlOpenMode !== undefined) editorSettings.value.ddlOpenMode = partial.ddlOpenMode === "tab" ? "tab" : "dialog";
     if (partial.refreshDdlOnOpen !== undefined) editorSettings.value.refreshDdlOnOpen = partial.refreshDdlOnOpen === true;
     if (partial.vimModeEnabled !== undefined) editorSettings.value.vimModeEnabled = partial.vimModeEnabled === true;
+    if (partial.caretBrowsingEnabled !== undefined) editorSettings.value.caretBrowsingEnabled = partial.caretBrowsingEnabled === true;
     if (partial.doubleClickStringSelectionMode !== undefined) editorSettings.value.doubleClickStringSelectionMode = normalizeDoubleClickStringSelectionMode(partial.doubleClickStringSelectionMode);
     if (partial.autoCloseBrackets !== undefined) editorSettings.value.autoCloseBrackets = partial.autoCloseBrackets === true;
     if (partial.restoreSqlFromSourcePasteEnabled !== undefined) editorSettings.value.restoreSqlFromSourcePasteEnabled = partial.restoreSqlFromSourcePasteEnabled === true;

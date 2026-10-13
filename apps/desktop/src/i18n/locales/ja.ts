@@ -8003,6 +8003,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "単語だけを選択",
     vimMode: "Vimモード",
     vimModeDescription: "SQLエディターでVim形式のモーダル編集を使用します",
+    caretBrowsing: "キャレットブラウズ (F7)",
+    caretBrowsingDescription: "F7 キーによるブラウザーのキャレットブラウズ切り替えを許可します。無効時は F7 キーをインターセプトし誤操作のプロンプトを防ぎます。",
     autoCloseBrackets: "自動括弧補完",
     restoreSqlFromSourcePaste: "貼り付け時にソースコードの SQL を復元",
     restoreSqlFromSourcePasteDescription: "Java、JavaScript、Python などのソースからコピーした文字列連結の SQL（引用符・プラス記号・エスケープ改行を含む）を、貼り付け時に通常の SQL へ復元します。明確な連結のみを対象とし、それ以外はそのまま貼り付けます。",

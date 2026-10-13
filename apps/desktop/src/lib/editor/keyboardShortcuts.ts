@@ -409,3 +409,26 @@ export function isBrowserTaskManagerShortcut(event: ShortcutLikeEvent): boolean 
   if (!event.shiftKey) return false;
   return event.key === "Escape" || event.key === "Esc" || event.code === "Escape";
 }
+
+export function isCaretBrowsingShortcut(event: ShortcutLikeEvent): boolean {
+  if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+  return event.key === "F7" || event.code === "F7";
+}
+
+export function isConfiguredShortcut(event: ShortcutLikeEvent, shortcuts?: Partial<ShortcutSettings>, platform = globalThis.navigator?.platform || ""): boolean {
+  if (!shortcuts) return false;
+  const normalized = normalizeShortcutSettings(shortcuts, platform);
+  return Object.values(normalized).some((shortcut) => matchesShortcut(event, shortcut, platform));
+}
+
+export interface CaretBrowsingBlockOptions {
+  caretBrowsingEnabled?: boolean;
+  shortcuts?: Partial<ShortcutSettings>;
+}
+
+export function shouldBlockCaretBrowsing(event: ShortcutLikeEvent, options?: CaretBrowsingBlockOptions, platform = globalThis.navigator?.platform || ""): boolean {
+  if (options?.caretBrowsingEnabled) return false;
+  if (!isCaretBrowsingShortcut(event)) return false;
+  if (options?.shortcuts && isConfiguredShortcut(event, options.shortcuts, platform)) return false;
+  return true;
+}

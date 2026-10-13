@@ -7990,6 +7990,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "Selecionar apenas a palavra",
     vimMode: "Modo Vim",
     vimModeDescription: "Usar edição modal no estilo Vim no editor SQL",
+    caretBrowsing: "Navegação por cursor (F7)",
+    caretBrowsingDescription: "Permite pressionar F7 para alternar o modo de navegação por cursor do navegador. Quando desativado, a tecla F7 é interceptada para evitar diálogos acidentais.",
     autoCloseBrackets: "Fechar parênteses automaticamente",
     restoreSqlFromSourcePaste: "Restaurar SQL colado do código-fonte",
     restoreSqlFromSourcePasteDescription: "Ao colar SQL montado com literais de string em Java, JavaScript, Python e afins (aspas, sinais de mais e quebras de linha escapadas), ele é restaurado como SQL normal. Apenas concatenações claras são reescritas; o restante é colado como está.",

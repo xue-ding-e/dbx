@@ -8678,6 +8678,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "Pilih satu kata",
     vimMode: "Mode Vim",
     vimModeDescription: "Gunakan pengeditan modal bergaya Vim di editor SQL",
+    caretBrowsing: "Penjelajahan kursor (F7)",
+    caretBrowsingDescription: "Izinkan menekan F7 untuk beralih mode penjelajahan kursor peramban. Saat dinonaktifkan, tombol F7 dicegat untuk mencegah dialog tidak disengaja.",
     autoCloseBrackets: "Tutup kurung otomatis",
     restoreSqlFromSourcePaste: "Pulihkan SQL yang ditempel dari kode sumber",
     restoreSqlFromSourcePasteDescription:

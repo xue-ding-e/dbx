@@ -7991,6 +7991,8 @@ export default withEnglishFallback({
     doubleClickStringSelectionModeWord: "Seleziona solo la parola",
     vimMode: "Modalita Vim",
     vimModeDescription: "Usa la modifica modale in stile Vim nell'editor SQL",
+    caretBrowsing: "Navigazione con cursore (F7)",
+    caretBrowsingDescription: "Consenti la pressione di F7 per attivare la navigazione con cursore del browser. Se disattivata, il tasto F7 viene intercettato per evitare richieste accidentali.",
     autoCloseBrackets: "Chiusura automatica parentesi",
     restoreSqlFromSourcePaste: "Ripristina l'SQL incollato dal codice sorgente",
     restoreSqlFromSourcePasteDescription:

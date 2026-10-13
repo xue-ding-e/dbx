@@ -9327,6 +9327,8 @@ export default withEnglishFallback({
     showWhitespaceDescription: "Показывать пробелы как ·, а табуляции как → в SQL-редакторе. Меняется только отображение, а не текст SQL.",
     vimMode: "Режим Vim",
     vimModeDescription: "Использовать модальное редактирование в стиле Vim в SQL-редакторе",
+    caretBrowsing: "Просмотр курсором (F7)",
+    caretBrowsingDescription: "Разрешить нажатие F7 для переключения режима просмотра с помощью курсора. При отключении клавиша F7 перехватывается для предотвращения случайных окон.",
     autoCloseBrackets: "Автозакрытие скобок",
     restoreSqlFromSourcePaste: "Восстанавливать SQL, вставленный из кода",
     restoreSqlFromSourcePasteDescription:
