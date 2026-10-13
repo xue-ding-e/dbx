@@ -322,6 +322,14 @@ public final class OceanBaseOracleAgent extends ConfiguredJdbcAgent {
         return buildUrl(params);
     }
 
+    @Override
+    protected java.util.Properties buildConnectionProperties(ConnectParams params) {
+        java.util.Properties properties = super.buildConnectionProperties(params);
+        // Connector/J must stop after a failed or timed-out batch item.
+        properties.setProperty("continueBatchOnError", "false");
+        return properties;
+    }
+
     static String buildUrl(ConnectParams params) {
         return appendDefaultCompatibilityOption(OCEANBASE_ORACLE_PROFILE.buildUrl(params));
     }
