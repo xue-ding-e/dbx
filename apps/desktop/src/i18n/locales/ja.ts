@@ -1,4 +1,5 @@
 import { sidebarMenuJa as sidebarMenu } from "./sidebarMenuMessages";
+import { oceanbaseCloneDialogJa as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { withEnglishFallback } from "./fallback";
 import { mongodbDatabaseDumpJa as mongoDump } from "./mongodbDatabaseDump";
 import { damengDumpJa as damengDump } from "./damengDump";
@@ -64,6 +65,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  oceanbaseCloneDialog,
   sidebarMenu,
   modelGeneration: {
     title: "モデルを生成",

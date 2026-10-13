@@ -1,4 +1,5 @@
 import { sidebarMenuZhCN as sidebarMenu } from "./sidebarMenuMessages";
+import { oceanbaseCloneDialogZhCN as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { redisGroupingZhCN as redisGrouping } from "./redisGrouping";
 import { withEnglishFallback } from "./fallback";
 import docs from "./docs/zh-CN";
@@ -9,6 +10,7 @@ import { mongodbDatabaseDumpZhCN as mongoDump } from "./mongodbDatabaseDump";
 import { damengDumpZhCN as damengDump } from "./damengDump";
 
 export default withEnglishFallback({
+  oceanbaseCloneDialog,
   sidebarMenu,
   modelGeneration: {
     title: "生成模型",

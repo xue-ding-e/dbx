@@ -233,7 +233,7 @@ pub(super) fn build_column_sql(options: &TableStructureSqlOptions, warnings: &mu
             {
                 mysql_primary_key_column_clauses.push(format!(
                     "ADD COLUMN {}{position_clause}",
-                    column_definition(StructureDialect::Mysql, column)
+                    column_definition(StructureDialect::Mysql, column, None)
                 ));
             } else {
                 statements.extend(build_add_column_sql(
@@ -350,7 +350,12 @@ pub(super) fn build_column_sql(options: &TableStructureSqlOptions, warnings: &mu
                 } else if options.database_type == Some(crate::models::connection::DatabaseType::Xugu) {
                     statements.extend(build_xugu_existing_column_sql(&table, column));
                 } else {
-                    statements.extend(build_oracle_like_existing_column_sql(dialect, &table, column))
+                    statements.extend(build_oracle_like_existing_column_sql(
+                        dialect,
+                        &table,
+                        column,
+                        options.database_type,
+                    ))
                 }
             }
             StructureDialect::Dameng => {
@@ -718,7 +723,7 @@ pub(super) fn build_add_column_sql(
     table_name: &str,
     driver_profile: Option<&str>,
 ) -> Vec<String> {
-    let definition = column_definition(dialect, column);
+    let definition = column_definition(dialect, column, database_type);
     let mut statements = if database_type == Some(DatabaseType::Transwarp) {
         vec![format!("ALTER TABLE {table} ADD COLUMNS ({definition});")]
     } else if is_oracle_like(dialect) || matches!(dialect, StructureDialect::Informix | StructureDialect::SapHana) {

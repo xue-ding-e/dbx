@@ -1,4 +1,5 @@
 import { sidebarMenuEn as sidebarMenu } from "./sidebarMenuMessages";
+import { oceanbaseCloneDialogEn as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { redisGroupingEn as redisGrouping } from "./redisGrouping";
 import docs from "./docs/en";
 import { dataDictionaryEn as dataDictionary } from "./dataDictionaryMessages";
@@ -63,6 +64,7 @@ const consul = {
 };
 
 export default {
+  oceanbaseCloneDialog,
   sidebarMenu,
   modelGeneration: {
     title: "Generate model",

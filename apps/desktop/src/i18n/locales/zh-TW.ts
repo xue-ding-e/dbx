@@ -1,4 +1,5 @@
 import { sidebarMenuZhTW as sidebarMenu } from "./sidebarMenuMessages";
+import { oceanbaseCloneDialogZhTW as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { redisGroupingZhTW as redisGrouping } from "./redisGrouping";
 import { withEnglishFallback } from "./fallback";
 import { mongodbDatabaseDumpZhTW as mongoDump } from "./mongodbDatabaseDump";
@@ -65,6 +66,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  oceanbaseCloneDialog,
   sidebarMenu,
   modelGeneration: {
     title: "產生模型",

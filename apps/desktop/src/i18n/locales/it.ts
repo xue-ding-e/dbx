@@ -1,4 +1,5 @@
 import { sidebarMenuIt as sidebarMenu } from "./sidebarMenuMessages";
+import { oceanbaseCloneDialogIt as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { withEnglishFallback } from "./fallback";
 import { mongodbDatabaseDumpIt as mongoDump } from "./mongodbDatabaseDump";
 import { damengDumpIt as damengDump } from "./damengDump";
@@ -63,6 +64,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  oceanbaseCloneDialog,
   sidebarMenu,
   modelGeneration: {
     title: "Genera modello",
