@@ -1980,7 +1980,7 @@ export interface DatabaseSearchResultItem {
   searchScope?: DatabaseSearchScope;
   columnName?: string;
   columnComment?: string;
-  structureMatchIn?: Array<"name" | "comment">;
+  structureMatchIn?: Array<"name" | "comment" | "tableComment">;
 }
 
 export interface DatabaseSearchTableTask {
