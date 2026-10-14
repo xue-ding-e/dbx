@@ -1267,6 +1267,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "Hapus pesan lokal",
     mqttCollapsePayload: "Ciutkan payload",
     mqttExpandPayload: "Perluas payload",
+    mqttCollapseAllPayloads: "Ciutkan semua payload",
+    mqttExpandAllPayloads: "Perluas semua payload",
     mqttPauseMessages: "Jeda",
     mqttResumeMessages: "Lanjutkan",
     mqttHidePublishPanel: "Sembunyikan panel publikasi",

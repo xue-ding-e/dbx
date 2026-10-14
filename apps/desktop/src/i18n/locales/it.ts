@@ -1638,6 +1638,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "Elimina messaggio locale",
     mqttCollapsePayload: "Comprimi Payload",
     mqttExpandPayload: "Espandi Payload",
+    mqttCollapseAllPayloads: "Comprimi tutti i payload",
+    mqttExpandAllPayloads: "Espandi tutti i payload",
     mqttPauseMessages: "Pausa",
     mqttResumeMessages: "Riprendi",
     mqttHidePublishPanel: "Nascondi pannello di pubblicazione",

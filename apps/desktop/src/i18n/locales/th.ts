@@ -1547,6 +1547,8 @@ export default withEnglishFallback({
     mqttClearMessages: "ล้างข้อความ",
     mqttCollapsePayload: "ยุบ Payload",
     mqttExpandPayload: "ขยาย Payload",
+    mqttCollapseAllPayloads: "ยุบ Payload ทั้งหมด",
+    mqttExpandAllPayloads: "ขยาย Payload ทั้งหมด",
     mqttPauseMessages: "หยุดชั่วคราว",
     mqttResumeMessages: "ดำเนินการต่อ",
     mqttHidePublishPanel: "ซ่อนแผงเผยแพร่",

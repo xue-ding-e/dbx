@@ -1013,6 +1013,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "Yerli mesajı sil",
     mqttCollapsePayload: "Mesaj məzmununu yığ",
     mqttExpandPayload: "Mesaj məzmununu genişləndir",
+    mqttCollapseAllPayloads: "Bütün mesaj məzmunlarını yığ",
+    mqttExpandAllPayloads: "Bütün mesaj məzmunlarını genişləndir",
     mqttPauseMessages: "Fasilə ver",
     mqttResumeMessages: "Davam et",
     mqttHidePublishPanel: "Yayımlama panelini gizlət",

@@ -1585,6 +1585,8 @@ export default {
     mqttDeleteMessage: "Delete local message",
     mqttCollapsePayload: "Collapse payload",
     mqttExpandPayload: "Expand payload",
+    mqttCollapseAllPayloads: "Collapse all payloads",
+    mqttExpandAllPayloads: "Expand all payloads",
     mqttPauseMessages: "Pause",
     mqttResumeMessages: "Resume",
     mqttHidePublishPanel: "Hide publish panel",

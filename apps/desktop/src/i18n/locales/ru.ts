@@ -1350,6 +1350,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "Удалить локальное сообщение",
     mqttCollapsePayload: "Свернуть полезную нагрузку",
     mqttExpandPayload: "Развернуть полезную нагрузку",
+    mqttCollapseAllPayloads: "Свернуть все полезные нагрузки",
+    mqttExpandAllPayloads: "Развернуть все полезные нагрузки",
     mqttPauseMessages: "Пауза",
     mqttResumeMessages: "Продолжить",
     mqttHidePublishPanel: "Скрыть панель публикации",

@@ -1638,6 +1638,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "ローカルメッセージを削除",
     mqttCollapsePayload: "ペイロードを折りたたむ",
     mqttExpandPayload: "ペイロードを展開",
+    mqttCollapseAllPayloads: "すべてのペイロードを折りたたむ",
+    mqttExpandAllPayloads: "すべてのペイロードを展開",
     mqttPauseMessages: "一時停止",
     mqttResumeMessages: "再開",
     mqttHidePublishPanel: "公開パネルを隠す",

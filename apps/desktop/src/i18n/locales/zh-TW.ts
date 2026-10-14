@@ -1650,6 +1650,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "刪除本機訊息",
     mqttCollapsePayload: "收合訊息內容",
     mqttExpandPayload: "展開訊息內容",
+    mqttCollapseAllPayloads: "全部收合訊息內容",
+    mqttExpandAllPayloads: "全部展開訊息內容",
     mqttPauseMessages: "暫停",
     mqttResumeMessages: "繼續",
     mqttHidePublishPanel: "隱藏發布區",

@@ -1633,6 +1633,8 @@ export default withEnglishFallback({
     mqttNoMatchingMessages: "현재 Payload 필터 조건과 일치하는 로드된 메시지가 없습니다.",
     mqttCollapsePayload: "Payload 접기",
     mqttExpandPayload: "Payload 펼치기",
+    mqttCollapseAllPayloads: "모든 Payload 접기",
+    mqttExpandAllPayloads: "모든 Payload 펼치기",
     mqttCopyPayload: "Payload 복사",
     mqttCopyTopic: "Topic 복사",
     mqttDeleteMessage: "로컬 메시지 삭제",

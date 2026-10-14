@@ -1639,6 +1639,8 @@ export default withEnglishFallback({
     mqttDeleteMessage: "Excluir mensagem local",
     mqttCollapsePayload: "Recolher Payload",
     mqttExpandPayload: "Expandir Payload",
+    mqttCollapseAllPayloads: "Recolher todos os payloads",
+    mqttExpandAllPayloads: "Expandir todos os payloads",
     mqttPauseMessages: "Pausar",
     mqttResumeMessages: "Retomar",
     mqttHidePublishPanel: "Ocultar painel de publicação",
