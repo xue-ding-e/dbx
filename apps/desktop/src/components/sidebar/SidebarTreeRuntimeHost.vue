@@ -5009,8 +5009,9 @@ async function confirmPasteTableImpl() {
       successCount++;
       if (preparedClones.has(entry)) completedCloneTargets.push(`${schema}.${targetName}`);
     } catch (caught: any) {
+      // 在 catch 开头统一归一化克隆错误，保证块内后续所有引用都能拿到 e
+      const e = completedClone && !(caught instanceof OceanbaseTableCloneError) ? oceanbaseCloneDataPreparationError(completedClone, caught) : caught;
       if (preparedClones.has(entry)) {
-        const e = completedClone && !(caught instanceof OceanbaseTableCloneError) ? oceanbaseCloneDataPreparationError(completedClone, caught) : caught;
         queueRefreshTarget({ ...entry, schema: e instanceof OceanbaseTableCloneError ? e.targetSchema : schema });
         cloneFailure = {
           error: e,
