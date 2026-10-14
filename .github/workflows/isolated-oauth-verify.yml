@@ -1,0 +1,113 @@
+name: Isolated OAuth candidate verification
+on:
+  push:
+    branches: [verify/oauth-isolated-20261014]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: isolated-oauth-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CANDIDATE_SHA: d1516b4b9bf3c0a00ab6ab9d6736e932dd6ef9d3
+jobs:
+  mcp:
+    if: github.repository == 'xue-ding-e/dbx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt
+      - name: Native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libfontconfig1-dev libsecret-1-dev
+      - name: Verify source and formatting
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          cargo fmt --check
+      - name: MCP unit and protocol tests
+        run: cargo test --locked -p dbx-mcp --no-default-features --features dbx-core/sqlite-bundled,dbx-core/duckdb-sidecar,dbx-core/mq-admin --lib --test protocol -- --test-threads=2
+      - name: Install HTTPS fixture tools
+        run: |
+          python -m venv "$RUNNER_TEMP/https-venv"
+          "$RUNNER_TEMP/https-venv/bin/pip" install aiohttp cryptography
+          curl --fail --location --proto '=https' --tlsv1.2 https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_linux_amd64.tar.gz -o "$RUNNER_TEMP/caddy.tar.gz"
+          echo "8220d1f013b6f27510247b2360c9e0ca9f018feebd82515f07635318b34ff9777ccc8fd0b6e6f2486ce3a33fe389fbb7db12d05baa474f4587509fb4f5ebf1c9  $RUNNER_TEMP/caddy.tar.gz" | sha512sum --check
+          mkdir -p "$RUNNER_TEMP/caddy"
+          tar -xzf "$RUNNER_TEMP/caddy.tar.gz" -C "$RUNNER_TEMP/caddy" caddy
+      - name: Exact binary HTTPS checks
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/SOURCE_COMMIT
+          sha256sum target/debug/dbx-mcp > evidence/BINARY_SHA256
+          for protocol in 2025-06-18 2025-11-25 2026-07-28; do
+            "$RUNNER_TEMP/https-venv/bin/python" scripts/test-mcp-https.py target/debug/dbx-mcp --caddy "$RUNNER_TEMP/caddy/caddy" --protocol "$protocol" --report "evidence/https-$protocol.json"
+          done
+          git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        with:
+          name: isolated-oauth-https-${{ env.CANDIDATE_SHA }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 7
+  desktop-compile:
+    if: github.repository == 'xue-ding-e/dbx'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libfontconfig1-dev libsecret-1-dev
+      - run: pnpm install --frozen-lockfile
+      - name: Compile desktop without signing or packaging
+        env:
+          CXXFLAGS: ${{ runner.os == 'Windows' && '/std:c++17 /EHsc' || '' }}
+        run: pnpm tauri build --no-bundle --ci --features custom-protocol,duckdb-sidecar,sqlite-bundled -- --no-default-features
+      - name: Record compile artifact identity
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          mkdir -p evidence/desktop
+          ext=''; if [ "$RUNNER_OS" = Windows ]; then ext='.exe'; fi
+          cp "target/release/dbx${ext}" "evidence/desktop/DBX${ext}"
+          sha256sum "evidence/desktop/DBX${ext}" > evidence/DESKTOP_SHA256
+          git rev-parse HEAD > evidence/SOURCE_COMMIT
+          printf '%s\n' 'Compile only; native GUI interaction not exercised.' > evidence/SCOPE
+          git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        with:
+          name: isolated-oauth-desktop-${{ matrix.os }}-${{ env.CANDIDATE_SHA }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 7
