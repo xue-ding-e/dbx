@@ -2999,8 +2999,8 @@ async function confirmPasteTableImpl() {
         break;
       }
       pasteFailCount++;
-      firstPasteError ??= e;
-      console.error(`Failed to paste table "${entry.sourceName}" -> "${targetName}":`, e);
+      firstPasteError ??= caught;
+      console.error(`Failed to paste table "${entry.sourceName}" -> "${targetName}":`, caught);
     }
   }
   if (cloneFailure) {
