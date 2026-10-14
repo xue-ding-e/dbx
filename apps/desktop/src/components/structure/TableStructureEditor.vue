@@ -1012,7 +1012,7 @@ function foreignKeyChanged(foreignKey: EditableStructureForeignKey): boolean {
 function triggerChanged(trigger: EditableStructureTrigger): boolean {
   if (!trigger.original || trigger.markedForDrop) return true;
   const original = trigger.original;
-  return trigger.name !== original.name || trigger.timing !== original.timing || trigger.event !== original.event || !sameText(trigger.statement, original.statement);
+  return trigger.name !== original.name || trigger.timing !== original.timing || trigger.event !== original.event || !sameText(trigger.statement, original.statement) || (trigger.enabled !== undefined && trigger.enabled !== original.enabled);
 }
 
 function captureStructureRefreshScope(): TableStructureRefreshScope {
@@ -5150,6 +5150,7 @@ function addTrigger() {
     timing: isOracleTriggerEditor.value ? "BEFORE EACH ROW" : isSqlServerTriggerEditor.value ? "AFTER" : "BEFORE",
     event: "INSERT",
     statement: isOracleTriggerEditor.value ? "BEGIN\n  NULL;\nEND" : isSqlServerTriggerEditor.value ? "BEGIN\n  SET NOCOUNT ON;\nEND" : "BEGIN\n  \nEND",
+    enabled: true,
     markedForDrop: false,
   };
   triggers.value.push(draft);
@@ -5166,7 +5167,13 @@ function toggleDropTrigger(trigger: EditableStructureTrigger) {
 }
 
 function canEditTriggerDraft(trigger: EditableStructureTrigger): boolean {
-  return !triggersLoading.value && canEditTriggers.value && !trigger.markedForDrop && canEditStructuredTriggerDraft(databaseType.value, trigger);
+  return canToggleTriggerEnabled(trigger) && canEditStructuredTriggerDraft(databaseType.value, trigger);
+}
+
+// ALTER TRIGGER ... ENABLE/DISABLE leaves the source untouched, so it stays available for
+// triggers whose source the structured form cannot rebuild.
+function canToggleTriggerEnabled(trigger: EditableStructureTrigger): boolean {
+  return !triggersLoading.value && canEditTriggers.value && !trigger.markedForDrop;
 }
 
 function primarySqlOperation(sql: string): string {
@@ -7016,8 +7023,18 @@ watch(
                       <SelectItem v-for="event in triggerEventOptions" :key="event" :value="event">{{ event }}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Badge v-if="trigger.original && trigger.original.enabled !== undefined && trigger.original.enabled !== null" variant="outline" class="shrink-0 text-[length:var(--structure-font-size)]">
-                    {{ trigger.original.enabled ? t("damengJobAdmin.enabled") : t("damengJobAdmin.disabled") }}
+                  <Button
+                    v-if="isOracleTriggerEditor && trigger.enabled !== undefined"
+                    variant="outline"
+                    size="sm"
+                    :class="['h-[var(--structure-control-height)] shrink-0 px-[var(--structure-control-px)] text-[length:var(--structure-font-size)]', !trigger.enabled ? 'text-muted-foreground' : '']"
+                    :disabled="!canToggleTriggerEnabled(trigger)"
+                    @click.stop="trigger.enabled = !trigger.enabled"
+                  >
+                    {{ trigger.enabled ? t("damengJobAdmin.enabled") : t("damengJobAdmin.disabled") }}
+                  </Button>
+                  <Badge v-else-if="trigger.enabled !== undefined && trigger.enabled !== null" variant="outline" class="shrink-0 text-[length:var(--structure-font-size)]">
+                    {{ trigger.enabled ? t("damengJobAdmin.enabled") : t("damengJobAdmin.disabled") }}
                   </Badge>
                   <Button v-if="trigger.original" variant="ghost" size="sm" :class="structureToolbarButtonClass" @click.stop="toggleDropTrigger(trigger)">
                     <Trash2 :class="structureIconClass" />
