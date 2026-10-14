@@ -5,8 +5,10 @@ import { createI18n } from "vue-i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { QueryResult, QueryTab } from "@/types/database";
 
-vi.mock("@/components/editor/QueryEditor.vue", () => ({ default: { render: () => null } }));
-vi.mock("@/components/grid/DataGrid.vue", () => ({ default: { render: () => h("div", { "data-test": "data-grid" }) } }));
+// This suite does not exercise result export; keep its lazy dialog dependency isolated.
+vi.mock("@/components/transfer/QueryResultTransferDialog.vue", () => ({ __esModule: true, default: { render: () => null } }));
+vi.mock("@/components/editor/QueryEditor.vue", () => ({ __esModule: true, default: { render: () => null } }));
+vi.mock("@/components/grid/DataGrid.vue", () => ({ __esModule: true, default: { render: () => h("div", { "data-test": "data-grid" }) } }));
 
 import ContentArea from "../ContentArea.vue";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -24,7 +26,7 @@ async function mountResults(results: QueryResult[], activeIndex: number) {
   setActivePinia(pinia);
   const connection = { id: "sqlserver", name: "SQL Server", db_type: "sqlserver" as const, host: "localhost", port: 1433, username: "", password: "" };
   useConnectionStore().connections = [connection];
-  const tab: QueryTab = { id: "query", title: "Query", connectionId: connection.id, database: "app", mode: "query", sql: "EXEC demo", isExecuting: false, results, result: results[activeIndex], activeResultIndex: activeIndex };
+  const tab = reactive<QueryTab>({ id: "query", title: "Query", connectionId: connection.id, database: "app", mode: "query", sql: "EXEC demo", isExecuting: false, results, result: results[activeIndex], activeResultIndex: activeIndex });
   useQueryStore().tabs.push(tab);
   const state = reactive({ view: "result" as "result" | "messages" });
   const host = document.createElement("div");
@@ -55,7 +57,7 @@ async function mountResults(results: QueryResult[], activeIndex: number) {
   cleanups.push(() => app.unmount());
   await nextTick();
   await nextTick();
-  return { host, state };
+  return { host, state, tab };
 }
 
 describe("SQL Server messages in the result surface", () => {
@@ -76,6 +78,22 @@ describe("SQL Server messages in the result surface", () => {
     const { host, state } = await mountResults(mixed ? [message, data] : [message], 0);
     expect(state.view).toBe("messages");
     expect(host.textContent).toContain("before notice");
+    expect(host.querySelector('[data-test="data-grid"]')).toBeNull();
+  });
+});
+
+describe("live server output", () => {
+  it("opens Messages while running and retains output after cancellation", async () => {
+    const { host, state, tab } = await mountResults([], 0);
+    tab.isExecuting = true;
+    await nextTick();
+    tab.liveQueryMessages = [{ severity: "NOTICE", message: "running output" }];
+    await nextTick();
+    expect(state.view).toBe("messages");
+    expect(host.textContent).toContain("running output");
+    tab.isExecuting = false;
+    await nextTick();
+    expect(host.textContent).toContain("running output");
     expect(host.querySelector('[data-test="data-grid"]')).toBeNull();
   });
 });
