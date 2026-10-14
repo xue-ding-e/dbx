@@ -140,6 +140,7 @@ import { resolveSavedSqlExecutionTarget, savedSqlExecutionTargetFromFile, savedS
 import { safeLocalStorageGet, safeLocalStorageRemove } from "@/lib/backend/safeStorage";
 import { sqlTextFingerprint } from "@/lib/sql/sqlTextFingerprint";
 import { loadEditableObjectSourceForEditor } from "@/lib/table/objectSourceLoad";
+import { assertSourceIdentity, captureSourceIdentity, renewSourceIdentity, type SourceIdentitySnapshot } from "@/lib/table/objectSourceIdentity";
 import { buildEditableObjectSource } from "@/lib/table/objectSourceEditor";
 import { disposeAllSqlServerActivityTraces, disposeSqlServerActivityTrace } from "@/lib/sqlserver/sqlServerActivityTraceRuntime";
 import type { SavedSqlFile } from "@/types/database";
@@ -1131,6 +1132,27 @@ export const useQueryStore = defineStore("query", () => {
   const t = getI18nT();
   const settingsStore = useSettingsStore();
   const tabs = ref<QueryTab[]>([]);
+  const sourceIdentities = new WeakMap<NonNullable<QueryTab["objectSource"]>, SourceIdentitySnapshot>();
+  function getObjectSourceIdentitySnapshot(tab: QueryTab): SourceIdentitySnapshot | undefined {
+    if (!tab.objectSource) return undefined;
+    let snapshot = sourceIdentities.get(tab.objectSource);
+    if (!snapshot) {
+      snapshot = captureSourceIdentity({ connectionId: tab.connectionId, database: tab.database, schema: tab.objectSource.schema || tab.schema || tab.database, objectType: tab.objectSource.objectType, name: tab.objectSource.name });
+      sourceIdentities.set(tab.objectSource, snapshot);
+    }
+    if (snapshot.connectionId !== tab.connectionId || snapshot.database !== tab.database || (snapshot.schema || snapshot.database) !== (tab.objectSource.schema || tab.schema || tab.database) || snapshot.objectType !== tab.objectSource.objectType || snapshot.name !== tab.objectSource.name)
+      throw new Error(i18n.global.t("objects.sourceIdentityChanged"));
+    return snapshot;
+  }
+  watch(
+    () => tabs.value.map((tab) => tab.objectSource),
+    () => {
+      for (const tab of tabs.value) {
+        if (tab.objectSource && !sourceIdentities.has(tab.objectSource)) getObjectSourceIdentitySnapshot(tab);
+      }
+    },
+    { flush: "sync" },
+  );
   // New tabs are created by many feature-specific entry points. Tracking id
   // changes here gives every one a stable timestamp without duplicating the
   // field at each call site; restored legacy tabs retain their saved order.
@@ -3044,6 +3066,8 @@ export const useQueryStore = defineStore("query", () => {
       existing.sourceView = true;
       switchTab(existing.id);
       if (!isTabDirty(existing)) {
+        const snapshot = getObjectSourceIdentitySnapshot(existing);
+        if (snapshot) assertSourceIdentity(snapshot);
         updateSql(existing.id, options.sql);
         markTabClean(existing);
       }
@@ -3135,6 +3159,8 @@ export const useQueryStore = defineStore("query", () => {
     const schema = objectSource.schema || tab.schema || database;
     sourceRevalidateInFlight.add(id);
     try {
+      const identity = getObjectSourceIdentitySnapshot(tab)!;
+      assertSourceIdentity(identity);
       const connectionStore = useConnectionStore();
       await connectionStore.ensureConnected(connectionId);
       const databaseType = effectiveDatabaseTypeForConnection(connectionStore.getConfig(connectionId));
@@ -3154,7 +3180,9 @@ export const useQueryStore = defineStore("query", () => {
       });
       // 期间 tab 可能被关闭、被复用或已被编辑：身份没变且用户没改过内容时才回填
       const current = tabs.value.find((candidate) => candidate.id === id);
+      assertSourceIdentity(identity);
       if (current?.objectSource !== objectSource || resolvedType !== objectSource.objectType) return;
+      if (current.connectionId !== connectionId || current.database !== database || (current.objectSource.schema || current.schema || current.database) !== schema) return;
       if (raw.editable === false || (OBJECT_SOURCE_READ_ONLY_TYPES.includes(resolvedType) && !(databaseType === "oceanbase-oracle" && resolvedType === "SEQUENCE"))) return;
       if (isTabDirty(current)) return;
       updateSql(id, editableSource);
@@ -3205,6 +3233,8 @@ export const useQueryStore = defineStore("query", () => {
     const { database } = tab;
     const schema = tab.schema || database;
     const { request, initialEditing } = tab.sourceLoad;
+    const sourceLoad = tab.sourceLoad;
+    const identity = captureSourceIdentity({ connectionId, database, schema, name: request.name, objectType: request.objectType });
     try {
       const connectionStore = useConnectionStore();
       await connectionStore.ensureConnected(connectionId);
@@ -3224,11 +3254,19 @@ export const useQueryStore = defineStore("query", () => {
         databaseType,
         signature: request.signature,
       });
+      if (tabs.value.find((candidate) => candidate.id === id)?.sourceLoad !== sourceLoad) return;
+      if (tab.connectionId !== connectionId || tab.database !== database || (tab.schema || tab.database) !== schema) throw new Error(i18n.global.t("objects.sourceIdentityChanged"));
+      const renewedIdentity = renewSourceIdentity(identity);
+      // Fallback can resolve another kind; never activate a frozen resolved object.
+      const resolvedIdentity = resolvedType === request.objectType ? renewedIdentity : captureSourceIdentity({ ...identity, objectType: resolvedType });
+      assertSourceIdentity(resolvedIdentity);
       applyLoadedObjectSource(id, { connectionId, database, schema, catalog: tab.catalog, title: tab.title, request, initialEditing, databaseType, editableSource, raw, resolvedType });
+      const loadedTab = tabs.value.find((candidate) => candidate.id === id);
+      if (loadedTab?.objectSource) sourceIdentities.set(loadedTab.objectSource, resolvedIdentity);
     } catch (e: any) {
       // 就地显示错误 + Retry：用户此刻正看着这个 tab，比 toast 更可发现
       const failed = tabs.value.find((candidate) => candidate.id === id);
-      if (failed?.sourceLoad) failed.sourceLoad.error = e?.message || String(e);
+      if (failed?.sourceLoad === sourceLoad) failed.sourceLoad.error = e?.message || String(e);
     }
   }
 
@@ -3266,6 +3304,8 @@ export const useQueryStore = defineStore("query", () => {
       // 有则交接给它并关掉 pending 占位，避免同一个对象出现两个 tab。
       const existing = findMatchingObjectSourceTab(options, id);
       if (existing) {
+        const snapshot = getObjectSourceIdentitySnapshot(existing);
+        if (snapshot) assertSourceIdentity(snapshot);
         clearObjectSourceLoad(tab);
         closeTab(id);
         existing.sourceView = true;
@@ -10400,6 +10440,7 @@ export const useQueryStore = defineStore("query", () => {
     invalidateTableStructure,
     tableStructureRefreshVersion,
     setObjectSource,
+    getObjectSourceIdentitySnapshot,
     setExecuting,
     setExecutingWithId,
     setErrorResult,
