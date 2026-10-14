@@ -7,6 +7,9 @@ admin API, HTTP/3, and trust installation are disabled in the fixture. Its CA
 is trusted only by this process. All keys/profiles are generated per run in a
 temporary owner-only directory and destroyed afterward; none are committed.
 No real identity provider, public ingress, or ChatGPT connection is exercised.
+The empty profile exercises the stateless transport, not database-session handle
+isolation, in-flight cancellation, or principal cleanup; Rust router tests cover
+those with a synthetic backend. A notification's HTTP 202 is only an ACK.
 
 Usage: python3 scripts/test-mcp-https.py /path/to/dbx-mcp     --caddy /path/to/caddy --report /tmp/dbx-https.json
 
@@ -35,6 +38,9 @@ from cryptography.x509.oid import NameOID
 
 HOST = "dbx.example.test"
 ISSUER = "https://identity.example.test/realms/fixture"
+PROTOCOLS = ("2025-06-18", "2025-11-25", "2026-07-28")
+CLIENT_INFO = {"name": "dbx-https-smoke", "version": "1.0"}
+STALE_SID = "00000000-dead-beef-0000-000000000000"
 checks = {}
 
 
@@ -131,13 +137,48 @@ def check(name, cond, detail=None):
     print("PASS", name, flush=True)
 
 
-def rpc_payload(method, id=1, params=None):
+def rpc_payload(method, id=1, params=None, protocol=None):
     p = {"jsonrpc": "2.0", "method": method}
     if id is not None:
         p["id"] = id
+    if protocol == "2026-07-28" and id is not None and method != "initialize":
+        params = {
+            **(params or {}),
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": protocol,
+                "io.modelcontextprotocol/clientInfo": CLIENT_INFO.copy(),
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+        }
     if params is not None:
         p["params"] = params
     return p
+
+
+def opening_request(protocol):
+    if protocol == "2026-07-28":
+        return rpc_payload("server/discover", protocol=protocol)
+    return rpc_payload(
+        "initialize",
+        params={"protocolVersion": protocol, "capabilities": {}, "clientInfo": CLIENT_INFO.copy()},
+    )
+
+
+def opening_result_matches(payload, protocol):
+    data = payload.get("result", {})
+    if protocol == "2026-07-28":
+        return protocol in data.get("supportedVersions", [])
+    return data.get("protocolVersion") == protocol
+
+
+def standard_headers(payload, protocol):
+    """SEP-2243 headers required by the modern SDK for this fixture's methods."""
+    if protocol != "2026-07-28":
+        return {}
+    headers = {"Mcp-Method": payload["method"]}
+    if payload["method"] == "tools/call":
+        headers["Mcp-Name"] = payload["params"]["name"]
+    return headers
 
 
 def result(text):
@@ -192,6 +233,11 @@ async def run(binary, report, protocol, caddy, caddyfile):
         native_tls=False,
         proxy="Caddy HTTPS reverse proxy, both listeners 127.0.0.1",
         system_trust_changed=False,
+        protocol=protocol,
+        transport_sessions=False,
+        dbx_handle_isolation_tested=False,
+        in_flight_cancellation_tested=False,
+        principal_cleanup_tested=False,
     )
     with tempfile.TemporaryDirectory(prefix="dbx-https-fixture-") as tmp:
         async with contextlib.AsyncExitStack() as cleanup:
@@ -340,15 +386,9 @@ async def run(binary, report, protocol, caddy, caddyfile):
             base_headers = {
                 "Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json",
+                "MCP-Protocol-Version": protocol,
             }
-            init = rpc_payload(
-                "initialize",
-                params={
-                    "protocolVersion": protocol,
-                    "capabilities": {},
-                    "clientInfo": {"name": "dbx-https-smoke", "version": "1.0"},
-                },
-            )
+            opening = opening_request(protocol)
             try:
                 connector = aiohttp.TCPConnector(resolver=Resolver(), ssl=client_ssl)
                 async with aiohttp.ClientSession(
@@ -430,7 +470,7 @@ async def run(binary, report, protocol, caddy, caddyfile):
                         check("reject_" + name, rejected)
 
                     async def post(payload, bearer=None, headers=None):
-                        h = base_headers.copy()
+                        h = {**base_headers, **standard_headers(payload, protocol)}
                         if bearer is not None:
                             h["Authorization"] = "Bearer " + bearer
                         if headers:
@@ -438,7 +478,7 @@ async def run(binary, report, protocol, caddy, caddyfile):
                         async with client.post(resource, json=payload, headers=h) as r:
                             return (r.status, {k.lower(): v for k, v in r.headers.items()}, await r.text())
 
-                    status, h, body = await post(init)
+                    status, h, body = await post(opening)
                     expected = f'Bearer resource_metadata="{origin}/.well-known/oauth-protected-resource/mcp", scope="dbx:mcp"'
                     check(
                         "missing_bearer_https_challenge",
@@ -458,29 +498,37 @@ async def run(binary, report, protocol, caddy, caddyfile):
                     good = await token()
                     direct_headers = {
                         **base_headers,
+                        **standard_headers(opening, protocol),
                         "Host": f"{HOST}:{tls_port}",
                         "Authorization": "Bearer " + good,
                     }
                     async with client.post(
-                        f"http://127.0.0.1:{backend_port}/mcp", headers=direct_headers, json=init
+                        f"http://127.0.0.1:{backend_port}/mcp", headers=direct_headers, json=opening
                     ) as r:
                         direct_result = result(await r.text())
-                        direct_sid = r.headers.get("Mcp-Session-Id")
                         check(
-                            "loopback_http_initialize",
-                            r.status == 200 and bool(direct_sid) and ("result" in direct_result),
-                            {"status": r.status},
+                            "loopback_http_" + opening["method"],
+                            r.status == 200
+                            and "Mcp-Session-Id" not in r.headers
+                            and opening_result_matches(direct_result, protocol),
+                            {"status": r.status, "result": direct_result},
                         )
-                    async with client.delete(
-                        f"http://127.0.0.1:{backend_port}/mcp",
-                        headers={**direct_headers, "Mcp-Session-Id": direct_sid},
-                    ) as r:
-                        await r.read()
-                        check("loopback_http_delete", r.status == 202, {"status": r.status})
+                    for method in ("GET", "DELETE"):
+                        async with client.request(
+                            method,
+                            f"http://127.0.0.1:{backend_port}/mcp",
+                            headers={**direct_headers, "Mcp-Session-Id": STALE_SID},
+                        ) as r:
+                            await r.read()
+                            check(
+                                "loopback_http_reject_" + method.lower(),
+                                r.status == 405 and r.headers.get("Allow") == "POST",
+                                {"status": r.status, "allow": r.headers.get("Allow")},
+                            )
                     async with client.post(
                         f"http://127.0.0.1:{backend_port}/mcp",
                         headers={**direct_headers, "Host": "evil.example.test"},
-                        json=init,
+                        json=opening,
                     ) as r:
                         await r.read()
                         check("backend_rejects_host", r.status == 403, {"status": r.status})
@@ -488,11 +536,11 @@ async def run(binary, report, protocol, caddy, caddyfile):
                     parts[2] = b64(b"\x00" * 256)
                     invalids.append(("wrong_signature", ".".join(parts), 401))
                     for label, bearer, expected_status in invalids:
-                        status, _, _ = await post(init, bearer)
+                        status, _, _ = await post(opening, bearer)
                         check("reject_" + label, status == expected_status, {"status": status})
-                    status, _, _ = await post(init, good, {"Origin": "https://evil.example.test"})
+                    status, _, _ = await post(opening, good, {"Origin": "https://evil.example.test"})
                     check("reject_origin", status == 403, {"status": status})
-                    status, h, body = await post(init, good, {"Host": "evil.example.test"})
+                    status, h, body = await post(opening, good, {"Host": "evil.example.test"})
                     check(
                         "unknown_host_not_proxied",
                         status in (403, 421)
@@ -531,82 +579,163 @@ async def run(binary, report, protocol, caddy, caddyfile):
                             status == expected_status and min_time <= elapsed < 8,
                             {"status": status, "seconds": round(elapsed, 3)},
                         )
-                    status, h, body = await post(init, good, {"Origin": origin})
-                    initialized = result(body)
-                    sid = h.get("mcp-session-id")
-                    version = initialized.get("result", {}).get("protocolVersion")
+                    status, h, body = await post(opening, good, {"Origin": origin})
+                    opened = result(body)
                     check(
-                        "https_initialize_session",
-                        status == 200 and bool(sid) and ("result" in initialized) and (version == protocol),
-                        {
-                            "status": status,
-                            "protocol_version": version,
-                            "server": initialized.get("result", {}).get("serverInfo"),
-                        },
+                        "https_" + opening["method"] + "_without_session",
+                        status == 200
+                        and "mcp-session-id" not in h
+                        and opening_result_matches(opened, protocol),
+                        {"status": status, "protocol": protocol, "result": opened.get("result")},
                     )
-                    session_headers = {"Mcp-Session-Id": sid, "MCP-Protocol-Version": version}
-                    status, _, _ = await post(
-                        rpc_payload("notifications/initialized", None), good, session_headers
+                    check(
+                        "allowed_origin_cors_response",
+                        h.get("access-control-allow-origin") == origin
+                        and "mcp-session-id" not in h.get("access-control-expose-headers", "").lower(),
+                        {"allow_origin": h.get("access-control-allow-origin")},
                     )
-                    check("https_initialized_notification", status == 202, {"status": status})
-                    status, h, body = await post(rpc_payload("tools/list", 2), good, session_headers)
+                    for method in ("POST", "GET", "DELETE"):
+                        async with client.options(
+                            resource,
+                            headers={
+                                "Origin": origin,
+                                "Access-Control-Request-Method": method,
+                                "Access-Control-Request-Headers": "authorization,mcp-protocol-version,mcp-method,mcp-name,content-type",
+                            },
+                        ) as r:
+                            await r.read()
+                            methods = {
+                                value.strip().upper()
+                                for value in r.headers.get("Access-Control-Allow-Methods", "").split(",")
+                                if value.strip()
+                            }
+                            check(
+                                "cors_preflight_" + method.lower() + "_advertises_only_post",
+                                r.status in (200, 204)
+                                and r.headers.get("Access-Control-Allow-Origin") == origin
+                                and methods == {"POST"},
+                                {"status": r.status, "allowed_methods": sorted(methods)},
+                            )
+                    if protocol != "2026-07-28":
+                        status, h, _ = await post(rpc_payload("notifications/initialized", None), good)
+                        check(
+                            "https_initialized_notification_ack",
+                            status == 202 and "mcp-session-id" not in h,
+                            {"status": status},
+                        )
+                    listed = rpc_payload("tools/list", 2, protocol=protocol)
+                    status, h, body = await post(listed, good)
                     tools = result(body).get("result", {}).get("tools", [])
                     check(
-                        "https_tools_list",
-                        status == 200 and any((t["name"] == "dbx_list_connections" for t in tools)),
+                        "https_tools_list_without_session",
+                        status == 200
+                        and "mcp-session-id" not in h
+                        and any(t["name"] == "dbx_list_connections" for t in tools),
                         {"status": status, "tool_count": len(tools), "content_type": h.get("content-type")},
                     )
                     status, h, body = await post(
-                        rpc_payload("tools/call", 3, {"name": "dbx_list_connections", "arguments": {}}),
+                        rpc_payload(
+                            "tools/call", 3,
+                            {"name": "dbx_list_connections", "arguments": {}},
+                            protocol=protocol,
+                        ),
                         good,
-                        session_headers,
                     )
                     called = result(body)
                     check(
                         "https_tool_call_empty_fixture",
                         status == 200
+                        and "mcp-session-id" not in h
                         and not called.get("result", {}).get("isError", False)
                         and called.get("result", {}).get("content")
                         == [{"type": "text", "text": "No connections configured in DBX."}],
                         {"status": status, "result": called.get("result")},
                     )
-                    status, _, _ = await post(
-                        rpc_payload("tools/list", 4), await token(sub="fixture-other"), session_headers
-                    )
-                    check("reject_cross_principal_session", status == 403, {"status": status})
-                    h = {**base_headers, **session_headers, "Authorization": "Bearer " + good}
+                    # No transport session was created. A syntactically valid old
+                    # ID has no authority, even for a different allowed subject.
+                    # This empty profile cannot establish DBX handle isolation.
+                    stale_headers = {"Mcp-Session-Id": STALE_SID}
+                    for label, bearer in (
+                        ("owner", good),
+                        ("other_allowed_subject", await token(sub="fixture-other")),
+                        ("refreshed_owner_jwt", await token(jti="fixture-refreshed", exp=int(time.time()) + 180)),
+                    ):
+                        status, h, body = await post(listed, bearer, stale_headers)
+                        check(
+                            "ignored_legacy_session_id_" + label,
+                            status == 200
+                            and "mcp-session-id" not in h
+                            and any(
+                                t["name"] == "dbx_list_connections"
+                                for t in result(body).get("result", {}).get("tools", [])
+                            ),
+                            {"status": status},
+                        )
+                    # Authentication is repeated on ordinary POSTs, not just on
+                    # initialize/discover, and cannot be replaced by an old ID.
+                    for label, bearer, expected_status in [("missing", None, 401), *invalids]:
+                        status, _, _ = await post(listed, bearer, stale_headers)
+                        check("reauthenticate_post_" + label, status == expected_status, {"status": status})
+                    if protocol == "2026-07-28":
+                        status, _, body = await post(rpc_payload("tools/list", 9, {}), good)
+                        check(
+                            "modern_requires_request_metadata",
+                            status == 400 and result(body).get("error", {}).get("code") == -32602,
+                            {"status": status, "body": body},
+                        )
+                        status, _, body = await post(listed, good, {"MCP-Protocol-Version": "2025-11-25"})
+                        check(
+                            "modern_rejects_mismatched_protocol_header",
+                            status == 400 and "error" in result(body),
+                            {"status": status, "body": body},
+                        )
+                    # The stateless SDK ACKs notifications without dispatching
+                    # them to another POST. Do not interpret 202 as cancellation.
+                    for subject in ("fixture-owner", "fixture-other"):
+                        status, h, _ = await post(
+                            rpc_payload("notifications/cancelled", None, {"requestId": 2}),
+                            await token(sub=subject),
+                            stale_headers,
+                        )
+                        check(
+                            "cancel_notification_ack_only_" + subject,
+                            status == 202 and "mcp-session-id" not in h,
+                            {"status": status, "cancellation_verified": False},
+                        )
+                    h = {**base_headers, **stale_headers, "Authorization": "Bearer " + good}
                     async with client.post(resource, data=b"x" * (1024 * 1024 + 1), headers=h) as r:
                         await r.read()
                         status = r.status
                     check("reject_oversize_body", status == 413, {"status": status})
-                    get_headers = {
-                        **session_headers,
-                        "Authorization": "Bearer " + good,
-                        "Accept": "text/event-stream",
-                    }
-                    async with client.get(resource, headers=get_headers) as stream:
-                        check(
-                            "https_get_sse",
-                            stream.status == 200
-                            and stream.headers.get("Content-Type", "").startswith("text/event-stream"),
-                            {"status": stream.status},
-                        )
-                        await asyncio.sleep(0.2)
-                        check("sse_stays_open_until_delete", not stream.content.is_eof())
-                        async with client.delete(
-                            resource, headers={**session_headers, "Authorization": "Bearer " + good}
-                        ) as r:
-                            await r.read()
-                            status = r.status
-                        check("https_session_delete", status == 202, {"status": status})
-                        try:
-                            await asyncio.wait_for(stream.read(), 5)
-                            ended = True
-                        except asyncio.TimeoutError:
-                            ended = False
-                        check("delete_closes_sse", ended)
-                    status, _, _ = await post(rpc_payload("tools/list", 5), good, session_headers)
-                    check("reject_deleted_session", status == 404, {"status": status})
+                    for method in ("GET", "DELETE"):
+                        # Authenticate before returning the stateless method
+                        # boundary; invalid identity/origin must not reach SDK.
+                        for label, bearer, expected_status, extra in (
+                            ("valid", good, 405, {}),
+                            ("missing", None, 401, {}),
+                            ("expired", await token(exp=int(time.time()) - 1), 401, {}),
+                            ("scope", await token(scope="read"), 403, {}),
+                            ("subject", await token(sub="unapproved"), 403, {}),
+                            ("origin", good, 403, {"Origin": "https://evil.example.test"}),
+                        ):
+                            request_headers = {**base_headers, **stale_headers, **extra}
+                            if bearer is not None:
+                                request_headers["Authorization"] = "Bearer " + bearer
+                            async with client.request(method, resource, headers=request_headers) as r:
+                                await r.read()
+                                check(
+                                    "https_" + method.lower() + "_" + label,
+                                    r.status == expected_status
+                                    and "Mcp-Session-Id" not in r.headers
+                                    and (expected_status != 405 or r.headers.get("Allow") == "POST"),
+                                    {"status": r.status, "allow": r.headers.get("Allow")},
+                                )
+                    status, h, body = await post(listed, good, stale_headers)
+                    check(
+                        "post_still_works_after_rejected_transport_verbs",
+                        status == 200 and "mcp-session-id" not in h and "result" in result(body),
+                        {"status": status},
+                    )
                     async with client.get(
                         origin + "/.well-known/oauth-protected-resource/mcp",
                         headers={
@@ -645,7 +774,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("binary", type=pathlib.Path)
     p.add_argument("--report", type=pathlib.Path, required=True)
-    p.add_argument("--protocol", choices=("2025-06-18", "2025-11-25"), default="2025-11-25")
+    p.add_argument("--protocol", choices=PROTOCOLS, default="2025-11-25")
     p.add_argument("--caddy", type=pathlib.Path, required=True)
     p.add_argument(
         "--caddyfile",

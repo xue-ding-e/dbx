@@ -1,8 +1,8 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     net::Ipv6Addr,
-    sync::{Arc, Mutex, RwLock, Weak},
-    time::{Duration, Instant},
+    sync::{Arc, RwLock},
+    time::Duration,
 };
 
 use crate::oauth::{OAuthError, OAuthVerifier};
@@ -13,45 +13,28 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use futures::StreamExt;
-use rmcp::transport::streamable_http_server::session::{local::LocalSessionManager, SessionManager};
 use sha2::{Digest, Sha256};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::CancellationToken;
 use url::Url;
 
 const MAX_BODY: usize = 1024 * 1024;
-const SESSION_TTL: Duration = Duration::from_secs(15 * 60);
-
-struct SessionBinding {
-    principal: String,
-    created: Instant,
-    _slot: OwnedSemaphorePermit,
-    invalidated: bool,
-    cancellation: tokio_util::sync::CancellationToken,
-}
-
-impl Drop for SessionBinding {
-    fn drop(&mut self) {
-        self.cancellation.cancel();
-    }
-}
 
 /// Authentication and browser-origin policy for the Streamable HTTP endpoint.
 /// The token is intentionally not `Debug` and is never exposed by diagnostics.
 #[derive(Clone)]
 pub struct HttpAuth {
     config: Arc<RwLock<HttpAuthConfig>>,
-    sessions: Arc<Mutex<HashMap<String, SessionBinding>>>,
-    slots: Arc<Semaphore>,
     requests: Arc<Semaphore>,
-    streams: Arc<Semaphore>,
     controls: Arc<Semaphore>,
     uploads: Arc<Semaphore>,
-    initialize: Arc<tokio::sync::Mutex<()>>,
-    manager: Arc<RwLock<Weak<LocalSessionManager>>>,
 }
 
 #[derive(Clone)]
 struct HttpAuthConfig {
+    // Captured under the same lock as authentication, so policy rotation also
+    // revokes requests still reading bodies, dispatching, or streaming replies.
+    generation: CancellationToken,
     token: Option<Arc<[u8]>>,
     oauth: Option<OAuthVerifier>,
     allowed_hosts: Vec<HostRule>,
@@ -81,6 +64,7 @@ impl HttpAuth {
         allow_loopback_origins: bool,
     ) -> Result<Self, String> {
         let config = HttpAuthConfig {
+            generation: CancellationToken::new(),
             token: validate_token(token)?.map(|token| Arc::from(token.into_bytes())),
             oauth: None,
             allowed_hosts: normalize_hosts(allowed_hosts)?,
@@ -89,14 +73,9 @@ impl HttpAuth {
         };
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
-            sessions: Default::default(),
-            slots: Arc::new(Semaphore::new(64)),
             requests: Arc::new(Semaphore::new(32)),
-            streams: Arc::new(Semaphore::new(32)),
             controls: Arc::new(Semaphore::new(8)),
             uploads: Arc::new(Semaphore::new(40)),
-            initialize: Default::default(),
-            manager: Default::default(),
         })
     }
 
@@ -124,6 +103,7 @@ impl HttpAuth {
         allowed_origins: impl IntoIterator<Item = String>,
     ) -> Result<(), String> {
         let next = HttpAuthConfig {
+            generation: CancellationToken::new(),
             token: validate_token(token)?.map(|token| Arc::from(token.into_bytes())),
             oauth: None,
             allowed_hosts: normalize_hosts(allowed_hosts)?,
@@ -134,55 +114,28 @@ impl HttpAuth {
                 .unwrap_or_else(|error| error.into_inner())
                 .allow_loopback_origins,
         };
-        *self.config.write().unwrap_or_else(|error| error.into_inner()) = next;
-        for binding in self.sessions.lock().unwrap_or_else(|e| e.into_inner()).values_mut() {
-            binding.invalidated = true;
-            binding.cancellation.cancel();
-        }
+        let mut config = self.config.write().unwrap_or_else(|error| error.into_inner());
+        // Replacement and revocation share the policy lock. A request cannot
+        // authenticate against the old policy and then capture the new token.
+        config.generation.cancel();
+        *config = next;
         Ok(())
-    }
-
-    pub(crate) fn attach_manager(&self, manager: &Arc<LocalSessionManager>) {
-        *self.manager.write().unwrap_or_else(|e| e.into_inner()) = Arc::downgrade(manager);
-    }
-
-    pub(crate) async fn reap_sessions(&self, manager: &Arc<LocalSessionManager>) {
-        let _initialization = self.initialize.lock().await;
-        self.reap_sessions_locked(manager).await;
-    }
-
-    async fn reap_sessions_locked(&self, manager: &Arc<LocalSessionManager>) {
-        let live: HashSet<String> = manager.sessions.read().await.keys().map(ToString::to_string).collect();
-        let close = {
-            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            // SDK idle/DELETE/shutdown cleanup also releases ownership slots.
-            sessions.retain(|id, _| live.contains(id));
-            live.iter()
-                .filter(|id| {
-                    sessions
-                        .get(*id)
-                        .is_none_or(|binding| binding.invalidated || binding.created.elapsed() >= SESSION_TTL)
-                })
-                .cloned()
-                .collect::<Vec<_>>()
-        };
-        // Unowned sessions include initialize responses whose caller vanished
-        // before registration. Initialization and this scan share one lock.
-        for id in close {
-            let _ = tokio::time::timeout(Duration::from_secs(10), manager.close_session(&id.clone().into())).await;
-            self.sessions.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn expire_session_for_test(&self, id: &str) {
-        self.sessions.lock().unwrap().get_mut(id).unwrap().created = Instant::now() - SESSION_TTL;
     }
 
     pub fn set_allowed_hosts(&self, allowed_hosts: impl IntoIterator<Item = String>) -> Result<(), String> {
         let allowed_hosts = normalize_hosts(allowed_hosts)?;
-        self.config.write().unwrap_or_else(|error| error.into_inner()).allowed_hosts = allowed_hosts;
+        let mut config = self.config.write().unwrap_or_else(|error| error.into_inner());
+        if config.allowed_hosts != allowed_hosts {
+            config.generation.cancel();
+            config.generation = CancellationToken::new();
+            config.allowed_hosts = allowed_hosts;
+        }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn available_request_permits_for_test(&self) -> usize {
+        self.requests.available_permits()
     }
 
     pub fn enabled(&self) -> bool {
@@ -246,7 +199,7 @@ fn host_is_allowed(config: &HttpAuthConfig, uri: &Uri, headers: &axum::http::Hea
 
 pub async fn authorize_request(State(auth): State<HttpAuth>, mut request: Request, next: Next) -> Response {
     let method = request.method().clone();
-    let (principal, deadline) = {
+    let (principal, deadline, policy_cancellation) = {
         let config = auth.config.read().unwrap_or_else(|error| error.into_inner());
         if config.token.is_none() && config.oauth.is_none() {
             return not_found();
@@ -267,7 +220,7 @@ pub async fn authorize_request(State(auth): State<HttpAuth>, mut request: Reques
         let Some(token) = bearer_token(request.headers().get(header::AUTHORIZATION)) else {
             return unauthorized(config.oauth.as_ref());
         };
-        match &config.oauth {
+        let (principal, deadline) = match &config.oauth {
             Some(oauth) => match oauth.verify(token) {
                 Ok(principal) => {
                     let Some(remaining) = std::time::UNIX_EPOCH
@@ -303,50 +256,58 @@ pub async fn authorize_request(State(auth): State<HttpAuth>, mut request: Reques
                 tokio::time::Instant::now() + Duration::from_secs(300),
             ),
             None => return unauthorized(None),
-        }
+        };
+        (principal, deadline, config.generation.clone())
     };
 
-    // A session ID is routing state, never an authentication credential.
-    // Revalidate the bearer and bind the session to its authenticated owner on
-    // EVERY POST, GET, and DELETE, including SSE reconnects.
+    // Obsolete transport IDs are never credentials or DBX handle selectors.
+    // Accept well-formed IDs for reconnecting clients, then remove the header
+    // before rmcp routing. Ambiguous or malformed headers still fail closed.
     if request.headers().get_all("mcp-session-id").iter().count() > 1 {
         return forbidden();
     }
-    let session_id = match request.headers().get("mcp-session-id") {
-        Some(value) => match value.to_str() {
-            Ok(value) if !value.is_empty() && value.len() <= 256 => Some(value.to_owned()),
-            _ => return forbidden(),
-        },
-        None => None,
-    };
+    if let Some(value) = request.headers().get("mcp-session-id") {
+        if !value.to_str().is_ok_and(|value| {
+            !value.is_empty() && value.len() <= 256 && value.bytes().all(|byte| (0x21..=0x7e).contains(&byte))
+        }) {
+            return forbidden();
+        }
+    }
+    request.headers_mut().remove("mcp-session-id");
+    if method != axum::http::Method::POST {
+        return (StatusCode::METHOD_NOT_ALLOWED, [(header::ALLOW, "POST")]).into_response();
+    }
     // Bound body-reader concurrency independently from response streams so
     // cancellation notifications can still be read when all streams are busy.
-    let mut control = method == axum::http::Method::DELETE;
-    if method == axum::http::Method::POST {
+    let control = {
         let _upload = match auth.uploads.clone().try_acquire_owned() {
             Ok(permit) => permit,
             Err(_) => return capacity_exceeded("uploads", 40, "MCP upload limit reached"),
         };
         let (parts, body) = request.into_parts();
         let body_deadline = deadline.min(tokio::time::Instant::now() + Duration::from_secs(5));
-        let bytes = match tokio::time::timeout_at(body_deadline, axum::body::to_bytes(body, MAX_BODY)).await {
-            Ok(Ok(bytes)) => bytes,
-            Ok(Err(_)) => return (StatusCode::PAYLOAD_TOO_LARGE, "MCP body limit exceeded").into_response(),
-            Err(_) => return (StatusCode::REQUEST_TIMEOUT, "MCP body read timed out").into_response(),
+        let bytes = tokio::select! {
+            biased;
+            _ = policy_cancellation.cancelled() => return (StatusCode::REQUEST_TIMEOUT, "MCP policy changed").into_response(),
+            result = tokio::time::timeout_at(body_deadline, axum::body::to_bytes(body, MAX_BODY)) => match result {
+                Ok(Ok(bytes)) => bytes,
+                Ok(Err(_)) => return (StatusCode::PAYLOAD_TOO_LARGE, "MCP body limit exceeded").into_response(),
+                Err(_) => return (StatusCode::REQUEST_TIMEOUT, "MCP body read timed out").into_response(),
+            },
         };
-        control = serde_json::from_slice::<serde_json::Value>(&bytes).is_ok_and(|body| {
+        let control = serde_json::from_slice::<serde_json::Value>(&bytes).is_ok_and(|body| {
             body.get("method").and_then(|m| m.as_str()) == Some("notifications/cancelled") && body.get("id").is_none()
         });
         request = Request::from_parts(parts, axum::body::Body::from(bytes));
-    }
-    // Notification streams are long-lived and may overlap during reconnects.
-    // Give them their own bounded budget so idle GETs cannot consume every
-    // permit needed to execute tools, initialize, or refresh a session. POST
-    // operations still retain their permit through the handler and response.
+        control
+    };
+    // Cancellation notifications retain a reserved receive budget even when
+    // POST operations are busy. The stateless SDK acknowledges these without
+    // routing them to other POSTs; actual request cancellation is driven by its
+    // disconnect, deadline, policy generation, or shutdown. Each operation keeps
+    // its permit through the handler and response, including POST SSE replies.
     let (semaphore, budget, limit, message) = if control {
         (&auth.controls, "controls", 8, "MCP request limit reached")
-    } else if method == axum::http::Method::GET {
-        (&auth.streams, "sse_streams", 32, "MCP SSE stream limit reached")
     } else {
         (&auth.requests, "requests", 32, "MCP request limit reached")
     };
@@ -357,79 +318,30 @@ pub async fn authorize_request(State(auth): State<HttpAuth>, mut request: Reques
     // Never forward a bearer secret into SDK request Parts/handler extensions.
     request.headers_mut().remove(header::AUTHORIZATION);
     let request_permit = Arc::new(request_permit);
-    let _initialization = if session_id.is_none() {
-        match tokio::time::timeout_at(deadline, auth.initialize.lock()).await {
-            Ok(guard) => Some(guard),
-            Err(_) => return (StatusCode::REQUEST_TIMEOUT, "MCP initialization timed out").into_response(),
-        }
-    } else {
-        None
-    };
-    if _initialization.is_some() {
-        let manager = auth.manager.read().unwrap_or_else(|e| e.into_inner()).upgrade();
-        if let Some(manager) = manager {
-            auth.reap_sessions_locked(&manager).await;
-        }
-    }
-    let (slot, session_cancellation, session_remaining) = {
-        let sessions = auth.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(id) = &session_id {
-            match sessions.get(id) {
-                Some(binding) if binding.principal != principal => return forbidden(),
-                Some(binding) if !binding.invalidated && binding.created.elapsed() < SESSION_TTL => {
-                    (None, binding.cancellation.clone(), SESSION_TTL.saturating_sub(binding.created.elapsed()))
-                }
-                _ => return not_found(),
-            }
-        } else {
-            match auth.slots.clone().try_acquire_owned() {
-                Ok(slot) => (Some(slot), tokio_util::sync::CancellationToken::new(), SESSION_TTL),
-                Err(_) => return capacity_exceeded("sessions", 64, "MCP session limit reached"),
-            }
-        }
-    };
-    let deadline = deadline.min(tokio::time::Instant::now() + session_remaining);
     request.extensions_mut().insert(HttpRequestDeadline {
         principal: principal.clone(),
         deadline,
         _permit: request_permit.clone(),
-        session_cancellation: session_cancellation.clone(),
+        policy_cancellation: policy_cancellation.clone(),
     });
-    if deadline <= tokio::time::Instant::now() || session_cancellation.is_cancelled() {
+    if deadline <= tokio::time::Instant::now() || policy_cancellation.is_cancelled() {
         return (StatusCode::REQUEST_TIMEOUT, "MCP authenticated request expired").into_response();
     }
-    let response = match tokio::time::timeout_at(deadline, next.run(request)).await {
-        Ok(response) => response,
-        Err(_) => return (StatusCode::REQUEST_TIMEOUT, "MCP request deadline exceeded").into_response(),
+    let response = tokio::select! {
+        biased;
+        _ = policy_cancellation.cancelled() => return (StatusCode::REQUEST_TIMEOUT, "MCP policy changed").into_response(),
+        result = tokio::time::timeout_at(deadline, next.run(request)) => match result {
+            Ok(response) => response,
+            Err(_) => return (StatusCode::REQUEST_TIMEOUT, "MCP request deadline exceeded").into_response(),
+        },
     };
-    if response.status().is_success() {
-        let mut sessions = auth.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        if method == axum::http::Method::DELETE {
-            if let Some(id) = session_id {
-                sessions.remove(&id);
-            }
-        } else if let (Some(slot), Some(id)) = (slot, response.headers().get("mcp-session-id")) {
-            if let Ok(id) = id.to_str() {
-                sessions.insert(
-                    id.to_owned(),
-                    SessionBinding {
-                        principal,
-                        created: Instant::now(),
-                        _slot: slot,
-                        invalidated: false,
-                        cancellation: session_cancellation.clone(),
-                    },
-                );
-            }
-        }
-    }
     // Never log Authorization, raw URLs, bodies, subjects, or database secrets.
     log::info!(target: "dbx_mcp::audit", "MCP HTTP authenticated: method={method} status={}", response.status());
     let (parts, body) = response.into_parts();
     // The owned permit lives through the response stream, not just header
     // production. Deadline also bounds SSE connections after token expiry.
     let stream = futures::stream::unfold((body.into_data_stream(), request_permit), move |(mut stream, permit)| {
-        let cancellation = session_cancellation.clone();
+        let cancellation = policy_cancellation.clone();
         async move {
             tokio::select! {
                 biased;
@@ -447,7 +359,7 @@ pub(crate) struct HttpRequestDeadline {
     pub principal: String,
     pub deadline: tokio::time::Instant,
     pub _permit: Arc<OwnedSemaphorePermit>,
-    pub session_cancellation: tokio_util::sync::CancellationToken,
+    pub policy_cancellation: tokio_util::sync::CancellationToken,
 }
 
 fn capacity_exceeded(budget: &'static str, limit: usize, message: &'static str) -> Response {
@@ -613,35 +525,54 @@ mod tests {
         headers.insert(header::HOST, HeaderValue::from_static("[::1]"));
         assert!(auth.host_is_allowed(&uri, &headers));
     }
-    #[tokio::test]
-    async fn stream_and_operation_budgets_are_independent_and_control_capacity_is_reserved() {
+    async fn auth_test_server(
+        auth: HttpAuth,
+    ) -> (String, Arc<std::sync::atomic::AtomicUsize>, tokio_util::sync::CancellationToken, tokio::task::JoinHandle<()>)
+    {
         let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let address = listener.local_addr().unwrap();
-        let auth = HttpAuth::new_with_hosts(Some("synthetic-token".into()), [address.to_string()], [], false).unwrap();
+        auth.set_allowed_hosts([address.to_string()]).unwrap();
+        let running = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let route_running = running.clone();
         let route = axum::Router::new()
             .route(
                 "/mcp",
-                axum::routing::any(|request: Request| async move {
-                    assert!(
-                        request.headers().get(header::AUTHORIZATION).is_none(),
-                        "bearer must not reach handler Parts"
-                    );
-                    assert!(request.extensions().get::<HttpRequestDeadline>().is_some());
-                    if request.method() == axum::http::Method::GET || request.headers().contains_key("x-hold-response")
-                    {
-                        let stream = futures::stream::once(async {
-                            Ok::<_, std::io::Error>(axum::body::Bytes::from_static(b"data: test\n\n"))
-                        })
-                        .chain(futures::stream::pending());
-                        return Response::new(axum::body::Body::from_stream(stream));
+                axum::routing::any(move |request: Request| {
+                    let running = route_running.clone();
+                    async move {
+                        assert!(
+                            request.headers().get(header::AUTHORIZATION).is_none(),
+                            "bearer must not reach SDK Parts"
+                        );
+                        assert!(
+                            request.headers().get("mcp-session-id").is_none(),
+                            "legacy transport IDs must not reach SDK Parts"
+                        );
+                        assert!(request.extensions().get::<HttpRequestDeadline>().is_some());
+                        if request.headers().contains_key("x-wait-dispatch") {
+                            struct Running(Arc<std::sync::atomic::AtomicUsize>);
+                            impl Drop for Running {
+                                fn drop(&mut self) {
+                                    self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                                }
+                            }
+                            running.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            let _running = Running(running);
+                            futures::future::pending::<()>().await;
+                        }
+                        if request.headers().contains_key("x-hold-response") {
+                            let stream = futures::stream::once(async {
+                                Ok::<_, std::io::Error>(axum::body::Bytes::from_static(b"data: test\n\n"))
+                            })
+                            .chain(futures::stream::pending());
+                            return Response::new(axum::body::Body::from_stream(stream));
+                        }
+                        Response::new(axum::body::Body::empty())
                     }
-                    let mut response = Response::new(axum::body::Body::empty());
-                    response.headers_mut().insert("mcp-session-id", HeaderValue::from_static("synthetic-session"));
-                    response
                 }),
             )
-            .layer(axum::middleware::from_fn_with_state(auth.clone(), authorize_request));
+            .layer(axum::middleware::from_fn_with_state(auth, authorize_request));
         let stop = tokio_util::sync::CancellationToken::new();
         let shutdown = stop.clone();
         let task = tokio::spawn(async move {
@@ -650,135 +581,292 @@ mod tests {
                 .await
                 .unwrap();
         });
-        let url = format!("http://{address}/mcp");
-        let client = reqwest::Client::new();
-        client.post(&url).bearer_auth("synthetic-token").body("{}").send().await.unwrap().bytes().await.unwrap();
-        let mut streams = Vec::new();
-        for _ in 0..32 {
-            let response = client
-                .get(&url)
-                .bearer_auth("synthetic-token")
-                .header("mcp-session-id", "synthetic-session")
-                .send()
-                .await
-                .unwrap();
+        (format!("http://{address}/mcp"), running, stop, task)
+    }
+
+    fn synthetic_auth() -> HttpAuth {
+        HttpAuth::new_with_hosts(Some("synthetic-token".into()), [], [], false).unwrap()
+    }
+
+    async fn wait_for(condition: impl Fn() -> bool) {
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !condition() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("bounded resources must be released promptly");
+    }
+
+    async fn partial_body(url: &str) -> tokio::net::TcpStream {
+        use tokio::io::AsyncWriteExt;
+        let authority = url.strip_prefix("http://").unwrap().strip_suffix("/mcp").unwrap();
+        let mut socket = tokio::net::TcpStream::connect(authority).await.unwrap();
+        socket.write_all(format!("POST /mcp HTTP/1.1\r\nHost: {authority}\r\nAuthorization: Bearer synthetic-token\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{").as_bytes()).await.unwrap();
+        socket
+    }
+
+    #[tokio::test]
+    async fn post_response_and_control_budgets_are_independent_and_drop_releases_permits() {
+        let auth = synthetic_auth();
+        let (url, _running, stop, task) = auth_test_server(auth.clone()).await;
+        let http = reqwest::Client::new();
+        let mut responses = Vec::new();
+        // No session handshake or shared initialize lock is necessary. A
+        // well-formed obsolete transport ID is ignored and stripped downstream.
+        for index in 0..32 {
+            let mut request = http.post(&url).bearer_auth("synthetic-token").header("x-hold-response", "1");
+            if index % 2 == 0 {
+                request = request.header("mcp-session-id", "stale-legacy-session");
+            }
+            let response = request.body("{}").send().await.unwrap();
             assert_eq!(response.status(), 200);
-            streams.push(response);
+            responses.push(response);
         }
-        assert_eq!(auth.streams.available_permits(), 0);
-        assert_eq!(auth.requests.available_permits(), 32);
-        let mut operations = Vec::new();
-        for _ in 0..32 {
-            let response = client
+        assert_eq!(auth.requests.available_permits(), 0);
+        assert_eq!(http.post(&url).bearer_auth("synthetic-token").body("{}").send().await.unwrap().status(), 429);
+        let cancelled = r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}"#;
+        let mut controls = Vec::new();
+        for _ in 0..8 {
+            let response = http
                 .post(&url)
                 .bearer_auth("synthetic-token")
-                .header("mcp-session-id", "synthetic-session")
                 .header("x-hold-response", "1")
-                .body("{}")
+                .body(cancelled)
                 .send()
                 .await
                 .unwrap();
             assert_eq!(response.status(), 200);
-            operations.push(response);
+            controls.push(response);
         }
-        assert_eq!(auth.requests.available_permits(), 0);
-        assert_eq!(
-            client
-                .post(&url)
-                .bearer_auth("synthetic-token")
-                .header("mcp-session-id", "synthetic-session")
-                .body("{}")
-                .send()
-                .await
-                .unwrap()
-                .status(),
-            429
-        );
-        assert_eq!(
-            client
-                .get(&url)
-                .bearer_auth("synthetic-token")
-                .header("mcp-session-id", "synthetic-session")
-                .send()
-                .await
-                .unwrap()
-                .status(),
-            429
-        );
-        // A disconnected HTTP response must release its own budget without
-        // requiring DELETE or reclaiming unrelated in-flight operations.
-        drop(streams.pop());
-        tokio::time::timeout(Duration::from_secs(2), async {
-            while auth.streams.available_permits() != 1 {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("a dropped GET must release its stream permit before DELETE");
-        assert_eq!(auth.requests.available_permits(), 0);
-        let replacement = client
-            .get(&url)
-            .bearer_auth("synthetic-token")
-            .header("mcp-session-id", "synthetic-session")
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(replacement.status(), 200);
-        streams.push(replacement);
-        assert_eq!(auth.streams.available_permits(), 0);
-        drop(operations.pop());
-        tokio::time::timeout(Duration::from_secs(2), async {
-            while auth.requests.available_permits() != 1 {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("a dropped POST response must release its request permit before DELETE");
-        let replacement = client
+        assert_eq!(auth.controls.available_permits(), 0);
+        assert_eq!(http.post(&url).bearer_auth("synthetic-token").body(cancelled).send().await.unwrap().status(), 429);
+        // Unsupported transport-management verbs consume neither scarce budget.
+        for method in [reqwest::Method::GET, reqwest::Method::DELETE] {
+            let response = http.request(method, &url).bearer_auth("synthetic-token").send().await.unwrap();
+            assert_eq!(response.status(), 405);
+            assert_eq!(response.headers()["allow"], "POST");
+        }
+        drop(responses.pop());
+        wait_for(|| auth.requests.available_permits() == 1).await;
+        assert_eq!(auth.controls.available_permits(), 0);
+        let replacement = http
             .post(&url)
             .bearer_auth("synthetic-token")
-            .header("mcp-session-id", "synthetic-session")
             .header("x-hold-response", "1")
             .body("{}")
             .send()
             .await
             .unwrap();
         assert_eq!(replacement.status(), 200);
-        operations.push(replacement);
+        responses.push(replacement);
+        drop(controls.pop());
+        wait_for(|| auth.controls.available_permits() == 1).await;
         assert_eq!(auth.requests.available_permits(), 0);
-        assert_eq!(
-            client
-                .post(&url)
-                .bearer_auth("synthetic-token")
-                .header("mcp-session-id", "synthetic-session")
-                .body(r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}"#)
-                .send()
-                .await
-                .unwrap()
-                .status(),
-            200
-        );
-        assert_eq!(
-            client
-                .delete(&url)
-                .bearer_auth("synthetic-token")
-                .header("mcp-session-id", "synthetic-session")
-                .send()
-                .await
-                .unwrap()
-                .status(),
-            200
-        );
-        drop(streams);
-        drop(operations);
-        tokio::time::timeout(Duration::from_secs(2), async {
-            while auth.requests.available_permits() < 32 || auth.streams.available_permits() < 32 {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("dropped responses must release both bounded budgets");
+        drop((responses, controls));
+        wait_for(|| auth.requests.available_permits() == 32 && auth.controls.available_permits() == 8).await;
         stop.cancel();
         task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn policy_generation_revokes_pending_dispatch_body_and_response_without_transport_sessions() {
+        use tokio::io::AsyncBufReadExt;
+        let auth = synthetic_auth();
+        let (url, running, stop, task) = auth_test_server(auth.clone()).await;
+        let http = reqwest::Client::new();
+        let response = http
+            .post(&url)
+            .bearer_auth("synthetic-token")
+            .header("x-hold-response", "1")
+            .body("{}")
+            .send()
+            .await
+            .unwrap();
+        let dispatch = tokio::spawn({
+            let url = url.clone();
+            let http = http.clone();
+            async move {
+                http.post(url)
+                    .bearer_auth("synthetic-token")
+                    .header("x-wait-dispatch", "1")
+                    .body("{}")
+                    .send()
+                    .await
+                    .unwrap()
+            }
+        });
+        wait_for(|| running.load(std::sync::atomic::Ordering::SeqCst) == 1).await;
+        // One slow no-SID request must not serialize unrelated no-SID requests.
+        let independent = tokio::time::timeout(
+            Duration::from_secs(1),
+            http.post(&url).bearer_auth("synthetic-token").body("{}").send(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(independent.status(), 200);
+        let body = partial_body(&url).await;
+        wait_for(|| auth.uploads.available_permits() == 39).await;
+        auth.reconfigure(Some("synthetic-token".into()), [], []).unwrap();
+        assert_eq!(tokio::time::timeout(Duration::from_secs(1), dispatch).await.unwrap().unwrap().status(), 408);
+        tokio::time::timeout(Duration::from_secs(1), response.bytes()).await.unwrap().unwrap();
+        let mut body_reply = String::new();
+        let mut reader = tokio::io::BufReader::new(body);
+        tokio::time::timeout(Duration::from_secs(1), reader.read_line(&mut body_reply)).await.unwrap().unwrap();
+        assert!(body_reply.starts_with("HTTP/1.1 408"), "{body_reply}");
+        drop(reader);
+        wait_for(|| {
+            running.load(std::sync::atomic::Ordering::SeqCst) == 0
+                && auth.uploads.available_permits() == 40
+                && auth.requests.available_permits() == 32
+        })
+        .await;
+        assert_eq!(http.post(&url).bearer_auth("synthetic-token").body("{}").send().await.unwrap().status(), 200);
+        stop.cancel();
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn body_readers_are_bounded_and_released_on_disconnect_and_rotation() {
+        let auth = synthetic_auth();
+        let (url, _running, stop, task) = auth_test_server(auth.clone()).await;
+        let mut readers = Vec::new();
+        for count in 1..=40 {
+            readers.push(partial_body(&url).await);
+            wait_for(|| auth.uploads.available_permits() == 40 - count).await;
+        }
+        assert_eq!(auth.requests.available_permits(), 32);
+        let http = reqwest::Client::new();
+        assert_eq!(http.post(&url).bearer_auth("synthetic-token").body("{}").send().await.unwrap().status(), 429);
+        drop(readers.pop());
+        wait_for(|| auth.uploads.available_permits() == 1).await;
+        assert_eq!(http.post(&url).bearer_auth("synthetic-token").body("{}").send().await.unwrap().status(), 200);
+        auth.reconfigure(Some("synthetic-token".into()), [], []).unwrap();
+        wait_for(|| auth.uploads.available_permits() == 40).await;
+        drop(readers);
+        stop.cancel();
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn stateless_headers_are_revalidated_and_malformed_transport_ids_fail_closed() {
+        let auth =
+            HttpAuth::new_with_hosts(Some("synthetic-token".into()), [], ["https://client.example.test".into()], false)
+                .unwrap();
+        let (url, _running, stop, task) = auth_test_server(auth.clone()).await;
+        let http = reqwest::Client::new();
+        for value in ["".to_owned(), "bad session".into(), "bad\tsession".into(), "x".repeat(257)] {
+            assert_eq!(
+                http.post(&url)
+                    .bearer_auth("synthetic-token")
+                    .header("mcp-session-id", value)
+                    .body("{}")
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                403
+            );
+        }
+        for name in ["mcp-session-id", "authorization", "host", "origin"] {
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert(header::AUTHORIZATION, HeaderValue::from_static("Bearer synthetic-token"));
+            let value = match name {
+                "authorization" => "Bearer synthetic-token",
+                "origin" => "https://client.example.test",
+                "host" => url.strip_prefix("http://").unwrap().strip_suffix("/mcp").unwrap(),
+                _ => "stale-legacy-session",
+            };
+            let name = axum::http::HeaderName::from_bytes(name.as_bytes()).unwrap();
+            headers.remove(&name);
+            headers.append(name.clone(), HeaderValue::from_str(value).unwrap());
+            headers.append(name, HeaderValue::from_str(value).unwrap());
+            assert_eq!(http.post(&url).headers(headers).body("{}").send().await.unwrap().status(), 403);
+        }
+        assert_eq!(
+            http.post(&url)
+                .bearer_auth("wrong")
+                .header("mcp-session-id", "known-legacy")
+                .body("{}")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            401
+        );
+        assert_eq!(
+            http.post(&url)
+                .bearer_auth("synthetic-token")
+                .body("x".repeat(MAX_BODY + 1))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            413
+        );
+        assert_eq!(auth.requests.available_permits(), 32);
+        assert_eq!(auth.uploads.available_permits(), 40);
+        stop.cancel();
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn oauth_expiry_ends_only_its_post_response_and_releases_the_permit() {
+        let issuer = crate::oauth::test_issuer::issuer();
+        let auth = HttpAuth::new_oauth(issuer.verifier(), vec![], vec![]).unwrap();
+        let (url, _running, stop, task) = auth_test_server(auth.clone()).await;
+        let http = reqwest::Client::new();
+        let mut claims = issuer.claims("owner");
+        claims["exp"] = serde_json::json!(jsonwebtoken::get_current_timestamp() + 2);
+        let expiring = http
+            .post(&url)
+            .bearer_auth(issuer.sign(&claims))
+            .header("x-hold-response", "1")
+            .body("{}")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(expiring.status(), 200);
+        let fresh = http
+            .post(&url)
+            .bearer_auth(issuer.token("owner"))
+            .header("x-hold-response", "1")
+            .body("{}")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(fresh.status(), 200);
+        assert_eq!(auth.requests.available_permits(), 30);
+        tokio::time::timeout(Duration::from_secs(3), expiring.bytes()).await.unwrap().unwrap();
+        wait_for(|| auth.requests.available_permits() == 31).await;
+        drop(fresh);
+        wait_for(|| auth.requests.available_permits() == 32).await;
+        stop.cancel();
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn policy_generation_revocation_is_durable_before_waiters_subscribe() {
+        let auth = synthetic_auth();
+        let previous = auth.config.read().unwrap().generation.clone();
+        auth.reconfigure(Some("next-token".into()), ["next.example.test".into()], []).unwrap();
+        let current = auth.config.read().unwrap().generation.clone();
+        assert!(previous.is_cancelled(), "revocation cannot depend on a registered waiter");
+        tokio::time::timeout(Duration::from_millis(10), previous.cancelled()).await.unwrap();
+        assert!(!current.is_cancelled());
+        assert!(!auth.token_matches("synthetic-token"));
+        assert!(auth.token_matches("next-token"));
+        // Invalid configuration must not revoke or partially replace live policy.
+        assert!(auth.reconfigure(Some("bad token".into()), [], []).is_err());
+        assert!(!current.is_cancelled());
+        assert!(auth.token_matches("next-token"));
+        // The host-only public update has the same atomic cancellation contract;
+        // rebuilding a router with an unchanged host set must be harmless.
+        auth.set_allowed_hosts(["next.example.test".into()]).unwrap();
+        assert!(!current.is_cancelled());
+        auth.set_allowed_hosts(["other.example.test".into()]).unwrap();
+        assert!(current.is_cancelled());
+        assert!(!auth.config.read().unwrap().generation.is_cancelled());
     }
 }

@@ -48,6 +48,7 @@ fn management_error(message: String) -> CliError {
     let message = safe_connection_error(&message);
     for code in [
         "INVALID_CONNECTION_IMPORT",
+        "TIMEOUT_MIGRATION_REQUIRED",
         "ENCRYPTED_IMPORT_UNSUPPORTED",
         "IMPORT_PASSPHRASE_REQUIRED",
         "IMPORT_DECRYPT_FAILED",

@@ -58,7 +58,8 @@ is otherwise trusted. A valid token for another app, account, or scope is reject
 Public keys are pinned and loaded once at startup; DBX makes no discovery/JWKS
 network requests. For key rotation, atomically replace the public JWKS with the
 provider's current trusted keys and restart. Remove compromised keys immediately.
-Removing a subject or rotating keys requires a restart and invalidates sessions.
+Removing a subject or rotating keys requires a restart, which closes active
+requests and discards the service's DBX session handles.
 Use short-lived access tokens; OAuth token revocation is not introspected by DBX.
 The provider controls access/refresh token issuance and revocation.
 
@@ -130,18 +131,48 @@ Availability depends on the account/workspace and provider configuration. This
 release verifies the resource-server side with synthetic tests, not a live
 ChatGPT account or real provider. It does not install or connect itself to dot.
 
-All MCP requests, including GET/SSE, POST, and DELETE, revalidate the bearer.
-Sessions are bound to the authenticated subject, capped at 64, and expire after
-15 minutes; clients must reinitialize after expiry/restart. Request bodies are
-limited to 1 MiB and must finish within 5 seconds. There are at most 40 concurrent
-body readers and 32 concurrent streams/operations, with eight reserved control
-slots for cancellation notifications and DELETE. Bearer headers are removed
-before SDK dispatch. Every operation and response stream ends by token expiry
-or five minutes, whichever comes first. Completed POST-result replay/resumption
-is disabled to prevent aggregate result-cache growth; live GET/SSE is supported.
-Session closure explicitly cancels its in-flight operations. SDK idle cleanup and graceful
-shutdown dispose connection/transaction state. These transport limits do not
-replace database statement timeouts or proxy-level connection/rate limits.
+The HTTP transport is stateless for every supported protocol generation. Legacy
+`2025-06-18` and `2025-11-25` clients use `initialize`; `2026-07-28` clients use
+`server/discover` and send `MCP-Protocol-Version`, matching `Mcp-Method` (and
+`Mcp-Name` for tool calls), plus `io.modelcontextprotocol/protocolVersion` and
+`io.modelcontextprotocol/clientCapabilities` in each request's `params._meta`.
+Neither lifecycle receives an
+`Mcp-Session-Id`. Syntactically valid old transport IDs are ignored and stripped
+before SDK dispatch; they grant no authority and do not select DBX state.
+
+Every MCP request revalidates the bearer, owner allowlist, scope, Host and Origin.
+After those checks, GET and DELETE return **405 with `Allow: POST`**. CORS
+advertises only POST. POST responses may use SSE, but there is no standalone
+GET/SSE channel, transport-session deletion, or completed-result replay/resumption.
+Bearer headers are removed before SDK dispatch.
+
+Explicit DBX handles, such as those returned by `dbx_open_session`, are separate
+from transport sessions. They persist across requests within the authenticated
+`(iss, sub)` principal; refreshing a JWT for that same principal does not discard
+them. Another principal cannot use those handles, although all allowed subjects
+still share the configured profile and its connection permissions. The service
+caps principal state at 32 entries. Active request leases prevent idle eviction;
+idle state is reaped and retiring state keeps its capacity slot until teardown
+finishes. The principal idle timeout uses `DBX_SESSION_IDLE_TTL_SECS` (default
+30 minutes), with a five-minute minimum for pending write confirmations. Explicit
+DBX sessions retain their own idle timeout. Close handles explicitly when done.
+
+Request bodies are limited to 1 MiB and must finish within 5 seconds. There are
+at most 40 concurrent body readers and 32 POST operations, with each operation
+slot held through its response lifetime. Eight separate slots admit
+`notifications/cancelled`; their HTTP 202 means only that the notification was
+accepted. The stateless SDK does **not** use a notification in one POST to cancel
+another POST, even for the same principal. It cannot cancel another principal's
+operation either. Clients cancel an in-flight operation by disconnecting that
+request. JWT expiry, the five-minute request deadline, an authentication-policy
+generation change, or service shutdown also terminate affected requests.
+
+Idle cleanup and shutdown drain principal leases before disposing DBX state.
+Normal open transactions are rolled back during cleanup. If cancellation occurs
+while database work is in flight and its result is unknown, the transaction owner
+discards that connection and prevents a later commit; it cannot promise an
+explicit ROLLBACK on a connection whose state is unknown. These transport limits
+do not replace database statement timeouts or proxy-level connection/rate limits.
 
 ## Existing static bearer and stdio modes
 
@@ -150,7 +181,8 @@ for trusted clients that already manage bearer secrets. Prefer a protected token
 file. Do not configure either alongside OAuth. Static bearer mode is **not**
 OAuth login and is not advertised as direct ChatGPT OAuth compatibility. Treat
 all holders of a static bearer as the same profile owner. Token rotation
-invalidates the old bearer and prevents it from reusing HTTP sessions.
+invalidates the old bearer and terminates requests tied to its old policy
+generation. Static bearer HTTP also uses the stateless transport.
 
 The original stdio launchers and CLI behavior remain unchanged. Do not place
 access tokens, database credentials, real exported bundles, or private key
@@ -188,19 +220,34 @@ python3 -m venv /tmp/dbx-https-test
   --caddy /path/to/caddy --protocol 2025-11-25 --report /tmp/dbx-https-2025-11-25.json
 /tmp/dbx-https-test/bin/python scripts/test-mcp-https.py /path/to/dbx-mcp \
   --caddy /path/to/caddy --protocol 2025-06-18 --report /tmp/dbx-https-2025-06-18.json
+/tmp/dbx-https-test/bin/python scripts/test-mcp-https.py /path/to/dbx-mcp \
+  --caddy /path/to/caddy --protocol 2026-07-28 --report /tmp/dbx-https-2026-07-28.json
 ```
 
 The report includes executable hashes and observable TLS 1.2/1.3, certificate
 CA/hostname rejection, HTTPS metadata/audience/challenges, token rejections,
-origin/host/body boundaries, incomplete uploads, initialize/list/call, principal
-session isolation, live SSE and DELETE cleanup. The proxy fallback is exercised
+origin/host/body boundaries, incomplete uploads, initialize or discover/list/call,
+absence of transport IDs, ignored old IDs across allowed subjects and refreshed
+JWTs, POST-only CORS, authenticated GET/DELETE rejection, and notification ACKs.
+Modern-protocol runs also reject missing request metadata and mismatched protocol
+headers. Authentication is checked again on ordinary POSTs, not just discovery
+or initialization. The proxy fallback is exercised
 against `/`, `/healthz`, `/readyz`, and an unknown path. `--caddyfile` can select an
 older or proposed deployment example to reproduce a configuration regression.
 Only the example's supported directives are accepted; unexpected sites, imports,
 listeners, or upstreams fail closed before Caddy starts.
 
-These checks verify loopback HTTP and real encrypted proxy-to-client traffic,
-including both listed MCP protocol versions. They do not test public ingress,
+The empty-profile smoke test cannot prove isolation of actual DBX handles,
+in-flight cancellation, or principal cleanup. The report explicitly marks these
+as untested. Synthetic Rust router tests exercise actual session handles across
+legacy and modern clients, principal separation and JWT refresh, idle cleanup,
+shutdown, request-disconnect/expiry handling, and notification ACKs that leave
+other POSTs running. A successful notification response is never evidence that
+an operation was cancelled.
+
+When run successfully, these checks verify loopback HTTP and real encrypted
+proxy-to-client traffic for the selected MCP protocol version. Run all three
+commands to cover both protocol generations. They do not test public ingress,
 DNS/ACME provisioning, a real identity provider, HTTP/2/3 client behavior, live
 databases, or a ChatGPT/dot connection. Do not describe them as a public deployment
 or end-to-end OAuth login test. DBX itself remains a plaintext loopback listener;

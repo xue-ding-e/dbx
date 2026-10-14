@@ -6,7 +6,7 @@ import { useToast } from "@/composables/useToast";
 import { rememberExportPassphrase } from "@/lib/backend/exportPassphraseSession";
 import { hasSidebarLayoutEntries } from "@/lib/sidebar/sidebarLayout";
 import type { ConnectionConfigBundle } from "@/lib/connection/connectionConfigTransfer";
-import type { ConnectionConfig, SidebarLayout } from "@/types/database";
+import type { ConnectionConfig, DatabaseType, SidebarLayout } from "@/types/database";
 
 const showTransferDialog = ref(false);
 const transferTaskId = ref<string | null>(null);
@@ -22,6 +22,10 @@ const showMongoDatabaseDumpDialog = ref(false);
 const mongoDatabaseDumpPrefillConnectionId = ref("");
 const mongoDatabaseDumpPrefillDatabase = ref("");
 const mongoDatabaseDumpMode = ref<"dump" | "restore">("dump");
+const showDamengDumpDialog = ref(false);
+const damengDumpPrefillConnectionId = ref("");
+const damengDumpPrefillDatabase = ref("");
+const damengDumpMode = ref<"export" | "import">("export");
 const showTableDataGenerateDialog = ref(false);
 const tableDataGenerateSessionId = ref<string | null>(null);
 const showFieldLineageDialog = ref(false);
@@ -93,6 +97,7 @@ const tableDataGeneratePrefillDatabase = ref("");
 const tableDataGeneratePrefillSchema = ref("");
 const tableDataGeneratePrefillTable = ref("");
 const lineagePrefillConnectionId = ref("");
+const lineagePrefillDatabaseType = ref<DatabaseType>();
 const lineagePrefillDatabase = ref("");
 const lineagePrefillSchema = ref("");
 const lineagePrefillTable = ref("");
@@ -330,6 +335,18 @@ export function useDialogSources() {
     );
 
     watch(
+      () => connectionStore.damengDumpSource,
+      (source) => {
+        if (!source) return;
+        damengDumpPrefillConnectionId.value = source.connectionId;
+        damengDumpPrefillDatabase.value = source.database;
+        damengDumpMode.value = source.mode;
+        showDamengDumpDialog.value = true;
+        connectionStore.damengDumpSource = null;
+      },
+    );
+
+    watch(
       () => connectionStore.tableDataGenerateSource,
       (v) => {
         if (v) {
@@ -353,6 +370,7 @@ export function useDialogSources() {
       (v) => {
         if (v) {
           lineagePrefillConnectionId.value = v.connectionId;
+          lineagePrefillDatabaseType.value = v.databaseType;
           lineagePrefillDatabase.value = v.database;
           lineagePrefillSchema.value = v.schema ?? "";
           lineagePrefillTable.value = v.tableName;
@@ -431,6 +449,9 @@ export function useDialogSources() {
       keychainFilled = await connectionStore.applyDataGripKeychainPasswords();
     }
     toast(importSuccessMessage(source, count, keychainFilled), source === "dbx" ? 2000 : 4000);
+    if (source === "datagrip" && (connectionStore.lastDataGripFallbackUsernamesCount ?? 0) > 0) {
+      toast(t("configExport.importDatagripUsernamesFallbackWarning"), 5000);
+    }
     if (hasSidebarLayoutEntries(layout)) {
       pendingImportLayout.value = layout;
       showImportLayoutConfirm.value = true;
@@ -488,10 +509,10 @@ export function useDialogSources() {
       showConfigUnencryptedExportConfirm.value = false;
       clearPendingExportState();
       toast(t("configExport.exportSuccess"), 2000);
-    } catch {
+    } catch (error) {
       configExportIncludeCredentials.value = false;
       showConfigUnencryptedExportConfirm.value = false;
-      configPassphraseError.value = t("configExport.exportFailed");
+      configPassphraseError.value = error instanceof Error && error.message === "credential_export_disabled" ? t("configExport.credentialsUnavailable") : t("configExport.exportFailed");
       showConfigPassphraseDialog.value = true;
     } finally {
       configExportBusy.value = false;
@@ -608,6 +629,10 @@ export function useDialogSources() {
     mongoDatabaseDumpPrefillConnectionId,
     mongoDatabaseDumpPrefillDatabase,
     mongoDatabaseDumpMode,
+    showDamengDumpDialog,
+    damengDumpPrefillConnectionId,
+    damengDumpPrefillDatabase,
+    damengDumpMode,
     showTableDataGenerateDialog,
     tableDataGenerateSessionId,
     showFieldLineageDialog,
@@ -675,6 +700,7 @@ export function useDialogSources() {
     tableDataGeneratePrefillSchema,
     tableDataGeneratePrefillTable,
     lineagePrefillConnectionId,
+    lineagePrefillDatabaseType,
     lineagePrefillDatabase,
     lineagePrefillSchema,
     lineagePrefillTable,
