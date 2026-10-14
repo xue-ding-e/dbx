@@ -1591,7 +1591,7 @@ pub(crate) fn build_export_insert_statements_excluding_with_dialect(
         .iter()
         .map(|(_, column, _)| {
             if insert_dialect == SqlInsertDialect::Standard {
-                crate::sql_dialect::quote_table_identifier(None, column)
+                standard_export_identifier(options.database_type, column, options.identifier_quote.as_deref())
             } else {
                 crate::sql_dialect::quote_table_data_identifier(
                     options.database_type,
@@ -2065,6 +2065,26 @@ pub fn build_database_sql_export(options: BuildDatabaseSqlExportOptions) -> Resu
     Ok(lines.join("\n"))
 }
 
+/// Identifier quoting for the "Standard SQL" INSERT dialect.
+///
+/// "Standard SQL" output is meant to be ANSI-portable, so it keeps double-quoted
+/// identifiers for every engine that already accepts them (SQL Server, PostgreSQL
+/// family, Oracle, …). It only deviates to the source engine's native quoting for
+/// the backtick family (MySQL, Hive family, Neo4j/Nebula, …) where a double quote
+/// is a string literal and ANSI output cannot be replayed at all (#12158). This
+/// keeps the fix's blast radius on exactly the engines that were broken.
+fn standard_export_identifier(
+    database_type: Option<DatabaseType>,
+    name: &str,
+    identifier_quote: Option<&str>,
+) -> String {
+    if crate::sql_dialect::uses_backtick_identifier_quoting(database_type) {
+        crate::sql_dialect::quote_table_data_identifier(database_type, name, identifier_quote)
+    } else {
+        crate::sql_dialect::quote_table_identifier(None, name)
+    }
+}
+
 fn export_qualified_table_name(
     database_type: Option<DatabaseType>,
     schema: Option<&str>,
@@ -2077,11 +2097,11 @@ fn export_qualified_table_name(
         let table_name = table_name
             .filter(|name| !name.trim().is_empty())
             .ok_or_else(|| "tableName is required for Standard SQL INSERT output".to_string())?;
-        let table = crate::sql_dialect::quote_table_identifier(None, table_name);
+        let table = standard_export_identifier(database_type, table_name, identifier_quote);
         return Ok(schema
             .map(str::trim)
             .filter(|schema| !schema.is_empty())
-            .map(|schema| format!("{}.{}", crate::sql_dialect::quote_table_identifier(None, schema), table))
+            .map(|schema| format!("{}.{}", standard_export_identifier(database_type, schema, identifier_quote), table))
             .unwrap_or(table));
     }
     if let Some(name) = qualified_name.filter(|name| !name.trim().is_empty()) {
@@ -7946,6 +7966,32 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(path).unwrap(),
             "INSERT INTO \"dbo\".\"event]log\" (\"enabled\", \"path\") VALUES (TRUE, 'C:\\exports\\O''Hara');\n\n"
+        );
+    }
+
+    #[test]
+    fn database_row_writer_standard_dialect_uses_mysql_backticks() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("users.sql");
+        let mut file = std::fs::File::create(&path).unwrap();
+
+        write_database_export_rows(
+            &mut file,
+            &[vec![json!(1), json!("Ada")]],
+            &["id".to_string(), "name".to_string()],
+            &[Some("int".to_string()), Some("varchar(32)".to_string())],
+            &[None, None],
+            "users",
+            "app",
+            &DatabaseType::Mysql,
+            SqlInsertDialect::Standard,
+        )
+        .unwrap();
+        drop(file);
+
+        assert_eq!(
+            std::fs::read_to_string(path).unwrap(),
+            "INSERT INTO `app`.`users` (`id`, `name`) VALUES (1, 'Ada');\n\n"
         );
     }
 
