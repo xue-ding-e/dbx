@@ -8665,7 +8665,7 @@ export default withEnglishFallback({
     executeModeCurrent: "Eksekusi pernyataan pada kursor",
     defaultTransactionMode: "Mode commit transaksi default",
     defaultTransactionModeDescription:
-      'Mode transaksi yang digunakan secara default saat editor SQL baru dibuka. Dengan "Transaksi manual", editor baru dimulai dalam mode transaksi manual yang memerlukan commit atau rollback manual; dengan "Auto commit", setiap pernyataan di-commit secara otomatis. Hanya berlaku untuk database yang mendukung transaksi.',
+      "Mode commit transaksi default untuk editor SQL baru. Mode manual memerlukan commit atau rollback secara eksplisit dan hanya berlaku untuk koneksi database yang didukung DBX untuk transaksi manual di editor SQL. Koneksi lain tetap menggunakan auto commit, apa pun pengaturan ini.",
     defaultTransactionModeAuto: "Auto commit",
     defaultTransactionModeManual: "Transaksi manual",
     keepExplicitTransactionInAutoCommit: "Pertahankan transaksi eksplisit pada auto-commit",

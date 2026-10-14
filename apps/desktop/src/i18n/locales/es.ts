@@ -8290,7 +8290,7 @@ export default withEnglishFallback({
     executeModeCurrent: "Ejecutar sentencia en el cursor",
     defaultTransactionMode: "Modo de confirmación de transacción predeterminado",
     defaultTransactionModeDescription:
-      'El modo de transacción que se usa de forma predeterminada al abrir un nuevo editor SQL. Con "Transacción manual", los nuevos editores inician en modo de transacción manual y requieren confirmación o reversión manual; con "Confirmación automática", cada sentencia se confirma automáticamente. Solo se aplica a bases de datos que admiten transacciones.',
+      "Modo de confirmación predeterminado para nuevos editores SQL. El modo manual requiere una confirmación o reversión explícita y solo se aplica a conexiones de bases de datos para las que DBX admite transacciones manuales en el editor SQL. Las demás conexiones siguen usando la confirmación automática, independientemente de este ajuste.",
     defaultTransactionModeAuto: "Confirmación automática",
     defaultTransactionModeManual: "Transacción manual",
     keepExplicitTransactionInAutoCommit: "Mantener transacciones explícitas en modo autocommit",

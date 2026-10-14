@@ -7398,7 +7398,7 @@ export default withEnglishFallback({
     executeModeAll: "執行全部 SQL",
     executeModeCurrent: "執行指標所在語句",
     defaultTransactionMode: "預設交易提交方式",
-    defaultTransactionModeDescription: "新增 SQL 編輯器時預設採用的交易提交方式。選擇「手動交易」後，新開啟的編輯器將以手動交易模式開始，需手動提交或回滾；選擇「自動提交」則每條語句自動提交。僅對支援交易的資料庫生效。",
+    defaultTransactionModeDescription: "新增 SQL 編輯器時預設採用的交易提交方式。手動交易僅對 DBX 已支援 SQL 編輯器手動交易的資料庫連線生效，需手動提交或回滾；尚未支援的連線仍使用自動提交，不受此設定影響。",
     defaultTransactionModeAuto: "自動提交",
     defaultTransactionModeManual: "手動交易",
     keepExplicitTransactionInAutoCommit: "自動提交模式下保留顯式交易",

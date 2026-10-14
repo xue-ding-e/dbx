@@ -9214,7 +9214,7 @@ export default {
     executeModeCurrent: "Execute statement at cursor",
     defaultTransactionMode: "Default transaction commit mode",
     defaultTransactionModeDescription:
-      'The transaction mode used by default when a new SQL editor is opened. With "Manual transaction", new editors start in manual transaction mode, requiring manual commit or rollback; with "Auto commit", each statement is committed automatically. Only applies to databases that support transactions.',
+      "Default transaction commit mode for new SQL editors. Manual mode requires an explicit commit or rollback and applies only to database connections where DBX supports manual transactions in the SQL editor. Other connections still use auto-commit regardless of this setting.",
     defaultTransactionModeAuto: "Auto commit",
     defaultTransactionModeManual: "Manual transaction",
     keepExplicitTransactionInAutoCommit: "Keep explicit auto-commit transactions",

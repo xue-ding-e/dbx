@@ -9865,7 +9865,7 @@ export default withEnglishFallback({
     executeModeAll: "เรียกใช้ SQL ทั้งหมด",
     executeModeCurrent: "เรียกใช้ Statement ที่เคอร์เซอร์",
     defaultTransactionMode: "โหมด Commit ของ Transaction เริ่มต้น",
-    defaultTransactionModeDescription: 'โหมด Transaction ที่ใช้เป็นค่าเริ่มต้นเมื่อเปิด SQL Editor ใหม่ เมื่อใช้ "Transaction ด้วยตนเอง" Editor ใหม่จะเริ่มในโหมด Transaction ด้วยตนเอง ซึ่งต้อง Commit หรือ Rollback ด้วยตนเอง เมื่อใช้ "Commit อัตโนมัติ" แต่ละ Statement จะ Commit โดยอัตโนมัติ มีผลเฉพาะฐานข้อมูลที่รองรับ Transaction',
+    defaultTransactionModeDescription: "โหมด Commit เริ่มต้นสำหรับ SQL Editor ใหม่ โหมดด้วยตนเองต้อง Commit หรือ Rollback อย่างชัดเจน และมีผลเฉพาะการเชื่อมต่อฐานข้อมูลที่ DBX รองรับ Transaction แบบ Manual ใน SQL Editor เท่านั้น การเชื่อมต่ออื่นยังคงใช้ Commit อัตโนมัติโดยไม่ขึ้นกับการตั้งค่านี้",
     defaultTransactionModeAuto: "Commit อัตโนมัติ",
     defaultTransactionModeManual: "Transaction แบบ Manual",
     keepExplicitTransactionInAutoCommit: "คง Transaction แบบ Auto-commit ที่ระบุไว้",

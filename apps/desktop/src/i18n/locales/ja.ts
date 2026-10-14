@@ -8068,7 +8068,7 @@ export default withEnglishFallback({
     executeModeCurrent: "カーソル位置の文を実行",
     defaultTransactionMode: "既定のトランザクションコミットモード",
     defaultTransactionModeDescription:
-      "新しい SQL エディタを開いたときに既定で使用するトランザクションモード。「手動トランザクション」を選択すると、新しいエディタは手動トランザクションモードで開始され、手動でコミットまたはロールバックします。「自動コミット」を選択すると、各ステートメントが自動的にコミットされます。トランザクションをサポートするデータベースにのみ適用されます。",
+      "新しい SQL エディタの既定のトランザクションモードです。手動モードは、DBX が SQL エディタでの手動トランザクションに対応しているデータベース接続にのみ適用され、明示的なコミットまたはロールバックが必要です。未対応の接続では、この設定に関係なく自動コミットが使用されます。",
     defaultTransactionModeAuto: "自動コミット",
     defaultTransactionModeManual: "手動トランザクション",
     keepExplicitTransactionInAutoCommit: "自動コミットでも明示的なトランザクションを保持",

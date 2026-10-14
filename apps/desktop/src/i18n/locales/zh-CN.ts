@@ -9194,7 +9194,7 @@ export default withEnglishFallback({
     executeModeAll: "执行全部 SQL",
     executeModeCurrent: "执行光标所在语句",
     defaultTransactionMode: "默认事务提交方式",
-    defaultTransactionModeDescription: "新建 SQL 编辑器时默认采用的事务提交方式。选择“手动事务”后，新打开的编辑器将以手动事务模式开始，需手动提交或回滚；选择“自动提交”则每条语句自动提交。仅对支持事务的数据库生效。",
+    defaultTransactionModeDescription: "新建 SQL 编辑器时默认采用的事务提交方式。手动事务仅对 DBX 已适配 SQL 编辑器手动事务的数据库连接生效，需手动提交或回滚；未适配的连接仍使用自动提交，不受此设置影响。",
     defaultTransactionModeAuto: "自动提交",
     defaultTransactionModeManual: "手动事务",
     keepExplicitTransactionInAutoCommit: "自动提交模式下保留显式事务",

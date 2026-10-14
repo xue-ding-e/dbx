@@ -8056,7 +8056,7 @@ export default withEnglishFallback({
     executeModeCurrent: "Esegui istruzione al cursore",
     defaultTransactionMode: "Modalità di commit transazione predefinita",
     defaultTransactionModeDescription:
-      'La modalità di transazione utilizzata per impostazione predefinita quando si apre un nuovo editor SQL. Con "Transazione manuale", i nuovi editori iniziano in modalità di transazione manuale, richiedendo commit o rollback manuale; con "Commit automatico", ogni istruzione viene committata automaticamente. Si applica solo ai database che supportano le transazioni.',
+      "Modalità di commit predefinita per i nuovi editor SQL. La modalità manuale richiede un commit o un rollback esplicito e si applica solo alle connessioni per cui DBX supporta le transazioni manuali nell’editor SQL. Le altre connessioni continuano a usare il commit automatico, indipendentemente da questa impostazione.",
     defaultTransactionModeAuto: "Commit automatico",
     defaultTransactionModeManual: "Transazione manuale",
     keepExplicitTransactionInAutoCommit: "Mantieni le transazioni esplicite in autocommit",

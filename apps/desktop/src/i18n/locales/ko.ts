@@ -7945,8 +7945,7 @@ export default withEnglishFallback({
     executeModeAll: "모든 SQL 실행",
     executeModeCurrent: "커서 위치의 구문 실행",
     defaultTransactionMode: "기본 트랜잭션 커밋 모드",
-    defaultTransactionModeDescription:
-      '새 SQL 편집기를 열 때 기본적으로 사용되는 트랜잭션 모드입니다. "수동 트랜잭션"을 선택하면 새 편집기가 수동 트랜잭션 모드로 시작되어 수동으로 커밋 또는 롤백해야 합니다. "자동 커밋"을 선택하면 각 문이 자동으로 커밋됩니다. 트랜잭션을 지원하는 데이터베이스에만 적용됩니다.',
+    defaultTransactionModeDescription: "새 SQL 편집기의 기본 트랜잭션 커밋 모드입니다. 수동 모드는 DBX가 SQL 편집기의 수동 트랜잭션을 지원하는 데이터베이스 연결에만 적용되며 명시적인 커밋 또는 롤백이 필요합니다. 지원되지 않는 연결은 이 설정과 관계없이 자동 커밋을 사용합니다.",
     defaultTransactionModeAuto: "자동 커밋",
     defaultTransactionModeManual: "수동 트랜잭션",
     keepExplicitTransactionInAutoCommit: "자동 커밋 모드에서 명시적 트랜잭션 유지",

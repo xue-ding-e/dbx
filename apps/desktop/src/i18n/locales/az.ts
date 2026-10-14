@@ -7857,7 +7857,7 @@ export default withEnglishFallback({
     executeModeCurrent: "Kursorun olduğu əmri icra et",
     defaultTransactionMode: "Standart tranzaksiya təsdiqləmə rejimi",
     defaultTransactionModeDescription:
-      'Yeni SQL redaktoru açıldıqda standart olaraq istifadə olunan tranzaksiya rejimi. "Əl ilə tranzaksiya" seçildikdə yeni redaktorlar əl ilə tranzaksiya rejimində açılır və dəyişiklikləri əl ilə təsdiqləmək və ya geri qaytarmaq tələb olunur; "Avtomatik təsdiqləmə" seçildikdə hər əmr avtomatik təsdiqlənir. Yalnız tranzaksiyaları dəstəkləyən verilənlər bazalarına tətbiq olunur.',
+      "Yeni SQL redaktorları üçün standart tranzaksiya təsdiqləmə rejimi. Əl ilə rejim açıq şəkildə təsdiqləmə və ya geri qaytarma tələb edir və yalnız DBX-in SQL redaktorunda əl ilə tranzaksiyaları dəstəklədiyi verilənlər bazası bağlantılarına tətbiq olunur. Digər bağlantılar bu parametrdən asılı olmayaraq avtomatik təsdiqləmədən istifadə edir.",
     defaultTransactionModeAuto: "Avtomatik təsdiqləmə",
     defaultTransactionModeManual: "Əl ilə tranzaksiya",
     keepExplicitTransactionInAutoCommit: "Avtomatik commit rejimində açıq tranzaksiyaları saxla",

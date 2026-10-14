@@ -7755,7 +7755,7 @@ export default withEnglishFallback({
     executeModeCurrent: "İmleçteki ifadeyi çalıştır",
     defaultTransactionMode: "Varsayılan işlem commit modu",
     defaultTransactionModeDescription:
-      'Yeni bir SQL düzenleyici açıldığında varsayılan olarak kullanılan işlem modu. "Manuel işlem" ile yeni düzenleyiciler manuel işlem modunda başlar ve elle commit ya da rollback gerektirir; "Otomatik commit" ile her ifade otomatik olarak uygulanır. Yalnızca işlemleri destekleyen veritabanları için geçerlidir.',
+      "Yeni SQL düzenleyicileri için varsayılan işlem onaylama modu. Manuel mod açıkça commit veya rollback yapılmasını gerektirir ve yalnızca DBX’in SQL düzenleyicisinde manuel işlemleri desteklediği veritabanı bağlantılarına uygulanır. Diğer bağlantılar bu ayardan bağımsız olarak otomatik commit kullanmaya devam eder.",
     defaultTransactionModeAuto: "Otomatik commit",
     defaultTransactionModeManual: "Manuel işlem",
     keepExplicitTransactionInAutoCommit: "Otomatik işlemede açık işlemleri koru",
