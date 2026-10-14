@@ -164,7 +164,7 @@ const GROUPED_DISPLAY_LIMITER_SCOPE_PREFIX = "query-column-comments:";
 const groupedDisplayMetadataLimiter = new MetadataTaskLimiter(GROUPED_DISPLAY_METADATA_CONCURRENCY, (event) => {
   console.debug("[DBX][metadata-load:grouped-display-limiter]", event);
 });
-const UPPERCASE_FOLDED_METADATA_TYPES = new Set<string>([...ORACLE_LIKE_METADATA_TYPES, "saphana"]);
+const UPPERCASE_FOLDED_METADATA_TYPES = new Set<string>([...ORACLE_LIKE_METADATA_TYPES, "saphana", "db2"]);
 // Engines whose SQL takes dbx's appended hidden primary-key projection. The rewrite
 // quotes the key through the engine's own semantic dialect adapter, so Dameng and
 // OceanBase Oracle mode ride the Oracle adapter and HighGo rides the PostgreSQL one
@@ -6469,7 +6469,11 @@ export const useQueryStore = defineStore("query", () => {
     // schema was selected instead of assuming public (or the database name).
     const useCurrentPostgresSchema = (dbType === "postgres" || dbType === "kwdb") && !source.schema && !tab.schema;
     const resolvedSchema = (dbType === "sqlserver" && !source.schema) || (ORACLE_LIKE_METADATA_TYPES.has(metadataDbType) && !schema) || resolveAgentSearchPathSchema || useCurrentPostgresSchema ? "" : metadataSchemaForConnection(conn, metadataDatabase, schema || undefined);
-    const metadataSchema = normalizeUppercaseFoldedMetadataIdentifier(metadataDbType, resolvedSchema || undefined, source.schema ? source.schemaQuoted : false) || "";
+    // DB2 switches the selected execution schema using a quoted identifier.
+    // That context already names a physical schema; only an explicit SQL
+    // schema token may need folding according to its quoting flag.
+    const preserveSchemaCase = source.schema ? source.schemaQuoted : metadataDbType === "db2";
+    const metadataSchema = normalizeUppercaseFoldedMetadataIdentifier(metadataDbType, resolvedSchema || undefined, preserveSchemaCase) || "";
     const metadataTableName = normalizeUppercaseFoldedMetadataIdentifier(metadataDbType, foldUnquotedPostgresMetadataIdentifier(metadataDbType, source.tableName, source.tableNameQuoted)!, source.tableNameQuoted)!;
     // An unqualified source resolves in the tab's current external catalog on
     // Doris-family federation: the statement executed there through the
