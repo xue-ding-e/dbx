@@ -494,6 +494,7 @@ provide(OPEN_PLUGIN_AI_CONVERSATION, (request) => {
 });
 const appSidebarRef = ref<InstanceType<typeof AppSidebar> | null>(null);
 const appTabBarRef = ref<InstanceType<typeof AppTabBar> | null>(null);
+const settingsPageRef = ref<InstanceType<typeof EditorSettingsPage> | null>(null);
 const contentAreaRef = ref<InstanceType<typeof SqlEditorWorkspace> | null>(null);
 const lastFocusedAuxiliarySurface = ref<AuxiliarySearchSurface>(null);
 const lastFocusedSidebarSurface = ref(false);
@@ -1379,6 +1380,16 @@ function activateOpenSpecialPageFallback() {
 }
 
 function closeSettingsPage() {
+  if (settingsPageRef.value) {
+    activateSettingsPage();
+    settingsPageRef.value.requestClose();
+    return;
+  }
+  // An async settings page that has not mounted cannot have an edited draft.
+  finishCloseSettingsPage();
+}
+
+function finishCloseSettingsPage() {
   settingsPageTabOpen.value = false;
   if (settingsReturnSurface.value === "driverStore" && driverStoreTabOpen.value) {
     activateMainContentSurface("driverStore");
@@ -1473,7 +1484,7 @@ async function checkAllUpdates() {
 }
 
 function openDriverStoreFromUpdate(target?: DriverStoreTab) {
-  closeSettingsPage();
+  finishCloseSettingsPage();
   openDriverStorePage(target);
 }
 
@@ -5250,6 +5261,7 @@ onUnmounted(() => {
                 <EditorSettingsPage
                   v-if="settingsPageTabOpen"
                   v-show="settingsStore.settingsPageActive"
+                  ref="settingsPageRef"
                   variant="page"
                   :open="settingsPageTabOpen"
                   :initial-tab="settingsInitialTab"
@@ -5267,13 +5279,13 @@ onUnmounted(() => {
                   :mcp-update-available="toolbarMcpUpdateAvailable"
                   :plugin-update-count="componentUpdates.pluginUpdateCount.value"
                   class="flex-1 min-h-0"
-                  @update:open="(open: boolean) => (open ? activateSettingsPage() : closeSettingsPage())"
+                  @update:open="(open: boolean) => (open ? activateSettingsPage() : finishCloseSettingsPage())"
                   @check-updates="checkAllUpdates"
                   @update-all="updateAllAvailable"
                   @open-update-center="handleToolbarUpdateClick"
                   @open-driver-store="openDriverStoreFromUpdate"
                   @open-plugin-center="
-                    closeSettingsPage();
+                    finishCloseSettingsPage();
                     openPluginCenterPage();
                   "
                   @open-cc-switch-plugin-center="
