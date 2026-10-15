@@ -15599,7 +15599,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
             </template>
           </div>
           <!-- Column lookup panel -->
-          <div v-if="goToColumnOpen" data-column-lookup-panel class="column-lookup-panel relative col-start-2 row-start-1 z-30 flex min-w-0 max-w-full flex-col overflow-hidden border-l bg-background shadow-lg" @keydown="onGoToColumnKeydown">
+          <div v-if="goToColumnOpen" data-column-lookup-panel class="column-lookup-panel relative col-start-2 row-start-1 z-30 flex min-w-0 max-w-full flex-col overflow-hidden border-l bg-background shadow-lg" :class="{ 'row-span-2': cellDetailPanelIsBottom }" @keydown="onGoToColumnKeydown">
             <div class="flex items-center gap-2 px-3 py-1.5 border-b shrink-0 bg-muted/20 h-9">
               <Columns3 class="w-3.5 h-3.5 text-muted-foreground" />
               <span class="text-xs font-medium flex-1 truncate">{{ t("grid.goToColumn") }}</span>

@@ -99,26 +99,26 @@ defineExpose({ openSearch });
 <template>
   <TabsContent value="details" class="m-0 min-h-0 min-w-0 flex-1 flex flex-col">
     <div data-native-clipboard class="min-w-0 flex-1 min-h-0 overflow-auto px-3 pt-3 text-xs" :class="[valueFillsHeight ? 'flex flex-col gap-3' : 'space-y-3', editing && !panelIsBottom ? 'pb-1' : 'pb-3']">
-      <div v-if="panelIsBottom && !metadataCollapsed" class="grid grid-cols-[minmax(180px,1.6fr)_repeat(4,minmax(74px,0.55fr))_minmax(160px,1fr)] gap-3 rounded border bg-muted/20 p-2">
+      <div v-if="panelIsBottom && !metadataCollapsed" class="grid grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,0.55fr))_minmax(0,1fr)] gap-3 rounded border bg-muted/20 p-2">
         <div class="min-w-0 space-y-1">
           <div class="text-muted-foreground">{{ t("grid.columnName") }}</div>
           <div class="truncate font-medium" :title="detail.column">{{ detail.column }}</div>
         </div>
-        <div class="space-y-1">
+        <div class="min-w-0 space-y-1">
           <div class="text-muted-foreground">{{ t("grid.rowNumber") }}</div>
-          <div>{{ detail.rowNumber }}</div>
+          <div class="min-w-0 break-all">{{ detail.rowNumber }}</div>
         </div>
         <div class="min-w-0 space-y-1">
           <div class="text-muted-foreground">{{ t("grid.columnType") }}</div>
           <div class="truncate" :class="detail.type ? typeColorClass(detail.type) : 'text-muted-foreground'" :title="detail.type || '-'">{{ detail.type || "-" }}</div>
         </div>
-        <div class="space-y-1">
+        <div class="min-w-0 space-y-1">
           <div class="text-muted-foreground">{{ t("grid.nullValue") }}</div>
-          <div>{{ (detail.isNull ?? detail.value === null) ? "true" : "false" }}</div>
+          <div class="min-w-0 break-all">{{ (detail.isNull ?? detail.value === null) ? "true" : "false" }}</div>
         </div>
-        <div class="space-y-1">
+        <div class="min-w-0 space-y-1">
           <div class="text-muted-foreground">{{ t("grid.valueLength") }}</div>
-          <div>{{ detail.length }}</div>
+          <div class="min-w-0 break-all">{{ detail.length }}</div>
         </div>
         <div class="min-w-0 space-y-1">
           <div class="text-muted-foreground">{{ t("grid.columnComment") }}</div>
