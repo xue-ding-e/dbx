@@ -3707,7 +3707,7 @@ export default withEnglishFallback({
     jalapenoDescription: "🎉 AI ระดับองค์กรที่ทีมชั้นนำไว้วางใจพร้อมให้คุณใช้งานแล้ว! ลองใช้โมเดลล้ำสมัยในราคาลด 50% และรับเครดิตโบนัสเพิ่มเมื่อเติมเงินมากขึ้น!",
     hualongDescription: "🐉 บริการ Model Relay จากแหล่งทางการสำหรับนักพัฒนาที่ใช้งาน AI จำนวนมาก! Codex และ Claude Series ของแท้ 100% พร้อมการเรียกเก็บเงินระดับ Token ที่ตรวจสอบได้ สัญญาองค์กร และใบแจ้งหนี้\n🎉สมัครด้วย Promo Code DBX&HUALONG รับเครดิตฟรี $1!",
     aicodemirrorDescription: "⚡ AICodeMirror มอบ Concurrency ระดับองค์กร การออกใบแจ้งหนี้ที่รวดเร็ว และ Support เฉพาะตลอด 7×24 ชั่วโมง ผู้ใช้ใหม่รับเครดิตฟรี ¥8 พร้อมส่วนลด 20% สำหรับการเติมเงินครั้งแรก",
-    astraflowDescription: "AstraFlow by UCloud ให้เข้าถึงโมเดล AI กระแสหลักกว่า 200 รายการด้วย API Key เดียว และเข้ากันได้กับ OpenAI API",
+    astraflowDescription: "AstraFlow by UCloud ให้เข้าถึงโมเดล AI กระแสหลักกว่า 200 รายการด้วย API Key เดียว และเข้ากันได้กับ OpenAI API\n🎁 เครดิตฟรี ¥50 [รับเลยตอนนี้](https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_dbx)!",
     astraflowSponsored: "เครดิตฟรี ¥50",
     packyapiSponsored: "เครดิตฟรี $1",
     packyapiDescription: "⚡ PackyCode คือ API Relay ที่เสถียรสำหรับโมเดล AI กระแสหลัก — Endpoint เดียว Key เดียว Failover อัตโนมัติ และ Route ความเร็วสูงเฉพาะสำหรับ Codex และ Claude Code\n🎁ผู้ใช้ใหม่รับเครดิตฟรี $1 พร้อมส่วนลดเติมเงินครั้งแรก จ่ายเป็น RMB ในอัตรา 1:1 โดยไม่มีส่วนเพิ่มจากการแปลง และส่วนลดกลุ่มสูงสุด 80%",
