@@ -995,6 +995,7 @@ export default {
     locateActiveTab: "Locate in sidebar",
   },
   savedSql: {
+    openDefaultQuery: "Open Default Query",
     saveToLibrary: "Save to SQL Library",
     saveToFile: "Save Locally",
     save: "Save",
@@ -9353,7 +9354,7 @@ export default {
     savedSqlOpenTargetCurrentDescription: "Use the active tab’s connection, database, schema, and catalog when available; otherwise use the saved target.",
     prefillNewQueryWithSelect: "Prefill new query with SELECT *",
     openQueryOnConnectionOpen: "Open query page when opening a connection",
-    openQueryOnConnectionOpenDescription: "When enabled, opening a connection or database defaults to the query page.",
+    openQueryOnConnectionOpenDescription: "When enabled, opening a connection or database opens its default.sql query. Changes are saved automatically.",
     prefillNewQueryWithSelectDescription: "When creating a new query, prefill the editor with SELECT * FROM <table> based on the active table tab or the table selected in the sidebar.",
     generateSqlIncludeDatabaseName: "Include database name in generated SQL",
     generateSqlIncludeDatabaseNameDescription: "When supported by the database, generated table SQL uses the qualified name (database.schema.table on SQL Server) instead of only the table name.",

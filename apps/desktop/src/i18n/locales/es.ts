@@ -845,6 +845,7 @@ export default withEnglishFallback({
     locateActiveTab: "Localizar en la barra lateral",
   },
   savedSql: {
+    openDefaultQuery: "Abrir consulta predeterminada",
     saveToLibrary: "Guardar en biblioteca SQL",
     saveToFile: "Guardar localmente",
     save: "Guardar",
@@ -9152,7 +9153,7 @@ export default withEnglishFallback({
     sidebarSearchOpenedDatabasesOnlyDescription: "La búsqueda de la barra lateral solo carga las bases de datos abiertas en la conexión actual (si no hay ninguna abierta, busca en todas). Al desactivarla, se buscará en todas las bases de datos de esa conexión.",
     shortcutSelectLineEnds: "Seleccionar finales de línea",
     openQueryOnConnectionOpen: "Abrir la página de consulta al abrir la conexión",
-    openQueryOnConnectionOpenDescription: "Cuando está habilitado, al abrir una conexión o base de datos se accede de forma predeterminada a la página de consulta.",
+    openQueryOnConnectionOpenDescription: "Al abrir una conexión o base de datos, abre su consulta default.sql y guarda los cambios automáticamente.",
   },
   driverStore: {
     jreDirRemoveFailed: "No se pudo eliminar el directorio JRE antiguo: {path} (error original: {error})",

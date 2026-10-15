@@ -478,6 +478,7 @@ export default withEnglishFallback({
     locateActiveTab: "Kenar çubuğunda bul",
   },
   savedSql: {
+    openDefaultQuery: "Varsayılan sorguyu aç",
     saveToLibrary: "SQL Kitaplığına Kaydet",
     saveToFile: "Yerel Olarak Kaydet",
     save: "Kaydet",

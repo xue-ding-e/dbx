@@ -1087,6 +1087,10 @@ export async function saveSavedSqlFile(file: SavedSqlFile): Promise<SavedSqlFile
   return post("/api/saved-sql", file);
 }
 
+export async function saveDefaultQueryContent(id: string, sql: string, updatedAt: string): Promise<void> {
+  return post(`/api/saved-sql/${encodeURIComponent(id)}/default-content`, { sql, updatedAt });
+}
+
 export async function deleteSavedSqlFile(id: string): Promise<void> {
   return del(`/api/saved-sql/${encodeURIComponent(id)}`);
 }

@@ -835,6 +835,7 @@ export default withEnglishFallback({
     locateActiveTab: "Localizar na barra lateral",
   },
   savedSql: {
+    openDefaultQuery: "Abrir consulta padrão",
     saveToLibrary: "Salvar na Biblioteca SQL",
     saveToFile: "Salvar localmente",
     save: "Salvar",
@@ -8897,7 +8898,7 @@ export default withEnglishFallback({
     sidebarSearchOpenedDatabasesOnlyDescription: "A pesquisa da barra lateral carrega apenas os bancos de dados abertos na conexão atual (se nenhum estiver aberto, pesquisa todos). Quando desativada, pesquisará todos os bancos de dados da conexão.",
     shortcutSelectLineEnds: "Selecionar fins de linha",
     openQueryOnConnectionOpen: "Abrir consulta ao abrir a conexão",
-    openQueryOnConnectionOpenDescription: "Quando ativado, abre a página de consulta por padrão ao abrir uma conexão ou banco de dados.",
+    openQueryOnConnectionOpenDescription: "Ao abrir uma conexão ou banco de dados, abre a consulta default.sql e salva as alterações automaticamente.",
   },
   driverStore: {
     jreDirRemoveFailed: "Não foi possível remover o diretório JRE antigo: {path} (erro original: {error})",

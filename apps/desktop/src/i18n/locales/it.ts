@@ -834,6 +834,7 @@ export default withEnglishFallback({
     locateActiveTab: "Trova nella barra laterale",
   },
   savedSql: {
+    openDefaultQuery: "Apri query predefinita",
     saveToLibrary: "Salva nella Libreria SQL",
     saveToFile: "Salva localmente",
     save: "Salva",
@@ -8899,7 +8900,7 @@ export default withEnglishFallback({
     sidebarSearchOpenedDatabasesOnlyDescription: "La ricerca nella barra laterale carica solo i database aperti nella connessione corrente (se nessuno è aperto, cerca in tutti). Se disattivata, cerca in tutti i database della connessione.",
     shortcutSelectLineEnds: "Seleziona fine riga",
     openQueryOnConnectionOpen: "Apri la pagina Query all'apertura della connessione",
-    openQueryOnConnectionOpenDescription: "Se abilitato, all'apertura di una connessione o di un database si apre per impostazione predefinita la pagina Query.",
+    openQueryOnConnectionOpenDescription: "Apre la query default.sql quando si apre una connessione o un database e salva automaticamente le modifiche.",
   },
   driverStore: {
     jreDirRemoveFailed: "Impossibile rimuovere la vecchia directory JRE: {path} (errore originale: {error})",

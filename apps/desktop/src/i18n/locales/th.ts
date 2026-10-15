@@ -962,6 +962,7 @@ export default withEnglishFallback({
     locateActiveTab: "ค้นหาในแถบด้านข้าง",
   },
   savedSql: {
+    openDefaultQuery: "เปิดคำสั่งค้นหาเริ่มต้น",
     saveToLibrary: "บันทึกไปยังไลบรารี SQL",
     saveToFile: "บันทึกในเครื่อง",
     save: "บันทึก",
@@ -10001,7 +10002,7 @@ export default withEnglishFallback({
     savedSqlOpenTargetCurrentDescription: "ใช้การเชื่อมต่อ ฐานข้อมูล Schema และ Catalog ของแท็บที่ใช้งานเมื่อมี มิฉะนั้นใช้เป้าหมายที่บันทึก",
     prefillNewQueryWithSelect: "เติม Query ใหม่ด้วย SELECT *",
     openQueryOnConnectionOpen: "เปิดหน้า Query เมื่อเปิดการเชื่อมต่อ",
-    openQueryOnConnectionOpenDescription: "เมื่อเปิดใช้ การเปิดการเชื่อมต่อหรือฐานข้อมูลจะเปิดหน้าสำหรับ Query โดยค่าเริ่มต้น",
+    openQueryOnConnectionOpenDescription: "เมื่อเปิดการเชื่อมต่อหรือฐานข้อมูล จะเปิด default.sql และบันทึกการเปลี่ยนแปลงโดยอัตโนมัติ",
     prefillNewQueryWithSelectDescription: "เมื่อสร้าง Query ใหม่ ให้เติม SELECT * FROM <table> ตามแท็บตารางที่ใช้งานหรือ ตารางที่เลือกใน Sidebar",
     generateSqlIncludeDatabaseName: "รวมชื่อฐานข้อมูลใน SQL ที่สร้าง",
     generateSqlIncludeDatabaseNameDescription: "เมื่อฐานข้อมูลรองรับ SQL ที่สร้างสำหรับตารางจะใช้ชื่อแบบระบุเต็ม (database.schema.table บน SQL Server) แทนการใช้ชื่อตารางอย่างเดียว",

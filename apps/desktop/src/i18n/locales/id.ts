@@ -679,6 +679,7 @@ export default withEnglishFallback({
     locateActiveTab: "Cari di bilah sisi",
   },
   savedSql: {
+    openDefaultQuery: "Buka kueri default",
     saveToLibrary: "Simpan ke SQL Library",
     saveToFile: "Simpan Secara Lokal",
     save: "Simpan",

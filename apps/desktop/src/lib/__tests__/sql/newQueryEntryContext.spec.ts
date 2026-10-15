@@ -60,6 +60,13 @@ describe("new query entry context wiring", () => {
     expect(body).toContain('sidebarFocused ? "sidebar" : undefined');
   });
 
+  it("opens the database default query for Cmd+Enter from the sidebar", () => {
+    const body = bodyOf("async function handleKeydown");
+    expect(body).toContain("isExecuteSqlShortcut(e, shortcuts) && defaultQueryShortcutTarget");
+    expect(body).toContain('newQuery({ preferredSource: "sidebar", openDefault: true })');
+    expect(bodyOf("async function newQuery")).toContain("queryStore.openDefaultQuery");
+  });
+
   it("clears lastFocusedSidebarSurface when editor content is clicked", () => {
     expect(appSource).toContain("rememberEditorContentSurface");
   });

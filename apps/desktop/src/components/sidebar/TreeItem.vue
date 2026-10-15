@@ -79,7 +79,7 @@ import { findTreeNodeById } from "@/lib/sql/newQueryContext";
 import { resolveTableVGroupDropTarget, setTableVGroupDropTargetNodeId, tableVGroupDropTargetNodeId } from "@/lib/sidebar/sidebarTableVGroupDrag";
 import { connectionDisplayUrlScheme } from "@/lib/connection/connectionPresentation";
 import { redactConnectionStringSecrets } from "@/lib/connection/connectionStringRedaction";
-import { isFocusSearchShortcut } from "@/lib/editor/keyboardShortcuts";
+import { isExecuteSqlShortcut, isFocusSearchShortcut } from "@/lib/editor/keyboardShortcuts";
 import { encodeSpannerResourcePath } from "@/lib/connection/spannerResourcePath";
 import { hexToRgba } from "@/lib/common/color";
 import { sidebarDisplayTableName } from "@/lib/sidebar/sidebarTableNameDisplay";
@@ -1081,6 +1081,10 @@ function onTableSearchControlKeydown(event: KeyboardEvent) {
     input?.focus();
     input?.select();
   }
+  // Let the app-level shortcut handler open the database default query while
+  // the table-search input remains focused. Other tree-local key handling
+  // must stay contained in the search control.
+  if (isExecuteSqlShortcut(event, settingsStore.editorSettings.shortcuts)) return;
   event.stopPropagation();
 }
 

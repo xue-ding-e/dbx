@@ -815,6 +815,7 @@ export default withEnglishFallback({
     locateActiveTab: "Найти в боковой панели",
   },
   savedSql: {
+    openDefaultQuery: "Открыть запрос по умолчанию",
     saveToLibrary: "Сохранить в библиотеку SQL",
     saveToFile: "Сохранить локально",
     save: "Сохранить",
@@ -10227,7 +10228,7 @@ export default withEnglishFallback({
     sidebarSearchOpenedDatabasesOnlyDescription: "Поиск на боковой панели загружает только открытые базы данных в текущем подключении (если ни одна не открыта, поиск выполняется по всем). Если отключить, поиск будет выполняться по всем базам данных этого подключения.",
     shortcutSelectLineEnds: "Выделить концы строк",
     openQueryOnConnectionOpen: "Открывать страницу запроса при открытии подключения",
-    openQueryOnConnectionOpenDescription: "Если включено, при открытии подключения или базы данных по умолчанию открывается страница запроса.",
+    openQueryOnConnectionOpenDescription: "При открытии подключения или базы данных открывается запрос default.sql. Изменения сохраняются автоматически.",
   },
   driverStore: {
     jreDirRemoveFailed: "Не удалось удалить старый каталог JRE: {path} (исходная ошибка: {error})",

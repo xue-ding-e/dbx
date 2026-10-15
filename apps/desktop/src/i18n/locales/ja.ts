@@ -835,6 +835,7 @@ export default withEnglishFallback({
     locateActiveTab: "サイドバーで表示",
   },
   savedSql: {
+    openDefaultQuery: "デフォルトクエリを開く",
     saveToLibrary: "SQLライブラリに保存",
     saveToFile: "ローカルに保存",
     save: "保存",
@@ -8938,7 +8939,7 @@ export default withEnglishFallback({
     sidebarSearchOpenedDatabasesOnlyDescription: "サイドバー検索は、現在の接続で開いているデータベースのみを読み込みます（1つも開いていない場合はすべてを検索します）。オフにすると、その接続のすべてのデータベースを検索します。",
     shortcutSelectLineEnds: "行末を選択",
     openQueryOnConnectionOpen: "接続を開いたときにクエリページを開く",
-    openQueryOnConnectionOpenDescription: "有効にすると、接続またはデータベースを開いたときにデフォルトでクエリページが開きます。",
+    openQueryOnConnectionOpenDescription: "有効にすると、接続またはデータベースを開いたときに default.sql を開き、変更を自動保存します。",
   },
   driverStore: {
     jreDirRemoveFailed: "古い JRE ディレクトリを削除できませんでした: {path}（元のエラー: {error}）",

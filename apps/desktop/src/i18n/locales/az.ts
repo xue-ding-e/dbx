@@ -478,6 +478,7 @@ export default withEnglishFallback({
     locateActiveTab: "Yan paneldə tap",
   },
   savedSql: {
+    openDefaultQuery: "Standart sorğunu aç",
     saveToLibrary: "SQL kitabxanasında yadda saxla",
     saveToFile: "Yerli yaddaşda saxla",
     save: "Yadda saxla",
