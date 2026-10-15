@@ -62,6 +62,7 @@ const consul = {
 
 export default withEnglishFallback({
   sidebarMenu,
+  oracleIndex: { mixedDraft: "Oracle indeks değişikliklerini diğer tablo yapısı değişikliklerinden ayrı uygulayın." },
   pluginPlatform: {
     dataAccessConsent: '"{name}", "{connection}" bağlantısındaki verileri okumak istiyor. Bu bağlantı açık olduğu sürece eklenti, Eklenti Merkezi\'nden erişimi iptal edene kadar bağlantıda salt okunur sorgular çalıştırabilir. İzin verilsin mi?',
     dataAccessConsentTitle: "Veri Erişim İsteği",
@@ -4580,6 +4581,11 @@ export default withEnglishFallback({
     searchIndexes: "Dizin ara",
     nextIndexMatch: "Sonraki eşleşen dizine git",
     addIndex: "Dizin Ekle",
+    addCheckConstraint: "CHECK kısıtlaması ekle",
+    addUniqueConstraint: "UNIQUE kısıtlaması ekle",
+    constraintName: "Kısıtlama adı",
+    checkExpression: "CHECK ifadesi",
+    pairedIndexImpact: "OceanBase Oracle, UNIQUE kısıtlamasını ve eşleşen dizinini tek nesne olarak yönetir. Bu kısıtlamayı silmek veya yeniden oluşturmak eşleşen dizini de silebilir.",
     addForeignKey: "Yabancı Anahtar Ekle",
     addTrigger: "Tetikleyici Ekle",
     columnName: "Sütun",

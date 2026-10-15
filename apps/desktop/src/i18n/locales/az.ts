@@ -62,6 +62,7 @@ const consul = {
 
 export default withEnglishFallback({
   sidebarMenu,
+  oracleIndex: { mixedDraft: "Oracle indeks dəyişikliklərini digər cədvəl quruluşu dəyişikliklərindən ayrıca tətbiq edin." },
   pluginPlatform: {
     dataAccessConsent: '"{name}" "{connection}" bağlantısındakı məlumatları oxumaq istəyir. Bu bağlantı açıq olduqca plagin, Plagin Mərkəzində girişi ləğv edənə qədər orada yalnız oxuma sorğuları icra edə bilər. İcazə verilsin?',
     dataAccessConsentTitle: "Məlumat girişi sorğusu",
@@ -4678,6 +4679,11 @@ export default withEnglishFallback({
     searchIndexes: "İndeks axtar",
     nextIndexMatch: "Növbəti uyğun indeksə keç",
     addIndex: "İndeks əlavə et",
+    addCheckConstraint: "CHECK məhdudiyyəti əlavə et",
+    addUniqueConstraint: "UNIQUE məhdudiyyəti əlavə et",
+    constraintName: "Məhdudiyyətin adı",
+    checkExpression: "CHECK ifadəsi",
+    pairedIndexImpact: "OceanBase Oracle UNIQUE məhdudiyyətini və uyğun indeksini vahid obyekt kimi idarə edir. Bu məhdudiyyətin silinməsi və ya yenidən yaradılması uyğun indeksi də silə bilər.",
     addForeignKey: "Xarici açar əlavə et",
     addTrigger: "Tətikləyici əlavə et",
     columnName: "Sütun",

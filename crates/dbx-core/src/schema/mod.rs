@@ -3224,6 +3224,9 @@ mod tests {
     #[test]
     fn reference_keys_require_effective_unfiltered_plain_unique_columns() {
         let index = |name: &str, columns: &[&str], is_unique: bool, is_primary: bool| db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: name.to_string(),
             columns: columns.iter().map(|column| (*column).to_string()).collect(),
             is_unique,
@@ -10299,6 +10302,9 @@ async fn external_driver_gaussdb_m_indexes(
                 let is_primary =
                     current_name.to_lowercase().ends_with("_pkey") || current_name.eq_ignore_ascii_case("primary");
                 indexes.push(db::IndexInfo {
+                    key_directions: Vec::new(),
+                    visibility: None,
+                    key_metadata_complete: false,
                     name: current_name.clone(),
                     columns: current_columns.clone(),
                     is_unique: current_non_unique == 0,
@@ -10371,6 +10377,9 @@ async fn external_driver_gaussdb_m_indexes(
     if !current_name.is_empty() {
         let is_primary = current_name.to_lowercase().ends_with("_pkey") || current_name.eq_ignore_ascii_case("primary");
         indexes.push(db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: current_name,
             columns: current_columns,
             is_unique: current_non_unique == 0,
@@ -12954,6 +12963,9 @@ mod ddl_tests {
         id.is_primary_key = true;
         let indexes = vec![
             db::IndexInfo {
+                key_directions: Vec::new(),
+                visibility: None,
+                key_metadata_complete: false,
                 name: "pk_accounts".to_string(),
                 columns: vec!["id".to_string()],
                 is_unique: true,
@@ -12968,6 +12980,9 @@ mod ddl_tests {
                 constraint_backed: true,
             },
             db::IndexInfo {
+                key_directions: Vec::new(),
+                visibility: None,
+                key_metadata_complete: false,
                 name: "uq_accounts_code".to_string(),
                 columns: vec!["code".to_string()],
                 is_unique: true,
@@ -12982,6 +12997,9 @@ mod ddl_tests {
                 constraint_backed: true,
             },
             db::IndexInfo {
+                key_directions: Vec::new(),
+                visibility: None,
+                key_metadata_complete: false,
                 name: "idx_accounts_display_name".to_string(),
                 columns: vec!["display_name".to_string()],
                 is_unique: true,
@@ -13012,6 +13030,7 @@ mod ddl_tests {
                 initially_deferred: Some(false),
                 enabled: Some(true),
                 valid: Some(true),
+                oracle_metadata: None,
             },
             db::ConstraintInfo {
                 name: "uq_accounts_code".to_string(),
@@ -13028,6 +13047,7 @@ mod ddl_tests {
                 initially_deferred: Some(true),
                 enabled: Some(true),
                 valid: Some(true),
+                oracle_metadata: None,
             },
         ];
 
@@ -13173,6 +13193,9 @@ mod ddl_tests {
         // expression key just like a real column.
         let id = column("id", "integer");
         let indexes = vec![db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: "users_lower_email_trgm_idx".to_string(),
             columns: vec!["lower(email)".to_string()],
             is_unique: false,
@@ -13199,6 +13222,9 @@ mod ddl_tests {
     fn postgres_table_ddl_preserves_btree_key_order_and_nulls_position() {
         let id = column("id", "bigint");
         let indexes = vec![db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: "users_id_order_idx".to_string(),
             columns: vec!["id".to_string(), "id".to_string()],
             is_unique: false,
@@ -13223,6 +13249,9 @@ mod ddl_tests {
 
     fn postgres_primary_index(keys: &[&str]) -> db::IndexInfo {
         db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: "psckdmx_pkey".to_string(),
             columns: keys.iter().map(|key| (*key).to_string()).collect(),
             is_unique: true,
@@ -13464,6 +13493,9 @@ mod ddl_tests {
         let mut id = column("id", "integer");
         id.is_primary_key = true;
         let indexes = vec![db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: "events_payload_idx".to_string(),
             columns: vec!["payload".to_string()],
             is_unique: false,
@@ -13515,6 +13547,9 @@ mod ddl_tests {
     #[test]
     fn postgres_partition_ddl_preserves_local_unique_without_local_primary_key() {
         let indexes = vec![db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: "events_2026_code_key".to_string(),
             columns: vec!["code".to_string()],
             is_unique: true,
@@ -13543,6 +13578,7 @@ mod ddl_tests {
             initially_deferred: Some(false),
             enabled: Some(true),
             valid: Some(true),
+            oracle_metadata: None,
         }];
         let partition_info = db::postgres::PostgresTablePartitionInfo {
             is_partition: true,
@@ -13579,6 +13615,9 @@ mod ddl_tests {
         let mut id = column("id", "integer");
         id.is_primary_key = true;
         let indexes = vec![db::IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: "events_2026_pkey".to_string(),
             columns: vec!["id".to_string()],
             is_unique: true,

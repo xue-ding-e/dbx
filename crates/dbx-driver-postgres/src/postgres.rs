@@ -5354,6 +5354,9 @@ async fn list_indexes_for_relations_with_sql(
         let all_key_options: Vec<i16> = row.try_get::<_, Vec<i16>>(12).unwrap_or_default();
         let key_options = if all_key_options.len() == split_at { all_key_options } else { Vec::new() };
         result.entry(relid).or_default().push(IndexInfo {
+            key_directions: Vec::new(),
+            visibility: None,
+            key_metadata_complete: false,
             name: pg_row_try_string(row, 1),
             columns: key_cols,
             is_unique: pg_row_try_bool(row, 4).unwrap_or(false),
@@ -5834,6 +5837,7 @@ pub async fn list_constraints(pool: &Pool, schema: &str, table: &str) -> Result<
             initially_deferred: Some(row.try_get::<_, bool>(11).unwrap_or(false)),
             enabled: Some(true),
             valid: Some(row.try_get::<_, bool>(12).unwrap_or(true)),
+            oracle_metadata: None,
         })
         .collect())
 }
@@ -5905,6 +5909,7 @@ pub async fn list_opengauss_constraints(pool: &Pool, schema: &str, table: &str) 
             initially_deferred: Some(pg_row_try_bool(&row, 11).unwrap_or(false)),
             enabled: Some(true),
             valid: Some(pg_row_try_bool(&row, 12).unwrap_or(true)),
+            oracle_metadata: None,
         });
     }
     Ok(result)
@@ -9861,6 +9866,9 @@ async fn list_indexes_with_sql(
             let all_key_options: Vec<i16> = row.try_get::<_, Vec<i16>>(11).unwrap_or_default();
             let key_options = if all_key_options.len() == split_at { all_key_options } else { Vec::new() };
             IndexInfo {
+                key_directions: Vec::new(),
+                visibility: None,
+                key_metadata_complete: false,
                 name: pg_row_try_string(row, 0),
                 columns: key_cols,
                 is_unique: pg_row_try_bool(row, 3).unwrap_or(false),

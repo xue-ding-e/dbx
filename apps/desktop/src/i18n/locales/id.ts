@@ -8,6 +8,7 @@ import { meilisearchManagementId } from "./meilisearchManagement";
 
 export default withEnglishFallback({
   sidebarMenu,
+  oracleIndex: { mixedDraft: "Terapkan perubahan indeks Oracle secara terpisah dari perubahan struktur tabel lainnya." },
   cellTransform: {
     title: "Pratinjau konversi",
     description: "Konversi nilai saat ini untuk dilihat atau disalin. Nilai sumber dan draf editor tidak berubah.",
@@ -5331,6 +5332,11 @@ export default withEnglishFallback({
     searchIndexes: "Cari indeks",
     nextIndexMatch: "Ke indeks cocok berikutnya",
     addIndex: "Tambah Indeks",
+    addCheckConstraint: "Tambah constraint CHECK",
+    addUniqueConstraint: "Tambah constraint UNIQUE",
+    constraintName: "Nama constraint",
+    checkExpression: "Ekspresi CHECK",
+    pairedIndexImpact: "OceanBase Oracle mengelola constraint UNIQUE dan indeks pasangannya sebagai satu objek. Menghapus atau membangun ulang constraint ini juga dapat menghapus indeks pasangannya.",
     addForeignKey: "Tambah Kunci Asing",
     addTrigger: "Tambah Trigger",
     columnName: "Kolom",
