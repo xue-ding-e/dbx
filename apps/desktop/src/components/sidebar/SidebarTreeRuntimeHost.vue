@@ -333,6 +333,7 @@ import {
   showPasteDialog,
   pasteTableMode,
   pasteTableEntries,
+  pasteTableFromClipboard,
   showCreateDatabaseDialog,
   createDatabaseName,
   createDatabaseCharset,
@@ -1515,6 +1516,7 @@ function requestPasteTreeClipboard(): boolean {
   if (clipboard?.kind !== "table-copy") return false;
   if (canTransferTreeClipboardToCurrentNode()) return openTransferFromTreeClipboard();
   if (!canPasteTreeClipboardToCurrentNode()) return false;
+  pasteTableFromClipboard.value = true;
   pasteTableMode.value = defaultPasteTableMode(currentDatabaseType());
   pasteTableEntries.value = clipboard.tables.map((entry) => ({
     sourceName: entry.tableName,
@@ -5247,12 +5249,22 @@ async function confirmDropSchema() {
   }
 }
 
-function duplicateStructure(source: TreeNode = activeNode.value) {
+function copyAsNewTable(source: TreeNode = activeNode.value) {
   if (!isDuplicateStructureSource(source)) return;
   if (databaseTypeForNode(source) === "victoriametrics") return;
-  duplicateStructureSource.value = source;
-  duplicateTableName.value = `${source.label}_copy`;
-  showDuplicateDialog.value = true;
+  pasteTableFromClipboard.value = false;
+  pasteTableMode.value = defaultPasteTableMode(databaseTypeForNode(source));
+  pasteTableEntries.value = [
+    {
+      sourceName: source.label,
+      targetName: `${source.label}_copy`,
+      connectionId: source.connectionId,
+      database: source.database,
+      schema: normalizeTreeClipboardSchema(source.connectionId, source.database, source.schema),
+      tableComment: source.comment,
+    },
+  ];
+  showPasteDialog.value = true;
 }
 
 function isDuplicateStructureSource(node: TreeNode): node is DuplicateStructureSource {
@@ -5324,7 +5336,9 @@ async function confirmPasteTableImpl() {
     .filter((entry) => entry.targetName.trim())
     .map((entry) => ({ ...entry, databaseType: entry.connectionId ? effectiveDatabaseTypeForConnection(connectionStore.getConfig(entry.connectionId)) : undefined, identifierQuote: connectionStore.connectionIdentifierQuote?.(entry.connectionId) }));
   if (entries.length === 0) return;
-  const clipboardAtPasteStart = connectionStore.treeClipboard;
+  const shouldConsumeTableClipboard = pasteTableFromClipboard.value;
+  const clipboardAtPasteStart = shouldConsumeTableClipboard ? connectionStore.treeClipboard : null;
+  pasteTableFromClipboard.value = false;
   const mode = pasteTableMode.value;
   const copyData = pasteTableModeCopiesData(mode) && pasteTableDataCopySupported.value;
   showPasteDialog.value = false;
@@ -5491,7 +5505,7 @@ async function confirmPasteTableImpl() {
   }
   const pasteFeedback = tablePasteFeedback(successCount, pasteFailCount, firstPasteError);
   if (pasteFailCount === 0) {
-    if (connectionStore.treeClipboard === clipboardAtPasteStart) {
+    if (shouldConsumeTableClipboard && connectionStore.treeClipboard === clipboardAtPasteStart) {
       connectionStore.treeClipboard = null;
     }
     toast(t("contextMenu.batchPasteSuccess", { count: successCount }), 3000);
@@ -5518,6 +5532,7 @@ function openPasteTableDialog() {
     toast(t("contextMenu.noTableToPaste"), 2000);
     return;
   }
+  pasteTableFromClipboard.value = true;
   pasteTableMode.value = defaultPasteTableMode(currentDatabaseType());
   pasteTableEntries.value = clipboard.tables.map((entry) => ({
     sourceName: entry.tableName,
@@ -6228,6 +6243,7 @@ function objectDialogCapabilities() {
     showPasteDialog,
     pasteTableEntries,
     pasteTableMode,
+    pasteTableFromClipboard,
     pasteTableDataCopySupported: pasteTableDataCopySupported.value,
     confirmPasteTable,
   };
@@ -7355,7 +7371,7 @@ function buildObjectSidebarMenu(context: SidebarMenuFactoryContext): boolean {
     items.push(copyStructureAsSubmenu());
     if (isTableNotView.value) {
       items.push({ label: "", separator: true });
-      items.push({ sidebarActionId: "contextMenu.duplicateStructure", label: t("contextMenu.duplicateStructure"), action: duplicateStructure, icon: CopyPlus });
+      items.push({ sidebarActionId: "contextMenu.duplicateStructure", label: t("contextMenu.duplicateStructure"), action: copyAsNewTable, icon: CopyPlus });
       // Keep menu copy aligned with keyboard copy so frozen multi-selection and single-row fallback stay compatible.
       items.push(...treeTableClipboardMenuItems(node));
       if (supportsVacuum.value) {
