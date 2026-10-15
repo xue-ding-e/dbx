@@ -2370,7 +2370,7 @@ fn postgres_default_clause(
     ))
 }
 
-fn is_mysql_family_target(target_db: &DatabaseType) -> bool {
+pub(crate) fn is_mysql_family_target(target_db: &DatabaseType) -> bool {
     matches!(
         target_db,
         DatabaseType::Mysql

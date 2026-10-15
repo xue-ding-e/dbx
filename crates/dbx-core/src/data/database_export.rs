@@ -5089,6 +5089,13 @@ fn drop_table_if_exists_sql(table_name: &str, schema: &str, db_type: &DatabaseTy
     format!("DROP TABLE IF EXISTS {}{};", crate::transfer::qualified_table(table_name, schema, db_type, None), cascade)
 }
 
+/// 构建写入导出文件的对象 DDL。
+///
+/// MySQL 系的对象定义（`SHOW CREATE VIEW/PROCEDURE/FUNCTION/TRIGGER/EVENT`）会带上
+/// `DEFINER=`user`@`host``：该账号在目标环境常常不存在（例如源库属主是 `root`@`%`，
+/// 目标库只有 `root`@`localhost`），导入时 MySQL 会因 definer 校验失败而拒绝创建对象
+/// （#12322）。因此这里与复制/传输路径保持一致，先剥离 definer 再写出；`SQL SECURITY
+/// DEFINER` 保留，导入后的 definer 即为执行导入的用户，与 Navicat 导出的行为一致。
 fn build_database_export_object_source_sql(
     database_type: DatabaseType,
     object_type: &ObjectSourceKind,
@@ -5097,6 +5104,13 @@ fn build_database_export_object_source_sql(
     drop_if_exists: bool,
 ) -> String {
     let source = build_export_object_source_sql(database_type, object_type.clone(), source);
+    // 非 MySQL 系没有这种 definer 语法；且 strip_mysql_definer 对不含该片段的 DDL 是空操作，
+    // 所以放宽到整个 MySQL 系是安全的，能顺带覆盖 Doris/StarRocks 等同族方言。
+    let source = if crate::data::transfer::is_mysql_family_target(&database_type) {
+        crate::data::transfer::strip_mysql_definer(&source)
+    } else {
+        source
+    };
     if source.is_empty() || !drop_if_exists || database_type != DatabaseType::Mysql {
         return source;
     }
@@ -5144,6 +5158,7 @@ mod tests {
     };
     use super::{ExportProgress, LenientExportErrors};
     use crate::connection::AppState;
+    use crate::data::transfer::strip_mysql_definer;
     use crate::models::connection::DatabaseType;
     use crate::types::SpatialColumn;
     use crate::types::{ObjectInfo, ObjectSourceKind, TableInfo};
@@ -5531,6 +5546,9 @@ mod tests {
         let trigger = "CREATE DEFINER=`root`@`%` TRIGGER `trg_orders_ai` AFTER INSERT ON `orders` FOR EACH ROW INSERT INTO audit_log(msg) VALUES ('x')";
         let event =
             "CREATE DEFINER=`root`@`%` EVENT `ev_purge` ON SCHEDULE EVERY 1 DAY DO DELETE FROM audit_log WHERE id < 0";
+        // MySQL 系导出会剥离 DEFINER（#12322），所以期望值按剥离后的原文构造。
+        let stripped_trigger = strip_mysql_definer(trigger);
+        let stripped_event = strip_mysql_definer(event);
 
         assert_eq!(
             build_database_export_object_source_sql(
@@ -5542,7 +5560,7 @@ mod tests {
             ),
             format!(
                 "DROP TRIGGER IF EXISTS `trg_orders_ai`;\n{}",
-                build_export_object_source_sql(DatabaseType::Mysql, ObjectSourceKind::Trigger, trigger)
+                build_export_object_source_sql(DatabaseType::Mysql, ObjectSourceKind::Trigger, &stripped_trigger)
             )
         );
         assert_eq!(
@@ -5555,7 +5573,7 @@ mod tests {
             ),
             format!(
                 "DROP EVENT IF EXISTS `ev_purge`;\n{}",
-                build_export_object_source_sql(DatabaseType::Mysql, ObjectSourceKind::Event, event)
+                build_export_object_source_sql(DatabaseType::Mysql, ObjectSourceKind::Event, &stripped_event)
             )
         );
         // Without `dropTableIfExists` the source is written as-is.
@@ -5567,7 +5585,48 @@ mod tests {
                 trigger,
                 false
             ),
-            build_export_object_source_sql(DatabaseType::Mysql, ObjectSourceKind::Trigger, trigger)
+            build_export_object_source_sql(DatabaseType::Mysql, ObjectSourceKind::Trigger, &stripped_trigger)
+        );
+    }
+
+    /// #12322：导出的视图 DDL 不能带 DEFINER —— 目标环境缺少该账号时导入会直接失败；
+    /// `ALGORITHM` / `SQL SECURITY` 等其余选项必须原样保留。
+    #[test]
+    fn mysql_database_export_strips_view_definer() {
+        let view = "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `mysql_table` AS select 1";
+
+        assert_eq!(
+            build_database_export_object_source_sql(
+                DatabaseType::Mysql,
+                &ObjectSourceKind::View,
+                "mysql_table",
+                view,
+                true
+            ),
+            "DROP VIEW IF EXISTS `mysql_table`;\nCREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `mysql_table` AS select 1;"
+        );
+    }
+
+    /// 同族方言（Doris/StarRocks 等）同样剥离，避免只覆盖 MySQL 造成漏修。
+    #[test]
+    fn doris_database_export_also_strips_definer() {
+        let view = "CREATE DEFINER=`root`@`%` VIEW `v` AS select 1";
+
+        assert_eq!(
+            build_database_export_object_source_sql(DatabaseType::Doris, &ObjectSourceKind::View, "v", view, true),
+            "CREATE VIEW `v` AS select 1;"
+        );
+    }
+
+    /// 非 MySQL 系不受影响。这里刻意用带 `DEFINER=`u`@`h`` 的源文本（真实 Postgres DDL
+    /// 不会有这种片段），以便在有人把同族判定写宽时立刻失败。
+    #[test]
+    fn non_mysql_database_export_keeps_object_source_verbatim() {
+        let view = "CREATE DEFINER=`root`@`%` VIEW public.v AS SELECT 1";
+
+        assert_eq!(
+            build_database_export_object_source_sql(DatabaseType::Postgres, &ObjectSourceKind::View, "v", view, true),
+            "CREATE DEFINER=`root`@`%` VIEW public.v AS SELECT 1;"
         );
     }
 
