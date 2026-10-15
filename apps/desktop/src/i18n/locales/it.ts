@@ -5093,7 +5093,7 @@ export default withEnglishFallback({
     autoIncrement: "Auto Incremento",
     mysqlAutoIncrementSingleColumn: "MySQL consente una sola colonna di incremento automatico per tabella.",
     mysqlAutoIncrementRequiresIndex: 'La colonna di incremento automatico "{column}" richiede un indice; in InnoDB deve essere la prima colonna dell’indice.',
-    mysqlAutoIncrementRequiresNativeColumn: "È richiesta una colonna di incremento automatico su una connessione MySQL nativa.",
+    mysqlAutoIncrementRequiresNativeColumn: "È richiesta una colonna di incremento automatico.",
     mysqlAutoIncrementStartValue: "Valore iniziale di incremento automatico",
     editMysqlAutoIncrementStartValue: "Modifica il valore iniziale di incremento automatico (attuale: {value})",
     mysqlAutoIncrementStartHint: "Lascia vuoto per usare il valore predefinito del database (di solito 1).",

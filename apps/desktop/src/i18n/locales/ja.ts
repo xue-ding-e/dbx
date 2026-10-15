@@ -5155,7 +5155,7 @@ export default withEnglishFallback({
     autoIncrement: "自動採番",
     mysqlAutoIncrementSingleColumn: "MySQL ではテーブルごとに自動増分列を 1 つだけ設定できます。",
     mysqlAutoIncrementRequiresIndex: "自動増分列「{column}」にはインデックスが必要です。InnoDB ではインデックスの先頭列である必要があります。",
-    mysqlAutoIncrementRequiresNativeColumn: "ネイティブ MySQL 接続と自動増分列が必要です。",
+    mysqlAutoIncrementRequiresNativeColumn: "自動増分列が必要です。",
     mysqlAutoIncrementStartValue: "自動増分の開始値",
     editMysqlAutoIncrementStartValue: "自動増分の開始値を編集（現在: {value}）",
     mysqlAutoIncrementStartHint: "空欄の場合はデータベースの既定値（通常は 1）を使用します。",

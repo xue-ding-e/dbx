@@ -187,7 +187,7 @@ import {
   buildMysqlAutoIncrementSql,
   supportsDropTableCascade,
   supportsTruncateTableCascade,
-  supportsNativeMysqlAutoIncrement,
+  supportsMysqlAutoIncrement as connectionSupportsMysqlAutoIncrement,
   supportsSchemaComment,
   type DropTableChildObjectSqlOptions,
   type DropObjectSqlOptions,
@@ -3324,7 +3324,7 @@ function selectedBatchMysqlAutoIncrementTargets(): TreeNode[] {
   const targets = selectedBatchTableTargets();
   return targets.filter((node) => {
     const config = node.connectionId ? connectionStore.getConfig(node.connectionId) : undefined;
-    return supportsNativeMysqlAutoIncrement(config);
+    return connectionSupportsMysqlAutoIncrement(config);
   });
 }
 
@@ -3376,7 +3376,7 @@ async function confirmBatchMysqlAutoIncrement() {
     }
     try {
       const config = connectionStore.getConfig(target.connectionId);
-      if (!supportsNativeMysqlAutoIncrement(config)) throw new Error("Setting AUTO_INCREMENT is supported only for native MySQL connections.");
+      if (!connectionSupportsMysqlAutoIncrement(config)) throw new Error("Setting AUTO_INCREMENT is supported only for compatible MySQL-family connections.");
       await connectionStore.ensureConnected(target.connectionId);
       const sqlOptions = batchMysqlAutoIncrementSqlOptionsForNode(target);
       const sql = await buildMysqlAutoIncrementSql(sqlOptions);

@@ -4835,7 +4835,7 @@ export default withEnglishFallback({
     autoIncrement: "自動遞增",
     mysqlAutoIncrementSingleColumn: "MySQL 每張表只能有一個自動遞增欄位。",
     mysqlAutoIncrementRequiresIndex: "自動遞增欄位「{column}」必須有有效索引；使用 InnoDB 時，該欄位必須位於索引首欄。",
-    mysqlAutoIncrementRequiresNativeColumn: "需要使用原生 MySQL 連線，並為資料表設定自動遞增欄位。",
+    mysqlAutoIncrementRequiresNativeColumn: "需要為資料表設定自動遞增欄位。",
     mysqlAutoIncrementStartValue: "自動遞增起始值",
     editMysqlAutoIncrementStartValue: "編輯自動遞增起始值（目前：{value}）",
     mysqlAutoIncrementStartHint: "留空使用資料庫預設值（通常為 1）。",
