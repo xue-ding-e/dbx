@@ -16,7 +16,7 @@ const { t } = useI18n();
 const draft = ref<DataGridFilterModeOption[]>([]);
 
 const databaseLabel = computed(() => {
-  const labels: Record<string, string> = { mysql: "MySQL", postgresql: "PostgreSQL", oracle: "Oracle", sqlserver: "SQL Server", sqlite: "SQLite", mongodb: "MongoDB", redis: "Redis", clickhouse: "ClickHouse" };
+  const labels: Record<string, string> = { mysql: "MySQL", postgres: "PostgreSQL", oracle: "Oracle", sqlserver: "SQL Server", sqlite: "SQLite", mongodb: "MongoDB", redis: "Redis", clickhouse: "ClickHouse" };
   return labels[props.databaseType || ""] || props.databaseType || t("grid.filterModeOrderUnknownDatabase");
 });
 

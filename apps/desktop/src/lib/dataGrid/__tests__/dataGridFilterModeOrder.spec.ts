@@ -22,10 +22,10 @@ describe("data grid filter mode order", () => {
 
   it("stores independent orders for each database type", () => {
     saveDataGridFilterModeOrder("mysql", ["like", "equals", "is-null"]);
-    saveDataGridFilterModeOrder("postgresql", ["is-null", "equals", "like"]);
+    saveDataGridFilterModeOrder("postgres", ["is-null", "equals", "like"]);
 
     expect(orderDataGridFilterModeOptions("mysql", options).map((item) => item.value)).toEqual(["like", "equals", "is-null"]);
-    expect(orderDataGridFilterModeOptions("postgresql", options).map((item) => item.value)).toEqual(["is-null", "equals", "like"]);
+    expect(orderDataGridFilterModeOptions("postgres", options).map((item) => item.value)).toEqual(["is-null", "equals", "like"]);
   });
 
   it("keeps newly added operators at the end and restores the default order", () => {
