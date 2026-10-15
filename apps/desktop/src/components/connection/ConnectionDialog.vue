@@ -11087,7 +11087,24 @@ function openExternalUrl(url: string) {
 .connection-dialog-content {
   display: flex;
   flex-direction: column;
+  height: min(800px, calc(var(--dbx-viewport-height) - 2rem));
+  /* legacy WebViews without dvh support clamp through the viewport variable */
   max-height: calc(var(--dbx-viewport-height) - 2rem);
+  overflow: hidden;
+}
+
+.connection-dialog-content [data-slot="tabs-list"] {
+  flex-shrink: 0;
+}
+
+.connection-dialog-content [data-slot="tabs-content"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.connection-dialog-content .connection-dialog-footer {
+  flex-shrink: 0;
 }
 
 .connection-dialog-content--config {
