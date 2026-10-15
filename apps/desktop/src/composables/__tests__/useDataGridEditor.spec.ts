@@ -1725,6 +1725,23 @@ describe("useDataGridEditor saveChanges reload", () => {
     expect(mocks.prepareDataGridSave.mock.calls[1]![0].dirtyRows).toEqual([[0, [[3, "new title"]]]]);
   });
 
+  it("routes multi-statement edits through executeBatch for non-transactional DuckDB (#12306)", async () => {
+    mocks.prepareDataGridSave.mockResolvedValue({
+      statements: ["UPDATE users SET name='alpha' WHERE id=1", "UPDATE users SET name='beta' WHERE id=2"],
+      rollbackStatements: [],
+    });
+    mocks.executeBatch.mockResolvedValue({ affected_rows: 2 });
+    const { editor } = createSaveTestEditor({ databaseType: "duckdb" });
+    expect(editor.useTransaction.value).toBe(false);
+    editor.dirtyRows.value.set(0, new Map([[1, "alpha"]]));
+    editor.dirtyRows.value.set(1, new Map([[1, "beta"]]));
+    await editor.saveChanges();
+    expect(mocks.executeInTransaction).not.toHaveBeenCalled();
+    expect(mocks.executeBatch).toHaveBeenCalledTimes(1);
+    expect(mocks.executeBatch).toHaveBeenCalledWith("connection-1", "app", ["UPDATE users SET name='alpha' WHERE id=1", "UPDATE users SET name='beta' WHERE id=2"], undefined);
+    expect(editor.saveError.value).toBe("");
+  });
+
   it("keeps both joined edits pending if the transaction fails", async () => {
     const targets = [
       { tableMeta: { tableName: "users", primaryKeys: ["id"], columns: [] }, sourceColumns: ["id", "name", undefined, undefined] },
