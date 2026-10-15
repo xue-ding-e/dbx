@@ -291,6 +291,7 @@ import {
   filterModeUsesRange,
   parseFilterValue,
   parseFilterValues,
+  removeColumnValueFilterCondition,
 } from "@/lib/dataGrid/dataGridColumnFilter";
 import { normalizeResultPageSize, resultPageSizeMenuOptions } from "@/lib/dataGrid/paginationPageSize";
 import { dataGridPageSizeSettingsPatch, preferredDataGridPageSize, resolveDataGridPageSizePreference, type DataGridPageSizePreference } from "@/lib/dataGrid/dataGridPageSizePreference";
@@ -1497,6 +1498,11 @@ const localColumnFilterRuntime = useDataGridColumnFilters({
   getConnectionConfig: () => (props.connectionId ? connectionStore.getConfig(props.connectionId) : undefined),
   getIdentifierQuote: () => connectionStore.connectionIdentifierQuote?.(props.connectionId),
   getGlobalQueryTimeoutSecs: () => settingsStore.editorSettings.globalQueryTimeoutSecs,
+  getDistinctWhereInput: (columnIndex) => {
+    const current = serverColumnFilters.value[columnIndex]?.condition;
+    const manualWhere = current ? removeColumnValueFilterCondition(whereFilterInput.value, current) : whereFilterInput.value;
+    return combineWhereInputs(manualWhere, appliedStructuredWhereInput.value);
+  },
   getNewRows: () => getGridNewRows(),
   getRowData: (row, sourceIndex) => getGridRowData(row, sourceIndex),
   formatValue: (value, columnIndex) => formatCell(value, columnIndex, undefined, false),
