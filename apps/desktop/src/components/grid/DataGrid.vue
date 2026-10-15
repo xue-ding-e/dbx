@@ -19,6 +19,7 @@ import {
   Upload,
   FileUp,
   Trash2,
+  Check,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -293,7 +294,7 @@ import { normalizeResultPageSize, resultPageSizeMenuOptions } from "@/lib/dataGr
 import { dataGridPageSizeSettingsPatch, preferredDataGridPageSize, resolveDataGridPageSizePreference, type DataGridPageSizePreference } from "@/lib/dataGrid/dataGridPageSizePreference";
 import { continuousQueryResultMaxRows, effectiveQueryResultMaxRows } from "@/lib/dataGrid/queryResultRowLimit";
 import { allNullColumnIndexes, identicalValueColumnIndexes } from "@/lib/dataGrid/dataGridColumnVisibility";
-import { buildDataGridColumnLookupItems, dataGridColumnCommentFor, filterDataGridColumnLookupItems } from "@/lib/dataGrid/dataGridColumnLookup";
+import { buildDataGridColumnLookupItems, dataGridColumnCommentFor, filterDataGridColumnLookupItems, type DataGridColumnLookupMatchMode } from "@/lib/dataGrid/dataGridColumnLookup";
 import { uniqueDataGridColumnOrderKeys } from "@/lib/dataGrid/dataGridColumnOrder";
 import { dataGridColumnLayoutScopeKey, TABLE_DATA_GRID_COLUMN_ORDER_CHANGED_EVENT, tableDataGridColumnOrderScopeKey } from "@/lib/dataGrid/dataGridColumnLayoutStorage";
 import { createPendingSelectionSummary, formatSelectionAggregate, formatSelectionAverage, summarizeSelection, type SelectionSummaryOptions } from "@/lib/dataGrid/gridSelection";
@@ -2292,6 +2293,7 @@ let highlightedColumnTimer = 0;
 
 const goToColumnOpen = ref(false);
 const goToColumnSearch = ref("");
+const goToColumnMatchMode = ref<DataGridColumnLookupMatchMode>("fuzzy");
 const goToColumnSearchInput = ref<HTMLInputElement>();
 const goToColumnListRef = ref<HTMLElement>();
 const goToColumnSelectedIndex = ref(0);
@@ -2390,7 +2392,7 @@ const goToColumnItems = computed(() =>
   }),
 );
 const filteredGoToColumns = computed(() => {
-  return filterDataGridColumnLookupItems(goToColumnItems.value, goToColumnSearch.value);
+  return filterDataGridColumnLookupItems(goToColumnItems.value, goToColumnSearch.value, goToColumnMatchMode.value);
 });
 const visibleColumns = computed(() => visibleColumnIndexes.value.map((index) => props.result.columns[index]));
 const visibleColumnIndexIndicators = computed(() =>
@@ -2577,6 +2579,11 @@ watch(goToColumnOpen, (open) => {
 });
 
 watch(goToColumnSearch, () => {
+  goToColumnSelectedIndex.value = 0;
+  scrollGoToColumnSelectionIntoView();
+});
+
+watch(goToColumnMatchMode, () => {
   goToColumnSelectedIndex.value = 0;
   scrollGoToColumnSelectionIntoView();
 });
@@ -15431,7 +15438,37 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
             </div>
             <div class="relative m-2 shrink-0">
               <Search class="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input ref="goToColumnSearchInput" v-model="goToColumnSearch" :placeholder="t('grid.searchColumn')" class="h-8 w-full rounded-md border bg-transparent pl-7 pr-6 text-xs outline-none focus-visible:border-ring/50 focus-visible:ring-1 focus-visible:ring-ring/25" />
+              <input
+                ref="goToColumnSearchInput"
+                v-model="goToColumnSearch"
+                :placeholder="t('grid.searchColumn')"
+                :aria-label="t('grid.searchColumn')"
+                class="h-8 w-full rounded-md border bg-transparent pl-7 pr-28 text-xs outline-none focus-visible:border-ring/50 focus-visible:ring-1 focus-visible:ring-ring/25"
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <button
+                    type="button"
+                    class="absolute right-7 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded px-1 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                    :title="goToColumnMatchMode === 'exact' ? t('grid.useFuzzyColumnSearch') : t('grid.useExactColumnSearch')"
+                    :aria-label="goToColumnMatchMode === 'exact' ? t('grid.useFuzzyColumnSearch') : t('grid.useExactColumnSearch')"
+                    @keydown.stop
+                  >
+                    {{ goToColumnMatchMode === "exact" ? t("grid.exactColumnSearch") : t("grid.fuzzyColumnSearch") }}
+                    <ChevronDown class="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" class="!w-auto !min-w-0 whitespace-nowrap">
+                  <DropdownMenuItem class="justify-between gap-2 text-xs" @select="goToColumnMatchMode = 'fuzzy'">
+                    {{ t("grid.fuzzyColumnSearch") }}
+                    <Check v-if="goToColumnMatchMode === 'fuzzy'" class="h-3 w-3" />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem class="justify-between gap-2 text-xs" @select="goToColumnMatchMode = 'exact'">
+                    {{ t("grid.exactColumnSearch") }}
+                    <Check v-if="goToColumnMatchMode === 'exact'" class="h-3 w-3" />
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <button v-if="goToColumnSearch" type="button" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" @click="goToColumnSearch = ''">
                 <X class="h-3.5 w-3.5" />
               </button>
