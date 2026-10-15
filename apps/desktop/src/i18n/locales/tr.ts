@@ -2016,6 +2016,7 @@ export default withEnglishFallback({
     xlsxIncludeAutoFilter: "Filtreleri dâhil et",
     copied: "Kopyalandı",
     copyFailed: "Kopyalama başarısız: {message}",
+    resizeSqlPreview: "SQL önizlemesinin yüksekliğini ayarla",
     previewSqlEmpty: "Önizlenecek bekleyen SQL değişikliği yok",
     renderMode: "Görüntüleme Modu",
     domRenderMode: "DOM",

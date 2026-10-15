@@ -2319,6 +2319,7 @@ export default withEnglishFallback({
     xlsxIncludeAutoFilter: "Sertakan filter",
     copied: "Disalin",
     copyFailed: "Salin gagal: {message}",
+    resizeSqlPreview: "Ubah tinggi pratinjau SQL",
     previewSqlEmpty: "Tidak ada perubahan SQL tertunda untuk dipratinjau",
     renderMode: "Mode Render",
     domRenderMode: "DOM",

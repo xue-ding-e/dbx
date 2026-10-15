@@ -2297,6 +2297,7 @@ export default withEnglishFallback({
     exportFailed: "Esportazione non riuscita: {message}",
     copied: "Copiato",
     copyFailed: "Copia non riuscita: {message}",
+    resizeSqlPreview: "Regola l’altezza dell’anteprima SQL",
     previewSqlEmpty: "Nessuna modifica SQL in sospeso da visualizzare",
     renderMode: "Modalità rendering",
     domRenderMode: "DOM",

@@ -2629,6 +2629,7 @@ export default withEnglishFallback({
     copied: "已复制",
     cut: "已剪切",
     copyFailed: "复制失败：{message}",
+    resizeSqlPreview: "调整 SQL 预览高度",
     previewSqlEmpty: "暂无待预览的 SQL 更改",
     renderMode: "渲染模式",
     domRenderMode: "DOM",

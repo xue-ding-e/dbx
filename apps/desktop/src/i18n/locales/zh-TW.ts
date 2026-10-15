@@ -2297,6 +2297,7 @@ export default withEnglishFallback({
     exportFailed: "匯出失敗：{message}",
     copied: "已複製",
     copyFailed: "複製失敗：{message}",
+    resizeSqlPreview: "調整 SQL 預覽高度",
     previewSqlEmpty: "沒有待預覽的 SQL 變更",
     renderMode: "渲染模式",
     domRenderMode: "DOM",

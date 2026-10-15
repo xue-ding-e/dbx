@@ -2023,6 +2023,7 @@ export default withEnglishFallback({
     xlsxIncludeAutoFilter: "Süzgəcləri daxil et",
     copied: "Kopyalandı",
     copyFailed: "Kopyalamaq mümkün olmadı: {message}",
+    resizeSqlPreview: "SQL önbaxışının hündürlüyünü dəyişdir",
     previewSqlEmpty: "Önbaxış üçün gözləyən SQL dəyişikliyi yoxdur",
     renderMode: "Göstərmə rejimi",
     domRenderMode: "DOM",

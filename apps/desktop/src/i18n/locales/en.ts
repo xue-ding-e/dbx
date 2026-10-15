@@ -2695,6 +2695,7 @@ export default {
     xlsxIncludeAutoFilter: "Include filters",
     copied: "Copied",
     copyFailed: "Copy failed: {message}",
+    resizeSqlPreview: "Resize SQL preview height",
     previewSqlEmpty: "No pending SQL changes to preview",
     renderMode: "Render Mode",
     domRenderMode: "DOM",

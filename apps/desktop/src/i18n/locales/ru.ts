@@ -2447,6 +2447,7 @@ export default withEnglishFallback({
     xlsxIncludeAutoFilter: "Включить фильтры",
     copied: "Скопировано",
     copyFailed: "Не удалось скопировать: {message}",
+    resizeSqlPreview: "Изменить высоту предпросмотра SQL",
     previewSqlEmpty: "Нет ожидающих изменений SQL для предпросмотра",
     renderMode: "Режим отрисовки",
     domRenderMode: "DOM",

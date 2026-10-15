@@ -2874,6 +2874,7 @@ export default withEnglishFallback({
     loadAllRowsConfirmTitle: "全行ロードの確認",
     loadAllRowsConfirmMessage: "すべて読み込むと、1 回のリクエストで最大 {count} 行を追加取得します。非常に大きな結果セットは多くのメモリを消費し、時間がかかることがあります。続行しますか？",
     loadAllRowsContinue: "ロードを続行",
+    resizeSqlPreview: "SQLプレビューの高さを変更",
     previewSqlEmpty: "プレビューする保留中のSQL変更はありません",
     renderMode: "描画モード",
     undoChange: "変更を元に戻す",

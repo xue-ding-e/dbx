@@ -2349,6 +2349,7 @@ export default withEnglishFallback({
     copied: "복사했습니다",
     cut: "잘라냈습니다",
     copyFailed: "복사 실패: {message}",
+    resizeSqlPreview: "SQL 미리보기 높이 조절",
     previewSqlEmpty: "미리볼 보류 중인 SQL 변경이 없습니다",
     renderMode: "렌더링 모드",
     domRenderMode: "DOM",

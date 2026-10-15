@@ -2653,6 +2653,7 @@ export default withEnglishFallback({
     xlsxIncludeAutoFilter: "รวมตัวกรอง",
     copied: "คัดลอกแล้ว",
     copyFailed: "คัดลอกไม่สำเร็จ: {message}",
+    resizeSqlPreview: "ปรับความสูงของตัวอย่าง SQL",
     previewSqlEmpty: "ไม่มีการเปลี่ยนแปลง SQL ที่รอดูตัวอย่าง",
     renderMode: "โหมดการเรนเดอร์",
     domRenderMode: "DOM",
