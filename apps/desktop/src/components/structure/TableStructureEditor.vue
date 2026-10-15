@@ -6128,11 +6128,11 @@ watch(
                 <ClipboardList :class="structureIconClass" />
                 {{ t("grid.copyColumnNames") }}
               </Button>
-              <Button v-if="isCreateMode && activeTab === 'columns'" size="sm" variant="outline" :class="structureToolbarButtonClass" :disabled="!canAddColumn" @click="applyColumnTemplate(PRESET_FIELDS_TEMPLATE_ID)">
+              <Button v-if="activeTab === 'columns'" size="sm" variant="outline" :class="structureToolbarButtonClass" :disabled="!canAddColumn" @click="applyColumnTemplate(PRESET_FIELDS_TEMPLATE_ID)">
                 <Copy :class="structureIconClass" />
                 {{ t("structureEditor.columnTemplates") }}
               </Button>
-              <Tooltip v-if="isCreateMode && activeTab === 'columns'">
+              <Tooltip v-if="activeTab === 'columns'">
                 <TooltipTrigger as-child>
                   <Button size="sm" variant="ghost" :class="structureToolbarButtonClass" :disabled="!canAddColumn" :aria-label="t('structureEditor.configureColumnTemplates')" @click="emit('openSettings', 'data', 'tableColumnTemplates')">
                     <Settings :class="structureIconClass" />
