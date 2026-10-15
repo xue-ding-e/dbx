@@ -483,6 +483,7 @@ export const listLocalSshKeys = forward("listLocalSshKeys");
 
 // SQL File Execution
 export const previewSqlFile = forward("previewSqlFile");
+export const refreshSqlFilePreview = forward("refreshSqlFilePreview");
 export const releaseSqlFilePreview = forward("releaseSqlFilePreview");
 export const executeSqlFile = forward("executeSqlFile");
 export const sqlFileFailureLogInfo = forward("sqlFileFailureLogInfo");

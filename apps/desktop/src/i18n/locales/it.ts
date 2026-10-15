@@ -6945,6 +6945,7 @@ export default withEnglishFallback({
     exportData: "Esporta dati",
   },
   sqlFile: {
+    encodingHint: "Si applica a tutti i file selezionati. Se presente, la codifica indicata dal BOM ha la precedenza.",
     manualTransactionHint: "Le modifiche attendono commit o rollback. Gli errori causano il rollback. DDL e COMMIT nel file possono comunque confermare le modifiche.",
     manualCancelHint: "L'annullamento attende la fine dell'istruzione corrente, poi esegue il rollback delle modifiche non confermate.",
     pendingTransaction: "In attesa di commit o rollback",

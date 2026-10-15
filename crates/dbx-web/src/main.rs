@@ -1421,6 +1421,7 @@ async fn serve() -> Result<(), String> {
                 .layer(DefaultBodyLimit::max(routes::sql_file::sql_file_upload_hard_cap_bytes())),
         )
         .route("/sql-file/execute", post(routes::sql_file::execute_sql_file))
+        .route("/sql-file/preview/refresh", post(routes::sql_file::refresh_sql_file_preview))
         .route("/sql-file/preview/release", post(routes::sql_file::release_sql_file_preview))
         .route("/sql-file/tables", post(routes::sql_file::inspect_sql_file_tables))
         .route("/sql-file/progress/{executionId}", get(routes::sql_file::sql_file_progress))

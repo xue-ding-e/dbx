@@ -7929,6 +7929,7 @@ export default withEnglishFallback({
     exportData: "导出数据",
   },
   sqlFile: {
+    encodingHint: "应用于本次选择的所有文件；文件含字节序标记（BOM）时，优先采用 BOM 指定的编码。",
     manualTransactionHint: "修改等待手动提交或回滚，出错时回滚。文件中的 DDL 和 COMMIT 仍可能提交修改。",
     manualCancelHint: "取消会等待当前语句结束，再回滚未提交的修改。",
     pendingTransaction: "等待提交或回滚",

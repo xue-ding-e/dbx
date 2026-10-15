@@ -8185,6 +8185,7 @@ export default withEnglishFallback({
     exportData: "Экспорт данных",
   },
   sqlFile: {
+    encodingHint: "Применяется ко всем выбранным файлам. При наличии BOM используется указанная им кодировка.",
     manualTransactionHint: "Изменения ожидают Commit или Rollback. При ошибках выполняется откат. DDL и COMMIT внутри файла всё равно могут зафиксировать изменения.",
     manualCancelHint: "Отмена ожидает завершения текущего оператора, затем откатывает незафиксированные изменения.",
     pendingTransaction: "Ожидание Commit или Rollback",

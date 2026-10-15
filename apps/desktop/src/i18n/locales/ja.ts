@@ -6973,6 +6973,7 @@ export default withEnglishFallback({
     exportData: "データをエクスポート",
   },
   sqlFile: {
+    encodingHint: "選択したすべてのファイルに適用します。BOM がある場合は、そのエンコーディングを優先します。",
     manualTransactionHint: "変更は手動でコミットまたはロールバックするまで保留されます。エラー時はロールバックします。ファイル内の DDL や COMMIT により変更が確定する場合があります。",
     manualCancelHint: "キャンセルすると現在の文の終了を待ち、未コミットの変更をロールバックします。",
     pendingTransaction: "コミットまたはロールバック待ち",

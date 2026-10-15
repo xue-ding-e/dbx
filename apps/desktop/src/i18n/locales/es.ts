@@ -7152,6 +7152,7 @@ export default withEnglishFallback({
     exportData: "Exportar datos",
   },
   sqlFile: {
+    encodingHint: "Se aplica a todos los archivos seleccionados. Si hay una marca BOM, su codificación tiene prioridad.",
     manualTransactionHint: "Los cambios esperan confirmación o reversión. Los errores provocan una reversión. DDL y COMMIT dentro del archivo aún pueden confirmar cambios.",
     manualCancelHint: "Cancelar espera a que termine la sentencia actual y luego revierte los cambios sin confirmar.",
     pendingTransaction: "Pendiente de confirmar o revertir",

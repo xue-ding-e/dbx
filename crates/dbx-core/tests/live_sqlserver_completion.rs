@@ -1322,6 +1322,7 @@ async fn live_sqlserver_sql_file_import_executes_go_batches() {
         part_cooldown_ms: 0,
         skip_relational_constraints: false,
         failure_log_enabled: true,
+        encoding: Default::default(),
     };
     let done_seen = AtomicBool::new(false);
 

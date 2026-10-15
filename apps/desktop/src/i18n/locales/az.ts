@@ -6732,6 +6732,7 @@ export default withEnglishFallback({
     exportData: "Məlumatları ixrac et",
   },
   sqlFile: {
+    encodingHint: "Bütün seçilmiş fayllara tətbiq olunur. BOM varsa, onun göstərdiyi kodlaşdırmaya üstünlük verilir.",
     restoreScope: "Bərpa əhatəsi",
     restoreAll: "Bütün məzmun",
     restoreSelectedTables: "Seçilmiş cədvəllər",

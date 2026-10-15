@@ -87,6 +87,33 @@ pub struct SqlFileRequest {
     /// logging enabled, so the serde default is `true`.
     #[serde(default = "sql_file_failure_log_enabled_by_default")]
     pub failure_log_enabled: bool,
+    /// Text encoding used to decode SQL files. `auto` preserves the historical
+    /// BOM/UTF-8/GBK detection behavior.
+    #[serde(default)]
+    pub encoding: SqlFileEncoding,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum SqlFileEncoding {
+    #[default]
+    Auto,
+    Utf8,
+    Gbk,
+    Utf16Le,
+    Utf16Be,
+}
+
+impl SqlFileEncoding {
+    pub fn to_encoding(self) -> Option<&'static encoding_rs::Encoding> {
+        match self {
+            Self::Auto => None,
+            Self::Utf8 => Some(encoding_rs::UTF_8),
+            Self::Gbk => Some(encoding_rs::GBK),
+            Self::Utf16Le => Some(encoding_rs::UTF_16LE),
+            Self::Utf16Be => Some(encoding_rs::UTF_16BE),
+        }
+    }
 }
 
 fn sql_file_failure_log_enabled_by_default() -> bool {
