@@ -536,6 +536,9 @@ export interface QueryPaginationExecutionPlanOptions {
   pagination: QueryPagination;
   useAgentCursor: boolean;
   firstPageUsesActualSql?: boolean;
+  /** Optimizer hint injected into the generated count (dbx_count) and page (dbx_page) SQL.
+   *  Example: GaussDB parallel execution hint: + set(query_dop 8). */
+  executionHint?: string;
 }
 
 export interface QueryPaginationExecutionPlan {

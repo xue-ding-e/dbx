@@ -8403,6 +8403,7 @@ export const useQueryStore = defineStore("query", () => {
           pagination,
           useAgentCursor,
           firstPageUsesActualSql: hiddenPrimaryKeys.length > 0,
+          executionHint: effectiveDbType === "gaussdb" ? gaussdbCountQueryDopHint(conn) : undefined,
         });
         const canPaginateSqlServerUseScript = !!sqlServerUseScript && !!plan.pageSql && typeof plan.pageLimit === "number" && typeof plan.pageOffset === "number";
         if (plan.paginationError) throw new Error(plan.paginationError);
@@ -10238,6 +10239,7 @@ export const useQueryStore = defineStore("query", () => {
           pagination: { limit: effectivePageLimit, offset, sessionId },
           useAgentCursor,
           firstPageUsesActualSql: true,
+          executionHint: effectiveDbType === "gaussdb" ? gaussdbCountQueryDopHint(conn) : undefined,
         });
         if (probeRowLimit && plan.paginationError) throw new Error(plan.paginationError);
         if (typeof plan.pageLimit !== "number" || typeof plan.pageOffset !== "number") return cachedResultForExport();
