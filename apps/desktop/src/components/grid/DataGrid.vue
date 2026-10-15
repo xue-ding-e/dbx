@@ -8008,8 +8008,8 @@ function onCanvasScroll(event: Event) {
   }
   if (scrollTopChanged || viewportHeightChanged) {
     updateGridVerticalScrollbar(scroller);
-    maybeCheckInfiniteScroll(scroller);
   }
+  maybeCheckInfiniteScroll(scroller);
   if (viewportWidthChanged || viewportHeightChanged) {
     const gutter = scrollbarGutterWidth(scroller);
     if (gridScrollbarGutter.value !== gutter) gridScrollbarGutter.value = gutter;
