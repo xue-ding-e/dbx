@@ -1803,7 +1803,6 @@ export default withEnglishFallback({
     copyPartialRowsHintWithTotal: "Yüklenen {loaded} satır kopyalandı (toplam {total} satır; sonuç kümesi tamamen yüklenmedi)",
     copyPartialRowsHint: "Yüklenen {loaded} satır kopyalandı (sonuç kümesi tamamen yüklenmedi)",
     totalRowCount: "(toplam {count})",
-    totalRowCountWithAction: "({button}toplam {count})",
     totalRowCountAtLeast: "(en az {count} toplam)",
     totalRowCountEstimated: "(~{count})",
     totalRowCountLoading: "(sayılıyor...)",

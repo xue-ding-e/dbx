@@ -2200,7 +2200,6 @@ export default withEnglishFallback({
     copyPartialRowsHintWithTotal: "Скопированы загруженные строки: {loaded} (всего {total} — результат загружен не полностью)",
     copyPartialRowsHint: "Скопированы загруженные строки: {loaded} (результат загружен не полностью)",
     totalRowCount: "(всего {count})",
-    totalRowCountWithAction: "({button}всего {count})",
     totalRowCountAtLeast: "(не менее {count} всего)",
     totalRowCountEstimated: "(~{count})",
     totalRowCountLoading: "(подсчёт...)",
