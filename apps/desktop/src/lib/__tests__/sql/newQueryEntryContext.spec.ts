@@ -60,6 +60,11 @@ describe("new query entry context wiring", () => {
     expect(body).toContain('sidebarFocused ? "sidebar" : undefined');
   });
 
+  it("routes the app toolbar through the last focused sidebar context (#11791)", () => {
+    const toolbar = appSource.slice(appSource.indexOf("<AppToolbar"), appSource.indexOf("/>", appSource.indexOf("<AppToolbar")));
+    expect(toolbar).toContain(`@new-query="newQuery({ preferredSource: lastFocusedSidebarSurface ? 'sidebar' : undefined })"`);
+  });
+
   it("opens the database default query for Cmd+Enter from the sidebar", () => {
     const body = bodyOf("async function handleKeydown");
     expect(body).toContain("isExecuteSqlShortcut(e, shortcuts) && defaultQueryShortcutTarget");
