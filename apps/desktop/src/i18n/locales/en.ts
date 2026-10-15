@@ -2998,6 +2998,7 @@ export default {
     statusEdited: "Updated Items",
     statusDeleted: "Deleted Items",
     pendingChanges: "{count} pending",
+    uncommittedBlankRow: "Empty new row; it will be ignored when saving",
     selectedCells: "{count} selected",
     bulkEditSelection: "Bulk Edit Selection",
     bulkEditTitle: "Bulk Edit Selection",

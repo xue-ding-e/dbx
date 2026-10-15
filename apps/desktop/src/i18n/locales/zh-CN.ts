@@ -2932,6 +2932,7 @@ export default withEnglishFallback({
     statusEdited: "更新项",
     statusDeleted: "删除项",
     pendingChanges: "{count} 项待保存",
+    uncommittedBlankRow: "未填写的新行，保存时会被忽略",
     selectedCells: "已选 {count} 个单元格",
     bulkEditSelection: "批量修改所选",
     bulkEditTitle: "批量修改所选",

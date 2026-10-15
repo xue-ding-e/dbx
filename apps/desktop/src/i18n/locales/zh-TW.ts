@@ -2966,6 +2966,7 @@ export default withEnglishFallback({
     xlsxFilterPrompt: "請選擇匯出的 Excel 是否包含篩選：",
     xlsxIncludeAutoFilter: "包含篩選",
     cut: "已剪下",
+    uncommittedBlankRow: "未填寫的新行，儲存時會被忽略",
   },
   exportProgress: {
     streamingUnsupported: "目前查詢暫不支援串流匯出，請簡化查詢或使用支援的驅動程式。",

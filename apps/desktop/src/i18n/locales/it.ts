@@ -2962,6 +2962,7 @@ export default withEnglishFallback({
     binaryImportFailed: "Importazione del file non riuscita: {message}",
     binaryImportTooLarge: "Il file è troppo grande ({size}, limite {limit}). L'importazione di file di grandi dimensioni in una singola cella non è supportata.",
     cut: "Tagliato",
+    uncommittedBlankRow: "Nuova riga non compilata, verrà ignorata al salvataggio",
   },
   exportProgress: {
     streamingUnsupported: "L'esportazione in streaming non è supportata per questa query. Semplificala o usa un driver supportato.",

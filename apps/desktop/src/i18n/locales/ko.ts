@@ -2913,6 +2913,7 @@ export default withEnglishFallback({
     xlsxHeaderNameAndCommentRows: "필드 이름과 주석을 두 헤더 행으로 사용",
     xlsxHeaderNameAndCommentRowsHint: "1행은 필드 이름, 2행은 주석이며 데이터는 3행부터 시작합니다. 다시 가져오기 전에 주석 행을 삭제하면 필드 이름과 일치합니다.",
     batchAppendPasteNoMatchingColumns: "INSERT 문의 열 이름이 현재 결과 집합의 어떤 열과도 일치하지 않습니다.",
+    uncommittedBlankRow: "입력되지 않은 새 행은 저장 시 무시됩니다.",
   },
   exportProgress: {
     streamingUnsupported: "이 쿼리는 스트리밍 내보내기를 지원하지 않습니다. 쿼리를 단순화하거나 지원되는 드라이버를 사용하세요.",

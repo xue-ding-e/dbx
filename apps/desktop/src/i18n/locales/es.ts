@@ -3089,6 +3089,7 @@ export default withEnglishFallback({
     binaryImportFailed: "Error al importar el archivo: {message}",
     binaryImportTooLarge: "El archivo es demasiado grande ({size}, límite {limit}). No se admite importar archivos grandes en una sola celda.",
     cut: "Cortado",
+    uncommittedBlankRow: "Fila nueva sin completar, se ignorará al guardar.",
   },
   exportProgress: {
     streamingUnsupported: "La exportación en streaming no es compatible con esta consulta. Simplifíquela o use un controlador compatible.",
