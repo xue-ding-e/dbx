@@ -3971,6 +3971,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Chiudi Altre Schede Normali",
     closeOtherFixedTabs: "Chiudi Altre Schede Fisse",
     closeAllTabs: "Chiudi Tutte le Schede",
+    saveAllTabs: "Salva Tutte le Schede",
     closeAllRegularTabs: "Chiudi Tutte le Schede Normali",
     closeAllFixedTabs: "Chiudi Tutte le Schede Fisse",
     copyName: "Copia Nome",

@@ -3600,6 +3600,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Digər adi vərəqləri bağla",
     closeOtherFixedTabs: "Digər sabit vərəqləri bağla",
     closeAllTabs: "Bütün vərəqləri bağla",
+    saveAllTabs: "Bütün vərəqləri yadda saxla",
     closeAllRegularTabs: "Bütün adi vərəqləri bağla",
     closeAllFixedTabs: "Bütün sabit vərəqləri bağla",
     copyName: "Adı kopyala",

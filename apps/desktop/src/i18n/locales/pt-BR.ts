@@ -3971,6 +3971,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Fechar Outras Abas Normais",
     closeOtherFixedTabs: "Fechar Outras Abas Fixas",
     closeAllTabs: "Fechar Todas as Abas",
+    saveAllTabs: "Salvar Todas as Abas",
     closeAllRegularTabs: "Fechar Todas as Abas Normais",
     closeAllFixedTabs: "Fechar Todas as Abas Fixas",
     copyFinalProxyPort: "Copiar porta final do proxy",

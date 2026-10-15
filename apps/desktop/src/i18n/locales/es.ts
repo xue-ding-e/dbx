@@ -4127,6 +4127,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Cerrar otras pestañas normales",
     closeOtherFixedTabs: "Cerrar otras pestañas fijadas",
     closeAllTabs: "Cerrar todas las pestañas",
+    saveAllTabs: "Guardar todas las pestañas",
     closeAllRegularTabs: "Cerrar todas las pestañas normales",
     closeAllFixedTabs: "Cerrar todas las pestañas fijadas",
     copyName: "Copiar nombre",

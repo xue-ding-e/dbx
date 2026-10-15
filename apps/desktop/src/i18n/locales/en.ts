@@ -4371,6 +4371,7 @@ export default {
     closeOtherRegularTabs: "Close Other Regular Tabs",
     closeOtherFixedTabs: "Close Other Fixed Tabs",
     closeAllTabs: "Close All Tabs",
+    saveAllTabs: "Save All Tabs",
     closeAllRegularTabs: "Close All Regular Tabs",
     closeAllFixedTabs: "Close All Fixed Tabs",
     copyName: "Copy Name",

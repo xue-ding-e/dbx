@@ -3918,6 +3918,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Tutup Tab Reguler Lainnya",
     closeOtherFixedTabs: "Tutup Tab Tetap Lainnya",
     closeAllTabs: "Tutup Semua Tab",
+    saveAllTabs: "Simpan Semua Tab",
     closeAllRegularTabs: "Tutup Semua Tab Reguler",
     closeAllFixedTabs: "Tutup Semua Tab Tetap",
     copyName: "Salin Nama",

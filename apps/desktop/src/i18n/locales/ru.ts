@@ -4081,6 +4081,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Закрыть другие обычные вкладки",
     closeOtherFixedTabs: "Закрыть другие закреплённые вкладки",
     closeAllTabs: "Закрыть все вкладки",
+    saveAllTabs: "Сохранить все вкладки",
     closeAllRegularTabs: "Закрыть все обычные вкладки",
     closeAllFixedTabs: "Закрыть все закреплённые вкладки",
     copyName: "Копировать имя",

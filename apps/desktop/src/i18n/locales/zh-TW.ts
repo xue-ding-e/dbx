@@ -3971,6 +3971,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "關閉其他普通分頁",
     closeOtherFixedTabs: "關閉其他固定分頁",
     closeAllTabs: "關閉全部分頁",
+    saveAllTabs: "儲存全部分頁",
     closeAllRegularTabs: "關閉全部普通分頁",
     closeAllFixedTabs: "關閉全部固定分頁",
     copyName: "複製名稱",

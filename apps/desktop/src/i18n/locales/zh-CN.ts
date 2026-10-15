@@ -4301,6 +4301,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "关闭其他普通标签页",
     closeOtherFixedTabs: "关闭其他固定标签页",
     closeAllTabs: "关闭全部标签页",
+    saveAllTabs: "保存全部标签页",
     closeAllRegularTabs: "关闭全部普通标签页",
     closeAllFixedTabs: "关闭全部固定标签页",
     copyName: "复制名称",

@@ -3571,6 +3571,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "Diğer Normal Sekmeleri Kapat",
     closeOtherFixedTabs: "Diğer Sabit Sekmeleri Kapat",
     closeAllTabs: "Tüm Sekmeleri Kapat",
+    saveAllTabs: "Tüm Sekmeleri Kaydet",
     closeAllRegularTabs: "Tüm Normal Sekmeleri Kapat",
     closeAllFixedTabs: "Tüm Sabit Sekmeleri Kapat",
     copyName: "Adı Kopyala",

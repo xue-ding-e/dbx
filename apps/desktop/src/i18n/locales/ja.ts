@@ -3992,6 +3992,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "他の通常タブを閉じる",
     closeOtherFixedTabs: "他の固定タブを閉じる",
     closeAllTabs: "すべてのタブを閉じる",
+    saveAllTabs: "すべてのタブを保存",
     closeAllRegularTabs: "すべての通常タブを閉じる",
     closeAllFixedTabs: "すべての固定タブを閉じる",
     copyName: "名前をコピー",

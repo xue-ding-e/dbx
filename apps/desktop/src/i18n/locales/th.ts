@@ -4294,6 +4294,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "ปิดแท็บปกติอื่น",
     closeOtherFixedTabs: "ปิดแท็บถาวรอื่น",
     closeAllTabs: "ปิดแท็บทั้งหมด",
+    saveAllTabs: "บันทึกแท็บทั้งหมด",
     closeAllRegularTabs: "ปิดแท็บปกติทั้งหมด",
     closeAllFixedTabs: "ปิดแท็บถาวรทั้งหมด",
     copyName: "คัดลอกชื่อ",

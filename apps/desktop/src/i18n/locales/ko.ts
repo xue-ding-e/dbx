@@ -3920,6 +3920,7 @@ export default withEnglishFallback({
     closeOtherRegularTabs: "다른 일반 탭 닫기",
     closeOtherFixedTabs: "다른 고정 탭 닫기",
     closeAllTabs: "모든 탭 닫기",
+    saveAllTabs: "모든 탭 저장",
     closeAllRegularTabs: "모든 일반 탭 닫기",
     closeAllFixedTabs: "모든 고정 탭 닫기",
     copyName: "이름 복사",
