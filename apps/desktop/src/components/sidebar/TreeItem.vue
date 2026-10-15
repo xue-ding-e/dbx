@@ -934,7 +934,8 @@ function refreshTrailingCommentMeasurement() {
 }
 
 function formattedObjectStorage(): string {
-  if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size" || (activeNode.value.type !== "database" && activeNode.value.type !== "table" && activeNode.value.type !== "materialized_view")) return "";
+  const mode = settingsStore.editorSettings.sidebarObjectInfoMode;
+  if ((mode !== "size" && mode !== "comment-and-size") || (activeNode.value.type !== "database" && activeNode.value.type !== "table" && activeNode.value.type !== "materialized_view")) return "";
   return formatSidebarObjectStorage(activeNode.value.sizeBytes);
 }
 
@@ -942,7 +943,11 @@ function formattedObjectStorage(): string {
 // 后留下一大段空白。无论全局是 aligned 还是 inline，连接节点的 comment 都紧跟 label。
 const alignedCommentLabelWidth = computed(() => (settingsStore.editorSettings.sidebarObjectInfoMode === "comment-aligned" && activeNode.value.type !== "connection" ? props.commentLabelWidth : undefined));
 
-function alignedCommentLeadingStyle(): { width: string } | undefined {
+function alignedCommentLeadingStyle(): { width: string } | { maxWidth: string } | undefined {
+  if (settingsStore.editorSettings.sidebarObjectInfoMode === "comment-and-size" && trailingComment.value) {
+    // Reserve the inline comment's margin so a long name cannot push into the size column.
+    return { maxWidth: "max(0px, calc(100% - 1rem))" };
+  }
   const width = alignedCommentLeadingWidth(alignedCommentLabelWidth.value, canTreeNodePin(activeNode.value.type));
   return width === undefined ? undefined : { width: `${width}px` };
 }
@@ -1700,7 +1705,7 @@ function onKeydown(event: KeyboardEvent) {
             <Ban class="h-2.5 w-2.5 stroke-[3]" aria-hidden="true" />
           </span>
         </span>
-        <div ref="trailingCommentLayoutRef" :class="hasTrailingMetadata() ? 'flex flex-1 min-w-0 items-center' : 'contents'">
+        <div ref="trailingCommentLayoutRef" :class="[hasTrailingMetadata() ? 'flex flex-1 min-w-0 items-center' : 'contents', { 'overflow-hidden': settingsStore.editorSettings.sidebarObjectInfoMode === 'comment-and-size' }]">
           <div ref="trailingCommentLeadingRef" :class="trailingComment ? 'flex max-w-full min-w-0 shrink-0 items-center gap-2' : formattedObjectStorage() ? 'flex min-w-0 flex-1 items-center gap-2' : 'contents'" :style="alignedCommentLeadingStyle()">
             <input
               v-if="isRenamingGroup || isRenamingSavedSql || isRenamingConnection"

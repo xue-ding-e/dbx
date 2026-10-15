@@ -7637,11 +7637,12 @@ export default withEnglishFallback({
     sidebarTableSearchEnabledDescription: "Her kapsamın tabloları bağımsız filtreleyebilmesi için genişletilmiş veritabanları, şemalar veya tablo grupları altında yerel bir tablo arama kutusu göster.",
     sidebarObjectInfoMode: "Kenar çubuğu ek bilgisi",
     sidebarObjectInfoModeDescription:
-      "Adların ardından açıklamaları, nesne boyutlarını ya da hiçbir ek metni göstermeyi seçin. Açıklamalar ve boyutlar birbirini dışlar. Veritabanı toplamları şu anda PostgreSQL'i destekler; tablo boyutları MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng ve ClickHouse'u destekler.",
+      "Açıklamaları, nesne boyutlarını, her ikisini göstermeyi veya ek bilgileri gizlemeyi seçin. Her ikisi seçildiğinde açıklama adın ardından, boyut ise en sağda gösterilir. Verisi bulunmayan bilgiler gizlenir. Veritabanı toplamları şu anda PostgreSQL'i destekler; tablo boyutları MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng ve ClickHouse'u destekler.",
     sidebarObjectInfoModeCommentInline: "Açıklamalar (addan sonra)",
     sidebarObjectInfoModeCommentAligned: "Açıklamalar (kardeşlerle hizalı)",
     sidebarObjectInfoModeCommentRight: "Açıklamalar (sağa hizalı)",
     sidebarObjectInfoModeSize: "Nesne boyutu",
+    sidebarObjectInfoModeCommentAndSize: "Açıklamalar + nesne boyutu",
     sidebarObjectInfoModeHidden: "Yok",
     sidebarAllowHorizontalScroll: "Kenar çubuğunda yatay kaydırmaya izin ver",
     sidebarAllowHorizontalScrollDescription: "Yatay kenar çubuğu kaydırmasına izin vererek uzun tablo, görünüm ve koleksiyon adlarını tam göster.",

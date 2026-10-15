@@ -7939,11 +7939,12 @@ export default withEnglishFallback({
     sidebarTableSearchEnabledDescription: "Mostra una casella di ricerca locale sotto database, schema o gruppi di tabelle espansi per filtrare le tabelle separatamente.",
     sidebarObjectInfoMode: "Informazioni aggiuntive laterali",
     sidebarObjectInfoModeDescription:
-      "Scegli commenti, dimensioni degli oggetti o nessun testo dopo i nomi. Commenti e dimensioni sono alternativi. La dimensione totale dei database supporta PostgreSQL; le dimensioni delle tabelle supportano MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng e ClickHouse.",
+      "Scegli commenti, dimensioni degli oggetti, entrambi o nessuna informazione aggiuntiva. Quando sono visualizzati entrambi, il commento segue il nome e la dimensione appare all’estrema destra. Le informazioni senza dati disponibili vengono nascoste. La dimensione totale dei database supporta PostgreSQL; le dimensioni delle tabelle supportano MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng e ClickHouse.",
     sidebarObjectInfoModeCommentInline: "Commenti (accanto al nome)",
     sidebarObjectInfoModeCommentAligned: "Commenti (allinea livello)",
     sidebarObjectInfoModeCommentRight: "Commenti (allinea a destra)",
     sidebarObjectInfoModeSize: "Dimensione oggetto",
+    sidebarObjectInfoModeCommentAndSize: "Commenti + dimensione oggetto",
     sidebarObjectInfoModeHidden: "Nessuna",
     sidebarAllowHorizontalScroll: "Consenti scorrimento orizzontale barra laterale",
     sidebarAllowHorizontalScrollDescription: "Mostra i nomi lunghi di tabelle, viste e collezioni per intero consentendo lo scorrimento orizzontale della barra laterale.",

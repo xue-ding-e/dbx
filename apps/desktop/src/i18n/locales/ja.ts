@@ -7951,11 +7951,12 @@ export default withEnglishFallback({
     sidebarTableSearchEnabledDescription: "展開済みのデータベース、schema、またはテーブルグループの下にローカル検索ボックスを表示し、スコープごとにテーブルを絞り込みます。",
     sidebarObjectInfoMode: "サイドバーの補足情報",
     sidebarObjectInfoModeDescription:
-      "名前の後にコメント、オブジェクトサイズ、または何も表示しないかを選択します。コメントとサイズは同時に表示されません。データベース全体のサイズは PostgreSQL、テーブルサイズは MySQL、PostgreSQL、GaussDB、KingbaseES、GBase 8a、SQL Server、Oracle、Dameng、ClickHouse に対応しています。",
+      "コメント、オブジェクトサイズ、両方、または何も表示しないかを選択します。両方を表示する場合、コメントは名前の直後、サイズは右端に表示されます。対応するデータがない情報は非表示になります。データベース全体のサイズは PostgreSQL、テーブルサイズは MySQL、PostgreSQL、GaussDB、KingbaseES、GBase 8a、SQL Server、Oracle、Dameng、ClickHouse に対応しています。",
     sidebarObjectInfoModeCommentInline: "コメント（名前の直後）",
     sidebarObjectInfoModeCommentAligned: "コメント（同階層で整列）",
     sidebarObjectInfoModeCommentRight: "コメント（右揃え）",
     sidebarObjectInfoModeSize: "オブジェクトサイズ",
+    sidebarObjectInfoModeCommentAndSize: "コメント + オブジェクトサイズ",
     sidebarObjectInfoModeHidden: "表示しない",
     sidebarAllowHorizontalScroll: "サイドバーの横スクロールを許可",
     sidebarAllowHorizontalScrollDescription: "サイドバーの横スクロールを許可して、長いテーブル、ビュー、コレクション名を完全に表示します。",

@@ -5324,7 +5324,7 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   async function loadSidebarDatabaseStorage(connectionId: string, options?: { force?: boolean }): Promise<void> {
-    if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size" || !connectedIds.value.has(connectionId)) return;
+    if ((settingsStore.editorSettings.sidebarObjectInfoMode !== "size" && settingsStore.editorSettings.sidebarObjectInfoMode !== "comment-and-size") || !connectedIds.value.has(connectionId)) return;
     if (!supportsSidebarDatabaseStorage(getConfig(connectionId))) return;
     const connectionNode = findConnectionNode(connectionId);
     const databases = sidebarDatabaseNames(connectionNode?.children);
@@ -5366,7 +5366,7 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   async function loadSidebarTableStorage(scope: SidebarTableStorageScope, options?: { force?: boolean }): Promise<void> {
-    if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size" || !connectedIds.value.has(scope.connectionId)) return;
+    if ((settingsStore.editorSettings.sidebarObjectInfoMode !== "size" && settingsStore.editorSettings.sidebarObjectInfoMode !== "comment-and-size") || !connectedIds.value.has(scope.connectionId)) return;
     if (!supportsSidebarTableStorage(getConfig(scope.connectionId))) return;
     const requestKey = sidebarTableStorageRequestKey(scope);
     const cacheScope = sidebarTableStorageCacheScope(scope);
@@ -5396,7 +5396,7 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   const sidebarDatabaseStorageScope = computed(() => {
-    if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size") return "";
+    if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size" && settingsStore.editorSettings.sidebarObjectInfoMode !== "comment-and-size") return "";
     return [...connectedIds.value]
       .filter((connectionId) => supportsSidebarDatabaseStorage(getConfig(connectionId)))
       .map((connectionId) => sidebarDatabaseStorageRequestKey(connectionId, sidebarDatabaseNames(findConnectionNode(connectionId)?.children)))
@@ -5407,7 +5407,7 @@ export const useConnectionStore = defineStore("connection", () => {
   watch(
     sidebarDatabaseStorageScope,
     () => {
-      if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size") return;
+      if (settingsStore.editorSettings.sidebarObjectInfoMode !== "size" && settingsStore.editorSettings.sidebarObjectInfoMode !== "comment-and-size") return;
       for (const connectionId of connectedIds.value) {
         void loadSidebarDatabaseStorage(connectionId);
       }

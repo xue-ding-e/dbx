@@ -8502,11 +8502,12 @@ export default withEnglishFallback({
     sidebarSearchOpenedDatabasesOnlyDescription: "Pencarian bilah sisi hanya memuat database yang sudah Anda buka pada koneksi aktif (semuanya jika tidak ada yang terbuka). Nonaktifkan untuk mencari semua database pada koneksi tersebut.",
     sidebarObjectInfoMode: "Info tambahan bilah sisi",
     sidebarObjectInfoModeDescription:
-      "Pilih komentar, ukuran objek, atau tanpa teks tambahan setelah nama. Komentar dan ukuran saling eksklusif. Total database saat ini mendukung PostgreSQL; ukuran tabel mendukung MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng, dan ClickHouse.",
+      "Pilih komentar, ukuran objek, keduanya, atau tanpa info tambahan. Jika keduanya dipilih, komentar tampil setelah nama dan ukuran di paling kanan. Informasi yang datanya tidak tersedia akan disembunyikan. Total database saat ini mendukung PostgreSQL; ukuran tabel mendukung MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng, dan ClickHouse.",
     sidebarObjectInfoModeCommentInline: "Komentar (setelah nama)",
     sidebarObjectInfoModeCommentAligned: "Komentar (sejajarkan dengan item sejenis)",
     sidebarObjectInfoModeCommentRight: "Komentar (rata kanan)",
     sidebarObjectInfoModeSize: "Ukuran objek",
+    sidebarObjectInfoModeCommentAndSize: "Komentar + ukuran objek",
     sidebarObjectInfoModeHidden: "Tidak ada",
     sidebarAllowHorizontalScroll: "Izinkan gulir horizontal bilah sisi",
     sidebarAllowHorizontalScrollDescription: "Tampilkan nama tabel, tampilan, dan koleksi yang panjang secara lengkap dengan mengizinkan gulir horizontal pada bilah sisi.",

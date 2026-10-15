@@ -7738,11 +7738,12 @@ export default withEnglishFallback({
     sidebarTableSearchEnabledDescription: "Hər əhatə dairəsində cədvəlləri müstəqil süzmək üçün genişləndirilmiş verilənlər bazaları, sxemlər və ya cədvəl qruplarının altında yerli cədvəl axtarışı sahəsi göstər.",
     sidebarObjectInfoMode: "Yan paneldə əlavə məlumat",
     sidebarObjectInfoModeDescription:
-      "Adlardan sonra şərhlər, obyekt ölçüləri və ya əlavə mətnin olmamasını seçin. Şərhlər və ölçülər eyni anda göstərilə bilməz. Verilənlər bazalarının ümumi ölçüləri hazırda PostgreSQL üçün; cədvəl ölçüləri isə MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng və ClickHouse üçün dəstəklənir.",
+      "Şərhləri, obyekt ölçülərini, hər ikisini göstərməyi və ya əlavə məlumatı gizlətməyi seçin. Hər ikisi seçildikdə şərh addan sonra, ölçü isə ən sağda göstərilir. Məlumatı olmayan hissələr gizlədilir. Verilənlər bazalarının ümumi ölçüləri hazırda PostgreSQL üçün; cədvəl ölçüləri isə MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng və ClickHouse üçün dəstəklənir.",
     sidebarObjectInfoModeCommentInline: "Şərhlər (addan sonra)",
     sidebarObjectInfoModeCommentAligned: "Şərhlər (eyni səviyyədəkiləri düzləndir)",
     sidebarObjectInfoModeCommentRight: "Şərhlər (sağa düzləndir)",
     sidebarObjectInfoModeSize: "Obyekt ölçüsü",
+    sidebarObjectInfoModeCommentAndSize: "Şərhlər + obyekt ölçüsü",
     sidebarObjectInfoModeHidden: "Yoxdur",
     sidebarAllowHorizontalScroll: "Yan paneldə üfüqi sürüşdürməyə icazə ver",
     sidebarAllowHorizontalScrollDescription: "Yan paneldə üfüqi sürüşdürməyə icazə verərək uzun cədvəl, görünüş və kolleksiya adlarını tam göstər.",

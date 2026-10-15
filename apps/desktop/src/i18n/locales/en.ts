@@ -9064,11 +9064,12 @@ export default {
     sidebarSearchOpenedDatabasesOnlyDescription: "The sidebar search loads only databases you have opened in the active connection (all of them when none is opened). Turn off to search every database of the connection.",
     sidebarObjectInfoMode: "Sidebar supplementary info",
     sidebarObjectInfoModeDescription:
-      "Choose comments, object sizes, or no supplementary text after names. Comments and sizes are mutually exclusive. Database totals currently support PostgreSQL; table sizes support MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng, and ClickHouse.",
+      "Choose comments, object sizes, both, or no supplementary text after names. When both are enabled, the comment follows the name and the size is shown at the far right. Information with no corresponding data is hidden. Database totals currently support PostgreSQL; table sizes support MySQL, PostgreSQL, GaussDB, KingbaseES, GBase 8a, SQL Server, Oracle, Dameng, and ClickHouse.",
     sidebarObjectInfoModeCommentInline: "Comments (after name)",
     sidebarObjectInfoModeCommentAligned: "Comments (align siblings)",
     sidebarObjectInfoModeCommentRight: "Comments (align right)",
     sidebarObjectInfoModeSize: "Object size",
+    sidebarObjectInfoModeCommentAndSize: "Comments + object size",
     sidebarObjectInfoModeHidden: "None",
     sidebarAllowHorizontalScroll: "Allow sidebar horizontal scroll",
     sidebarAllowHorizontalScrollDescription: "Show long table, view, and collection names in full by allowing horizontal sidebar scrolling.",
