@@ -153,6 +153,7 @@ import {
   transposeEndAlignmentSpacerWidth,
   transposeFieldWidth,
   transposeScrollLeftForRecord,
+  transposeScrollTopForField,
   visibleTransposeRecordWindow,
   type TransposeScrollAlignment,
 } from "@/lib/dataGrid/dataGridTranspose";
@@ -5640,15 +5641,22 @@ function scrollToCurrentMatch() {
   if (rowEl) rowEl.scrollIntoView({ block: "center" });
 }
 
-function scrollTransposeFieldIntoView(visibleFieldIndex: number) {
+function scrollTransposeFieldIntoView(visibleFieldIndex: number, alignment: TransposeScrollAlignment = "start") {
   const actualColumnIndex = visibleColumnIndexes.value[visibleFieldIndex];
   const sortedIndex = transposeRows.value.findIndex((item) => item.columnIndex === actualColumnIndex);
   if (sortedIndex < 0) return;
   const scroller = transposeScrollRef.value;
   if (scroller && !(scroller instanceof HTMLElement)) {
-    (scroller as { scrollToItem?: (index: number) => void }).scrollToItem?.(sortedIndex);
+    (scroller as { scrollToItem?: (index: number, options?: { align?: TransposeScrollAlignment }) => void }).scrollToItem?.(sortedIndex, { align: alignment });
   } else if (scroller instanceof HTMLElement) {
-    scroller.scrollTop = sortedIndex * transposeRowHeight.value;
+    scroller.scrollTop = transposeScrollTopForField({
+      fieldIndex: sortedIndex,
+      totalFields: transposeRows.value.length,
+      rowHeight: transposeRowHeight.value,
+      viewportHeight: scroller.clientHeight,
+      currentScrollTop: scroller.scrollTop,
+      alignment,
+    });
   }
 }
 
@@ -10196,7 +10204,9 @@ const DOM_DATA_GRID_ROW_HEIGHT = 26;
 function scrollCellIntoView(rowIndex: number, colIndex: number, block: DataGridScrollAlignment = "nearest", previousPageRowIndex?: number) {
   if (isTransposeMode.value) {
     nextTick(() => {
-      scrollTransposeFieldIntoView(colIndex);
+      // Clicks and keyboard steps pass "nearest" so an already-visible field stays put;
+      // only explicit jump callers still align the field to the top.
+      scrollTransposeFieldIntoView(colIndex, block === "nearest" ? "nearest" : "start");
       scrollTransposeRecordIntoView(rowIndex);
     });
     return;
