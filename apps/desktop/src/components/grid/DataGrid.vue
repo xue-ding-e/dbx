@@ -9329,7 +9329,11 @@ function openColumnDetailDialog(columnIndex: number) {
 function openContextCellDetailDialog() {
   const cell = contextCell.value;
   if (!cell || cell.col < 0) return;
-  openCellDetailDialog(cell.rowIndex, cell.col);
+  if (cellDetailDialogDefault.value) {
+    openCellDetailDialog(cell.rowIndex, cell.col);
+  } else {
+    showCellDetails(cell.rowIndex, cell.col);
+  }
 }
 
 function openContextColumnDetailDialog() {
@@ -15853,7 +15857,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
               <DataGridCellDetailHexViewer v-if="activeCellDetailTabs.includes('hexViewer')" :rows="activeBinaryHexRows" :byte-count="activeBinaryHexByteCount" />
 
               <TabsContent v-if="activeCellDetailTabs.includes('valueEditor')" value="valueEditor" class="m-0 min-h-0 min-w-0 flex-1 flex flex-col p-3 text-xs">
-                <div class="min-w-0 flex min-h-0 flex-1 flex-col">
+                <div :style="detailTransformOpen ? { display: 'none' } : null" class="min-w-0 flex min-h-0 flex-1 flex-col">
                   <TemporalCellEditor
                     v-if="detailTemporalEditorConfig"
                     v-model="detailEditValue"
@@ -15874,6 +15878,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                     :identity="`${activeCellDetail.rowId}:${activeCellDetail.colIndex}:${activeCellDetailTab}`"
                     :incomplete="activeCellDetail.isSourceTruncated"
                     :unsafe-number="typeof activeCellDetail.value === 'number' && Number.isInteger(activeCellDetail.value) && !Number.isSafeInteger(activeCellDetail.value) && detailEditValue === activeCellDetail.rawValue"
+                    :column="activeCellDetail.column"
+                    :row-number="activeCellDetail.rowNumber"
                   />
                   <DropdownMenu v-if="activeCellDetail?.isEditable">
                     <DropdownMenuTrigger as-child>
