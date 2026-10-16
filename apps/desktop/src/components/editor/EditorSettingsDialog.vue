@@ -614,7 +614,7 @@ const settingsRootProps = computed(() => (isSettingsPage.value ? {} : { open: pr
 const settingsRootClass = computed(() => (isSettingsPage.value ? "h-full min-h-0 overflow-hidden bg-background" : ""));
 const settingsContentComponent = computed(() => (isSettingsPage.value ? "div" : DialogContent));
 const settingsContentClass = computed(() =>
-  isSettingsPage.value ? "flex h-full min-h-0 flex-col gap-4 overflow-hidden bg-background p-4" : "h-[min(660px,calc(var(--dbx-viewport-height)-80px))] !max-w-[min(920px,calc(100vw-32px))] grid-rows-[auto_minmax(0,1fr)] gap-3 p-4 sm:!max-w-[min(920px,calc(100vw-48px))]",
+  isSettingsPage.value ? "flex h-full min-h-0 flex-col gap-4 overflow-hidden bg-background p-4" : "h-[min(660px,calc(var(--dbx-viewport-height)-80px))] !max-w-[min(920px,calc(100vw-32px))] grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-4 sm:!max-w-[min(920px,calc(100vw-48px))]",
 );
 const settingsTitleComponent = computed(() => (isSettingsPage.value ? "h2" : DialogTitle));
 
@@ -7393,7 +7393,7 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
-          <div v-if="activeSettingsTab === 'editor' && !settingsSearchVisible" class="settings-editor-live-preview shrink-0 px-1 pr-2" data-editor-live-preview>
+          <div v-if="activeSettingsTab === 'editor' && !settingsSearchVisible" class="settings-editor-live-preview min-h-0 shrink overflow-hidden px-1 pr-2" data-editor-live-preview>
             <div class="space-y-2 py-2">
               <Label>{{ t("settings.preview") }}</Label>
               <div class="settings-editor-live-preview-surface rounded-md border max-w-full" :class="editTheme === 'vscode-light' || editTheme === 'duotone-light' || editTheme === 'xcode' ? 'border-border' : 'border-border/50'">
@@ -12906,127 +12906,136 @@ LIMIT 100;</pre>
               </div>
             </section>
           </div>
-
-          <DialogFooter v-if="hasSettingsApplyFooter(activeSettingsTab as SettingsCategory)" class="mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
-            <Button variant="outline" @click="resetDefaultsForTab(activeSettingsTab as SettingsCategory)">
-              {{ t("settings.resetDefaults") }}
-            </Button>
-            <!-- 行内冲突说明收进浮层后，“应用为何被禁用”需要一处常驻解释。 -->
-            <span v-if="hasBlockingShortcutConflicts" class="inline-flex items-center gap-1.5 text-xs text-destructive">
-              <AlertTriangle class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {{ t("settings.shortcutConflictBlocksApply", { count: shortcutConflicts.length, pairs: shortcutConflictPairCount }) }}
-            </span>
-            <div class="flex-1" />
-            <Button variant="outline" @click="closeSettings">
-              {{ t("common.close") }}
-            </Button>
-            <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettings">
-              {{ t("settings.apply") }}
-            </Button>
-            <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettingsAndClose">
-              {{ t("settings.applyAndClose") }}
-            </Button>
-          </DialogFooter>
-
-          <DialogFooter v-else-if="activeSettingsTab === 'ai'" class="mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
-            <template v-if="aiConfigListMode === 'list'">
-              <div class="flex-1" />
-              <Button variant="outline" @click="closeSettings">{{ t("common.close") }}</Button>
-            </template>
-            <template v-else>
-              <template v-if="aiIsCcSwitchProvider">
-                <div class="flex-1" />
-                <Button variant="outline" @click="aiEnterListMode()">{{ t("common.cancel") }}</Button>
-              </template>
-              <template v-else>
-                <div class="flex min-w-0 flex-1 items-center gap-2">
-                  <Button size="sm" variant="outline" :disabled="aiTesting || !!aiCliValidationError || !!aiHeadersValidationError || (aiRequiresApiKey && !aiEditApiKey?.trim()) || (!aiIsCliProvider && !aiEditEndpoint?.trim())" @click="aiTestConn">
-                    <Loader2 v-if="aiTesting" class="h-3 w-3 animate-spin mr-1" />
-                    {{ t("connection.test") }}
-                  </Button>
-                  <span v-if="aiTestResult === 'success'" class="text-xs text-green-500 flex items-center gap-1.5">
-                    <span>{{ t("connection.testSuccess") }}</span>
-                    <span v-if="aiTestLatency != null" class="text-green-500/70">{{ aiTestLatency }}ms</span>
-                  </span>
-                  <span v-else-if="aiTestResult === 'error'" class="flex min-w-0 max-w-lg items-center gap-1.5 text-xs text-destructive">
-                    <span class="min-w-0 select-text leading-4" :title="aiTestErrorDisplay">
-                      <span v-if="aiTestErrorPresentation.summary" class="block font-medium">{{ aiTestErrorPresentation.summary }}</span>
-                      <span class="block truncate text-destructive/80">{{ aiTestErrorPresentation.detail }}</span>
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      class="h-6 w-6 shrink-0 text-destructive/80 hover:text-destructive"
-                      :title="aiTestErrorCopied ? t('ai.copied') : t('ai.copyTestResult')"
-                      :aria-label="aiTestErrorCopied ? t('ai.copied') : t('ai.copyTestResult')"
-                      @click="copyAiTestError"
-                    >
-                      <CheckCircle2 v-if="aiTestErrorCopied" class="h-3.5 w-3.5" />
-                      <Copy v-else class="h-3.5 w-3.5" />
-                    </Button>
-                  </span>
-                </div>
-                <Button variant="outline" @click="aiEnterListMode()">{{ t("common.cancel") }}</Button>
-                <Button :disabled="!aiEditConfigName.trim() || !!aiCliValidationError" @click="aiSaveConfig">{{ t("settings.apply") }}</Button>
-              </template>
-            </template>
-          </DialogFooter>
-
-          <DialogFooter v-else-if="activeSettingsTab === 'sync' || activeSettingsTab === 'backups'" class="mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
-            <Button variant="outline" @click="closeSettings">
-              {{ t("common.close") }}
-            </Button>
-          </DialogFooter>
-
-          <DialogFooter v-else-if="activeSettingsTab === 'mcp'" class="mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
-            <Button variant="outline" @click="closeSettings">
-              {{ t("common.close") }}
-            </Button>
-            <div class="flex-1" />
-            <Button v-if="!isWeb" variant="outline" :disabled="mcpStatusLoading" @click="refreshMcpStatus">
-              <Loader2 v-if="mcpStatusLoading" class="mr-1 h-3 w-3 animate-spin" />
-              <RefreshCw v-else class="mr-1 h-3 w-3" />
-              {{ t("settings.mcpRefresh") }}
-            </Button>
-            <Button variant="outline" @click="openExternalUrl('https://dbxio.com/cn/docs/mcp')">
-              <ExternalLink class="mr-1 h-3 w-3" />
-              {{ t("settings.mcpGuide") }}
-            </Button>
-            <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettings">
-              {{ t("settings.apply") }}
-            </Button>
-            <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettingsAndClose">
-              {{ t("settings.applyAndClose") }}
-            </Button>
-          </DialogFooter>
-
-          <DialogFooter v-else-if="activeSettingsTab === 'security' && isWeb" class="mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
-            <Button variant="outline" @click="closeSettings">
-              {{ t("common.close") }}
-            </Button>
-            <Button :disabled="changingPassword || !oldPassword || !newPassword || !confirmNewPassword" @click="changePassword">
-              {{ t("auth.changePassword") }}
-            </Button>
-          </DialogFooter>
-
-          <DialogFooter v-else-if="activeSettingsTab === 'about'" class="mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
-            <Button variant="outline" @click="resetAllDefaults">
-              {{ t("settings.resetAllDefaults") }}
-            </Button>
-            <div class="flex-1" />
-            <Button variant="outline" @click="closeSettings">
-              {{ t("common.close") }}
-            </Button>
-            <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettings">
-              {{ t("settings.apply") }}
-            </Button>
-            <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettingsAndClose">
-              {{ t("settings.applyAndClose") }}
-            </Button>
-          </DialogFooter>
         </div>
       </div>
+
+      <!--
+       * 页脚按钮放在 settings-layout 之外——dialog 变体是第三行网格
+       * （grid-rows-[auto_minmax(0,1fr)_auto]），page 变体是 shrink-0 的同级元素——
+       * 这样滚动的主体内容永远不会把按钮挤出可视区（issue：界面缩放 ≥165% 时
+       * 恢复默认/关闭/应用/应用并关闭 无法点击）。
+       -->
+      <DialogFooter v-if="hasSettingsApplyFooter(activeSettingsTab as SettingsCategory)" class="shrink-0 mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
+        <Button variant="outline" @click="resetDefaultsForTab(activeSettingsTab as SettingsCategory)">
+          {{ t("settings.resetDefaults") }}
+        </Button>
+        <!-- 行内冲突说明收进浮层后，“应用为何被禁用”需要一处常驻解释。 -->
+        <span v-if="hasBlockingShortcutConflicts" class="inline-flex items-center gap-1.5 text-xs text-destructive">
+          <AlertTriangle class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {{ t("settings.shortcutConflictBlocksApply", { count: shortcutConflicts.length, pairs: shortcutConflictPairCount }) }}
+        </span>
+        <div class="flex-1" />
+        <Button variant="outline" @click="closeSettings">
+          {{ t("common.close") }}
+        </Button>
+        <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettings">
+          {{ t("settings.apply") }}
+        </Button>
+        <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettingsAndClose">
+          {{ t("settings.applyAndClose") }}
+        </Button>
+      </DialogFooter>
+
+      <DialogFooter v-else-if="activeSettingsTab === 'ai'" class="shrink-0 mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
+        <template v-if="aiConfigListMode === 'list'">
+          <div class="flex-1" />
+          <Button variant="outline" @click="closeSettings">{{ t("common.close") }}</Button>
+        </template>
+        <template v-else>
+          <template v-if="aiIsCcSwitchProvider">
+            <div class="flex-1" />
+            <Button variant="outline" @click="aiEnterListMode()">{{ t("common.cancel") }}</Button>
+          </template>
+          <template v-else>
+            <div class="flex min-w-0 flex-1 items-center gap-2">
+              <Button size="sm" variant="outline" :disabled="aiTesting || !!aiCliValidationError || !!aiHeadersValidationError || (aiRequiresApiKey && !aiEditApiKey?.trim()) || (!aiIsCliProvider && !aiEditEndpoint?.trim())" @click="aiTestConn">
+                <Loader2 v-if="aiTesting" class="h-3 w-3 animate-spin mr-1" />
+                {{ t("connection.test") }}
+              </Button>
+              <span v-if="aiTestResult === 'success'" class="text-xs text-green-500 flex items-center gap-1.5">
+                <span>{{ t("connection.testSuccess") }}</span>
+                <span v-if="aiTestLatency != null" class="text-green-500/70">{{ aiTestLatency }}ms</span>
+              </span>
+              <span v-else-if="aiTestResult === 'error'" class="flex min-w-0 max-w-lg items-center gap-1.5 text-xs text-destructive">
+                <span class="min-w-0 select-text leading-4" :title="aiTestErrorDisplay">
+                  <span v-if="aiTestErrorPresentation.summary" class="block font-medium">{{ aiTestErrorPresentation.summary }}</span>
+                  <span class="block truncate text-destructive/80">{{ aiTestErrorPresentation.detail }}</span>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  class="h-6 w-6 shrink-0 text-destructive/80 hover:text-destructive"
+                  :title="aiTestErrorCopied ? t('ai.copied') : t('ai.copyTestResult')"
+                  :aria-label="aiTestErrorCopied ? t('ai.copied') : t('ai.copyTestResult')"
+                  @click="copyAiTestError"
+                >
+                  <CheckCircle2 v-if="aiTestErrorCopied" class="h-3.5 w-3.5" />
+                  <Copy v-else class="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            </div>
+            <Button variant="outline" @click="aiEnterListMode()">{{ t("common.cancel") }}</Button>
+            <Button :disabled="!aiEditConfigName.trim() || !!aiCliValidationError" @click="aiSaveConfig">{{ t("settings.apply") }}</Button>
+          </template>
+        </template>
+      </DialogFooter>
+
+      <DialogFooter
+        v-else-if="activeSettingsTab === 'sync' || activeSettingsTab === 'backups'"
+        class="shrink-0 mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0"
+      >
+        <Button variant="outline" @click="closeSettings">
+          {{ t("common.close") }}
+        </Button>
+      </DialogFooter>
+
+      <DialogFooter v-else-if="activeSettingsTab === 'mcp'" class="shrink-0 mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
+        <Button variant="outline" @click="closeSettings">
+          {{ t("common.close") }}
+        </Button>
+        <div class="flex-1" />
+        <Button v-if="!isWeb" variant="outline" :disabled="mcpStatusLoading" @click="refreshMcpStatus">
+          <Loader2 v-if="mcpStatusLoading" class="mr-1 h-3 w-3 animate-spin" />
+          <RefreshCw v-else class="mr-1 h-3 w-3" />
+          {{ t("settings.mcpRefresh") }}
+        </Button>
+        <Button variant="outline" @click="openExternalUrl('https://dbxio.com/cn/docs/mcp')">
+          <ExternalLink class="mr-1 h-3 w-3" />
+          {{ t("settings.mcpGuide") }}
+        </Button>
+        <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettings">
+          {{ t("settings.apply") }}
+        </Button>
+        <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettingsAndClose">
+          {{ t("settings.applyAndClose") }}
+        </Button>
+      </DialogFooter>
+
+      <DialogFooter v-else-if="activeSettingsTab === 'security' && isWeb" class="shrink-0 mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
+        <Button variant="outline" @click="closeSettings">
+          {{ t("common.close") }}
+        </Button>
+        <Button :disabled="changingPassword || !oldPassword || !newPassword || !confirmNewPassword" @click="changePassword">
+          {{ t("auth.changePassword") }}
+        </Button>
+      </DialogFooter>
+
+      <DialogFooter v-else-if="activeSettingsTab === 'about'" class="shrink-0 mx-0 mb-0 flex-row flex-wrap items-center justify-end gap-2 rounded-none border-t border-border/60 bg-transparent px-0 pb-0 pt-3 sm:flex-row sm:gap-2 [&>button]:w-auto [&>button]:shrink-0">
+        <Button variant="outline" @click="resetAllDefaults">
+          {{ t("settings.resetAllDefaults") }}
+        </Button>
+        <div class="flex-1" />
+        <Button variant="outline" @click="closeSettings">
+          {{ t("common.close") }}
+        </Button>
+        <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettings">
+          {{ t("settings.apply") }}
+        </Button>
+        <Button :disabled="!hasChanges() || hasApplyBlocker" @click="applySettingsAndClose">
+          {{ t("settings.applyAndClose") }}
+        </Button>
+      </DialogFooter>
     </component>
 
     <!-- Unsaved settings confirmation: guards every close path (Escape, outside click, the X button, and the footer "Close" button) so an unapplied draft is never silently discarded. -->
