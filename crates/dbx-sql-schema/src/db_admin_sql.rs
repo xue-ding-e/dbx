@@ -333,7 +333,7 @@ fn is_informix_family(database_type: Option<DatabaseType>) -> bool {
     matches!(database_type, Some(DatabaseType::Informix | DatabaseType::Gbase8s))
 }
 
-pub fn supports_create_database_target(database_type: Option<DatabaseType>, driver_profile: Option<&str>) -> bool {
+pub fn supports_create_database_target(database_type: Option<DatabaseType>, _driver_profile: Option<&str>) -> bool {
     // Informix / GBase 8s create namespaces with `CREATE DATABASE`, so they are valid targets
     // even though they are absent from the explicit list below.
     if is_informix_family(database_type) {
