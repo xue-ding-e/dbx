@@ -112,7 +112,7 @@ test("adds a MongoDB DocumentDB SSH tunnel hostname hint", () => {
 });
 
 test("recognises MongoDB Atlas cluster names that only have SRV records", () => {
-  for (const host of ["cluster0.uqde52q.mongodb.net", " Cluster0.ABCDE.mongodb.net ", "cluster0-pl-0.abcde.mongodb.net"]) {
+  for (const host of ["cluster0.abcde.mongodb.net", " Cluster0.ABCDE.mongodb.net ", "cluster0-pl-0.abcde.mongodb.net"]) {
     assert.equal(looksLikeMongoSrvHost(host), true, host);
   }
   for (const host of ["cluster0-shard-00-00.abcde.mongodb.net", "ac-abc-shard-00-01.abcde.mongodb.net", "mongodb.net", "abcde.mongodb.net", "db.example.com", "127.0.0.1", "", undefined]) {
@@ -122,8 +122,8 @@ test("recognises MongoDB Atlas cluster names that only have SRV records", () => 
 
 test("builds a mongodb+srv URL from the connection form", () => {
   assert.equal(
-    mongoSrvConnectionString({ host: "cluster0.uqde52q.mongodb.net", username: "al@ice", password: "p:ss/#", database: "", url_params: "authSource=admin&directConnection=true&tls=true&retryWrites=false" }),
-    "mongodb+srv://al%40ice:p%3Ass%2F%23@cluster0.uqde52q.mongodb.net/?authSource=admin&retryWrites=false",
+    mongoSrvConnectionString({ host: "cluster0.abcde.mongodb.net", username: "al@ice", password: "p:ss/#", database: "", url_params: "authSource=admin&directConnection=true&tls=true&retryWrites=false" }),
+    "mongodb+srv://al%40ice:p%3Ass%2F%23@cluster0.abcde.mongodb.net/?authSource=admin&retryWrites=false",
   );
   assert.equal(mongoSrvConnectionString({ host: "cluster0.abcde.mongodb.net:27017", database: "shop", ca_cert_path: "/certs/ca.pem" }), "mongodb+srv://cluster0.abcde.mongodb.net/shop?tlsCAFile=%2Fcerts%2Fca.pem");
   assert.equal(
@@ -134,12 +134,12 @@ test("builds a mongodb+srv URL from the connection form", () => {
 
 test("adds an SRV hint when an Atlas cluster name fails DNS lookup as host:port", () => {
   const windows =
-    "MongoDB connection failed: Kind: Server selection timeout: No available servers. Topology: { Type: Single, Servers: [ { Address: cluster0.uqde52q.mongodb.net:27017, Type: Unknown, Error: Kind: I/O error: 不知道这样的主机。 (os error 11001), labels: {}, source: None, server response: None } ] }, labels: {}, source: None, server response: None";
-  assert.match(mongodbAuthFailureHint(windows), /mongodb\+srv:\/\/cluster0\.uqde52q\.mongodb\.net instead of host:port/);
+    "MongoDB connection failed: Kind: Server selection timeout: No available servers. Topology: { Type: Single, Servers: [ { Address: cluster0.abcde.mongodb.net:27017, Type: Unknown, Error: Kind: I/O error: 不知道这样的主机。 (os error 11001), labels: {}, source: None, server response: None } ] }, labels: {}, source: None, server response: None";
+  assert.match(mongodbAuthFailureHint(windows), /mongodb\+srv:\/\/cluster0\.abcde\.mongodb\.net instead of host:port/);
   const mac = windows.replace("不知道这样的主机。 (os error 11001)", "failed to lookup address information: nodename nor servname provided, or not known");
   assert.match(mongodbAuthFailureHint(mac), /Atlas cluster name/);
 
   // An ordinary host that fails DNS gets no SRV advice.
-  const typo = windows.replaceAll("cluster0.uqde52q.mongodb.net", "db.example.internal");
+  const typo = windows.replaceAll("cluster0.abcde.mongodb.net", "db.example.internal");
   assert.equal(mongodbAuthFailureHint(typo), typo);
 });
