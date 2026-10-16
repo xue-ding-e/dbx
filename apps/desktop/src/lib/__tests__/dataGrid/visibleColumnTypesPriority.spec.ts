@@ -114,6 +114,19 @@ describe("resolveResultColumnType", () => {
     });
     expect(isNumericColumnType(castToInteger)).toBe(true);
   });
+
+  it("resolves DuckDB computed decimal columns as numeric even when table metadata only has base columns (#12364)", () => {
+    // Query: select (数值列+1.10) as 金额 from tab;
+    // Table tab only has column "数值列", not "金额"
+    const type = resolveResultColumnType({
+      resultColumnType: "DECIMAL(18, 2)",
+      resultColumnName: "金额",
+      sourceColumnName: undefined,
+      tableColumnTypesByName: tableTypes({ 数值列: "integer" }),
+    });
+    expect(type).toBe("DECIMAL(18, 2)");
+    expect(isNumericColumnType(type)).toBe(true);
+  });
 });
 
 describe("resolveHeaderColumnType", () => {
