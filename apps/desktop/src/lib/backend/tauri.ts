@@ -871,6 +871,10 @@ export async function loadCcSwitchAiConfigs(): Promise<CcSwitchImportResult> {
   return invoke("load_cc_switch_ai_configs");
 }
 
+export async function loadMagpieAiConfigs(): Promise<CcSwitchImportResult> {
+  return invoke("load_magpie_ai_configs");
+}
+
 export async function loadAiConfig(): Promise<AiConfig | null> {
   return invoke("load_ai_config");
 }

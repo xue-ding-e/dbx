@@ -2353,6 +2353,10 @@ export async function loadCcSwitchAiConfigs(): Promise<import("@/types/ai").CcSw
   throw new Error("ccSwitchImportDesktopOnly");
 }
 
+export async function loadMagpieAiConfigs(): Promise<import("@/types/ai").CcSwitchImportResult> {
+  throw new Error("magpieImportDesktopOnly");
+}
+
 export async function loadDesktopSettings(): Promise<DesktopSettings> {
   try {
     const raw = safeLocalStorageGet(DESKTOP_SETTINGS_STORAGE_KEY);

@@ -388,6 +388,7 @@ export const setDefaultAiConfig = forward("setDefaultAiConfig");
 export const saveAiConfigItem = forward("saveAiConfigItem");
 export const deleteAiConfig = forward("deleteAiConfig");
 export const loadCcSwitchAiConfigs = forward("loadCcSwitchAiConfigs");
+export const loadMagpieAiConfigs = forward("loadMagpieAiConfigs");
 export const saveAiProviderConfig = forward("saveAiProviderConfig");
 export const loadAiProviderConfigs = forward("loadAiProviderConfigs");
 export const loadDesktopSettings = forward("loadDesktopSettings");
