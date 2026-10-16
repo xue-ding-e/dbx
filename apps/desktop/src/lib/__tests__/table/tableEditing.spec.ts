@@ -189,6 +189,23 @@ describe("tableEditing", () => {
     expect(canEditExistingTableRows("clickhouse", undefined, [])).toBe(false);
   });
 
+  it("keeps Databend grid saves out of an explicit transaction", () => {
+    // The Databend JDBC driver reports supportsTransactions() == false, and the
+    // agent rejects an explicit transaction for that reason. A grid save that
+    // opted into executeInTransaction therefore always failed with
+    // "Transactions are not supported by this JDBC driver" (#12003).
+    expect(supportsDataGridTransaction("databend")).toBe(false);
+    // Everything else stays Navicat-style, so inserts and primary-key edits
+    // must keep working through the plain (non-transactional) batch path.
+    expect(isTableDataEditable("databend", ["id"], "TABLE")).toBe(true);
+    expect(canInsertTableRows("databend")).toBe(true);
+    // Navicat-style: update/delete do not require a primary key, and keyless
+    // rows can be addressed by a value predicate.
+    expect(canEditExistingTableRows("databend", undefined, ["id"])).toBe(true);
+    expect(canEditExistingTableRows("databend", undefined, [])).toBe(true);
+    expect(canUseKeylessRowPredicate("databend", [])).toBe(true);
+  });
+
   it("uses tbname only when editing TDengine stable rows", () => {
     const columns = [column("ts", true), column("seq", true), column("voltage")];
     expect(editablePrimaryKeys("tdengine", columns, "STABLE")).toEqual([DBX_TDENGINE_TBNAME_COLUMN, "ts", "seq"]);

@@ -209,6 +209,23 @@ const DATABASE_CAPABILITY_OVERRIDES: Partial<Record<DatabaseType, Partial<Databa
       transaction: false,
     },
   },
+  databend: {
+    // Databend's JDBC driver reports supportsTransactions() == false, and the
+    // agent refuses an explicit transaction for exactly that reason
+    // ("Transactions are not supported by this JDBC driver"). Grid saves must
+    // therefore go through executeBatch, not executeInTransaction, or every
+    // edit fails with that error (issue #12003). The capability override must
+    // repeat the Navicat-style defaults, since an override replaces the whole
+    // tableData object rather than merging field by field.
+    tableData: {
+      insert: true,
+      updateRequiresPrimaryKey: false,
+      deleteRequiresPrimaryKey: false,
+      keylessRowPredicate: true,
+      requiresTransactionalTableForExistingRows: false,
+      transaction: false,
+    },
+  },
   prestosql: {
     tableData: {
       insert: true,
