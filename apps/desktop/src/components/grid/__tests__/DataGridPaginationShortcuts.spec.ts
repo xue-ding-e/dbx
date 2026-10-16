@@ -567,6 +567,105 @@ describe("DataGrid load-all on a jumped-to discrete page (#11940)", () => {
     expect(Math.max(...rowNumbers)).toBeLessThanOrEqual(30);
     expect(Math.min(...rowNumbers)).toBe(1);
   });
+
+  it("continues chunking past the cap when total row count is unknown and has_more is true (#12418)", async () => {
+    // Jumped to page 9 (offset 80), unknown total, result cap is 5.
+    const { host, paginate, settingsStore, gridState } = mountGrid({ pageOffset: 80 });
+    settingsStore.updateEditorSettings({ dataGridRenderMode: "dom", queryResultMaxRowsEnabled: true, queryResultMaxRows: 5 });
+    gridState.value = {
+      context: "table-data",
+      pageLimit: 10,
+      pageOffset: 80,
+      totalRowCount: undefined,
+      result: { columns: ["id"], rows: [[1]], has_more: true, affected_rows: 0, execution_time_ms: 0 },
+    };
+    await settle();
+
+    host.querySelector<HTMLButtonElement>(`button[aria-label="${i18n.global.t("grid.loadAllAndGoToLastRow")}"]`)!.click();
+    await settle();
+
+    // 1st request: reloads from first row (offset: 0, limit: 5, append: false)
+    expect(paginate).toHaveBeenCalledOnce();
+    expect(paginate.mock.calls[0]?.slice(0, 2)).toEqual([0, 5]);
+    expect(paginate.mock.calls[0]?.[4]).toBe(false);
+
+    // Backend returns 5 rows with has_more: true
+    gridState.value = {
+      context: "table-data",
+      pageLimit: 5,
+      pageOffset: 0,
+      totalRowCount: undefined,
+      result: {
+        columns: ["id"],
+        rows: Array.from({ length: 5 }, (_, index) => [index + 1]),
+        has_more: true,
+        affected_rows: 0,
+        execution_time_ms: 0,
+      },
+    };
+    await settle();
+
+    // 2nd request: continues past the cap via append (offset: 5, limit: 5, append: true)
+    expect(paginate).toHaveBeenCalledTimes(2);
+    expect(paginate.mock.calls[1]?.slice(0, 2)).toEqual([5, 5]);
+    expect(paginate.mock.calls[1]?.[4]).toBe(true);
+
+    // Second chunk lands with 3 rows (tail) and has_more: false
+    gridState.value = {
+      context: "table-data",
+      pageLimit: 5,
+      pageOffset: 0,
+      totalRowCount: undefined,
+      result: {
+        columns: ["id"],
+        rows: Array.from({ length: 8 }, (_, index) => [index + 1]),
+        has_more: false,
+        appended_from_row_count: 5,
+        affected_rows: 0,
+        execution_time_ms: 0,
+      },
+    };
+    await settle();
+
+    // Run terminates after tail chunk
+    expect(paginate).toHaveBeenCalledTimes(2);
+    const footer = host.textContent || "";
+    expect(footer).toMatch(/all loaded/i);
+  });
+
+  it("does not report all loaded if reload lands at cap with unknown total and missing has_more (#12418)", async () => {
+    const { host, settingsStore, gridState } = mountGrid({ pageOffset: 80 });
+    settingsStore.updateEditorSettings({ dataGridRenderMode: "dom", queryResultMaxRowsEnabled: true, queryResultMaxRows: 5 });
+    gridState.value = {
+      context: "table-data",
+      pageLimit: 10,
+      pageOffset: 80,
+      totalRowCount: undefined,
+      result: { columns: ["id"], rows: [[1]], has_more: false, affected_rows: 0, execution_time_ms: 0 },
+    };
+    await settle();
+    host.querySelector<HTMLButtonElement>(`button[aria-label="${i18n.global.t("grid.loadAllAndGoToLastRow")}"]`)!.click();
+    await settle();
+
+    // Reload returned exactly 5 rows (the cap), but has_more is undefined
+    gridState.value = {
+      context: "table-data",
+      pageLimit: 5,
+      pageOffset: 0,
+      totalRowCount: undefined,
+      result: {
+        columns: ["id"],
+        rows: Array.from({ length: 5 }, (_, index) => [index + 1]),
+        has_more: undefined,
+        affected_rows: 0,
+        execution_time_ms: 0,
+      },
+    };
+    await settle();
+
+    const footer = host.textContent || "";
+    expect(footer).not.toMatch(/all loaded/i);
+  });
 });
 
 describe("DataGrid multi-chunk load-all run", () => {

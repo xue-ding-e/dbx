@@ -3554,6 +3554,7 @@ let loadAllRowsLoopActive = false;
 // Set when a "load all" reloads a jumped-to discrete page from the first row;
 // the replacing result must still land the view on the last row (#11940).
 let loadAllRowsReloadPending = false;
+let loadAllRowsReloadLimit: number | undefined;
 const loadAllRowsActive = ref(false);
 // Tracks whether the current loading cycle was triggered by a refresh/rollback
 // (as opposed to a normal paginate). Used to decide whether to auto-redirect
@@ -4103,6 +4104,7 @@ function startLoadAllRows(segment: { offset: number; limit: number }, reloadFrom
   loadAllRowsActive.value = true;
   loadAllRowsLoopActive = !reloadFromFirstRow;
   loadAllRowsReloadPending = reloadFromFirstRow;
+  loadAllRowsReloadLimit = reloadFromFirstRow ? segment.limit : undefined;
   infiniteScrollAllLoaded = false;
   // A reload-from-first-row run replaces the page through the normal (non-
   // append) execution path; the append watcher must not treat it as one of
@@ -4195,6 +4197,7 @@ function changePageSize(size: number) {
   loadAllRowsActive.value = false;
   loadAllRowsLoopActive = false;
   loadAllRowsReloadPending = false;
+  loadAllRowsReloadLimit = undefined;
   infiniteScrollPositions = new WeakMap();
   resetGridVerticalScroll(true);
   emit("paginate", 0, normalizedSize, currentWhereInput(), effectiveOrderBy());
@@ -5134,6 +5137,7 @@ function resetInfiniteScrollState() {
   loadAllRowsActive.value = false;
   loadAllRowsLoopActive = false;
   loadAllRowsReloadPending = false;
+  loadAllRowsReloadLimit = undefined;
   infiniteScrollPositions = new WeakMap();
   resetGridVerticalScroll(true);
 }
@@ -11837,21 +11841,25 @@ watch(
     filterValueSuggestionLoader.reset({ clearCache: true });
     // A non-append result replaces the whole data set, so a running "load all" is over.
     const reloadedFromFirstRow = loadAllRowsReloadPending;
+    const reloadLimit = loadAllRowsReloadLimit ?? infiniteScrollMaxRows.value;
     loadAllRowsReloadPending = false;
+    loadAllRowsReloadLimit = undefined;
     loadAllRowsActive.value = false;
     loadAllRowsLoopActive = false;
     if (reloadedFromFirstRow) {
-      // A capped/truncated reload must not claim completeness — that would
-      // block the #10752 continuation past the cap; only an uncapped full
-      // reload marks the end (#11940).
-      if (!props.result.truncated && props.result.has_more !== true) {
-        infiniteScrollAllLoaded = true;
+      if (props.result.has_more === true && !props.result.truncated) {
+        loadAllRowsActive.value = true;
+        loadAllRowsLoopActive = true;
+        nextTick(() => {
+          if (loadAllRowsLoopActive && !finishOrContinueLoadAllRun(0, reloadLimit)) selectAndRevealLastLoadedRow();
+        });
+      } else {
+        if (!props.result.truncated && props.result.has_more !== true && (props.result.has_more === false || props.result.rows.length < reloadLimit)) {
+          infiniteScrollAllLoaded = true;
+        }
+        selectAndRevealLastLoadedRow();
       }
-      selectAndRevealLastLoadedRow();
     } else {
-      // The replacement also invalidates the all-loaded marker: a filter change or
-      // page jump swaps in a fresh first page whose remaining segments must be
-      // re-derived instead of being silently skipped.
       infiniteScrollAllLoaded = false;
     }
     if (getResetScrollAfterResult()) {
@@ -13246,6 +13254,8 @@ onUnmounted(() => {
   onSqlPreviewResizeEnd();
   finishCellSelection();
   loadAllRowsLoopActive = false;
+  loadAllRowsReloadPending = false;
+  loadAllRowsReloadLimit = undefined;
   clearTimeout(highlightedColumnTimer);
   stopLoadingElapsedTimer();
 });
