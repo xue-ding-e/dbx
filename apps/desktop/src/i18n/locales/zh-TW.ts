@@ -6950,7 +6950,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "表格式靠左",
     sqlFormatterIndentStyleTabularRight: "表格式靠右",
     sqlFormatterLayoutStyle: "排版風格",
-    sqlFormatterLayoutStyleDbx: "DBX（預設）",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "經典",
     sqlFormatterLogicalOperatorNewline: "邏輯運算子換行",
     sqlFormatterLogicalBefore: "運算子前換行",

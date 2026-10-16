@@ -8031,7 +8031,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Tabular rata kiri",
     sqlFormatterIndentStyleTabularRight: "Tabular rata kanan",
     sqlFormatterLayoutStyle: "Gaya tata letak",
-    sqlFormatterLayoutStyleDbx: "DBX (bawaan)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Klasik",
     sqlFormatterLogicalOperatorNewline: "Baris baru pada operator logika",
     sqlFormatterLogicalBefore: "Sebelum operator",

@@ -7601,7 +7601,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Tabellare sinistra",
     sqlFormatterIndentStyleTabularRight: "Tabellare destra",
     sqlFormatterLayoutStyle: "Stile di impaginazione",
-    sqlFormatterLayoutStyleDbx: "DBX (predefinito)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Classico",
     sqlFormatterLogicalOperatorNewline: "Nuova riga operatore logico",
     sqlFormatterLogicalBefore: "Prima dell'operatore",

@@ -8689,7 +8689,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "表格式左对齐",
     sqlFormatterIndentStyleTabularRight: "表格式右对齐",
     sqlFormatterLayoutStyle: "排版风格",
-    sqlFormatterLayoutStyleDbx: "DBX（默认）",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "经典",
     sqlFormatterLogicalOperatorNewline: "逻辑运算符换行",
     sqlFormatterLogicalBefore: "运算符前换行",

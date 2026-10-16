@@ -7471,7 +7471,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "표 왼쪽 정렬",
     sqlFormatterIndentStyleTabularRight: "표 오른쪽 정렬",
     sqlFormatterLayoutStyle: "레이아웃 스타일",
-    sqlFormatterLayoutStyleDbx: "DBX(기본값)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "클래식",
     sqlFormatterLogicalOperatorNewline: "논리 연산자 줄바꿈",
     sqlFormatterLogicalBefore: "연산자 앞",

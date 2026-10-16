@@ -7170,7 +7170,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Tablo biçiminde sola",
     sqlFormatterIndentStyleTabularRight: "Tablo biçiminde sağa",
     sqlFormatterLayoutStyle: "Düzen biçemi",
-    sqlFormatterLayoutStyleDbx: "DBX (varsayılan)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Klasik",
     sqlFormatterLogicalOperatorNewline: "Mantıksal işleçte satır sonu",
     sqlFormatterLogicalBefore: "İşleçten önce",

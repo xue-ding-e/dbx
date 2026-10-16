@@ -8915,7 +8915,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Табличный слева",
     sqlFormatterIndentStyleTabularRight: "Табличный справа",
     sqlFormatterLayoutStyle: "Стиль разметки",
-    sqlFormatterLayoutStyleDbx: "DBX (по умолчанию)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Классический",
     sqlFormatterLogicalOperatorNewline: "Перенос логических операторов",
     sqlFormatterLogicalBefore: "Перед оператором",

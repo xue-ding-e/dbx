@@ -9363,7 +9363,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "จัดตารางชิดซ้าย",
     sqlFormatterIndentStyleTabularRight: "จัดตารางชิดขวา",
     sqlFormatterLayoutStyle: "รูปแบบ Layout",
-    sqlFormatterLayoutStyleDbx: "DBX (ค่าเริ่มต้น)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "คลาสสิก",
     sqlFormatterLogicalOperatorNewline: "ขึ้นบรรทัดใหม่ของตัวดำเนินการตรรกะ",
     sqlFormatterLogicalBefore: "ก่อนตัวดำเนินการ",

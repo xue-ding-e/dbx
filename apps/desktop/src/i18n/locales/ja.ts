@@ -7629,7 +7629,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "表形式左寄せ",
     sqlFormatterIndentStyleTabularRight: "表形式右寄せ",
     sqlFormatterLayoutStyle: "レイアウトスタイル",
-    sqlFormatterLayoutStyleDbx: "DBX（デフォルト）",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "クラシック",
     sqlFormatterLogicalOperatorNewline: "論理演算子の改行",
     sqlFormatterLogicalBefore: "演算子の前",

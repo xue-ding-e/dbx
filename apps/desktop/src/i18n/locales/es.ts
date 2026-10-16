@@ -7822,7 +7822,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Tabular izquierda",
     sqlFormatterIndentStyleTabularRight: "Tabular derecha",
     sqlFormatterLayoutStyle: "Estilo de diseño",
-    sqlFormatterLayoutStyleDbx: "DBX (predeterminado)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Clásico",
     sqlFormatterLogicalOperatorNewline: "Salto de línea en operador lógico",
     sqlFormatterLogicalBefore: "Antes del operador",

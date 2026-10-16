@@ -7289,7 +7289,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Sola düzülmüş cədvəl",
     sqlFormatterIndentStyleTabularRight: "Sağa düzülmüş cədvəl",
     sqlFormatterLayoutStyle: "Düzən üslubu",
-    sqlFormatterLayoutStyleDbx: "DBX (standart)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Klassik",
     sqlFormatterLogicalOperatorNewline: "Məntiqi operator üçün yeni sətir",
     sqlFormatterLogicalBefore: "Operatordan əvvəl",

@@ -7600,7 +7600,7 @@ export default withEnglishFallback({
     sqlFormatterIndentStyleTabularLeft: "Tabular esquerda",
     sqlFormatterIndentStyleTabularRight: "Tabular direita",
     sqlFormatterLayoutStyle: "Estilo de layout",
-    sqlFormatterLayoutStyleDbx: "DBX (padrão)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Clássico",
     sqlFormatterLogicalOperatorNewline: "Quebra de linha no operador lógico",
     sqlFormatterLogicalBefore: "Antes do operador",

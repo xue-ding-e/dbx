@@ -5,7 +5,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { aiConfigToItem, generateId, getConfigKey } from "@/lib/ai/aiConfigList";
 import { AI_CONVERSATION_FONT_FAMILY_DEFAULT, AI_CONVERSATION_FONT_SIZE_DEFAULT, normalizeAiConversationFontFamily, normalizeAiConversationFontSize } from "@/lib/ai/aiTypography";
-import { DEFAULT_DATA_GRID_FONT_FAMILY, DEFAULT_MONO_FONT_FAMILY, DEFAULT_UI_FONT_FAMILY } from "@/lib/app/appFonts";
+import { DEFAULT_DATA_GRID_FONT_FAMILY, DEFAULT_MONO_FONT_FAMILY, DEFAULT_UI_FONT_FAMILY, LEGACY_PRESET_FONT_MAP } from "@/lib/app/appFonts";
 import { emitAlwaysOnTopToolbarVisibilityChanged } from "@/lib/app/windowAlwaysOnTop";
 import { defaultBackgroundImageSettings, normalizeBackgroundImageSettings, type BackgroundImageSettings } from "@/lib/app/appBackgroundImage";
 import * as api from "@/lib/backend/api";
@@ -1568,13 +1568,11 @@ function normalizeUiScale(value: unknown): number {
   return Math.min(MAX_UI_SCALE, Math.max(MIN_UI_SCALE, Math.round(value * 100) / 100));
 }
 
-const LEGACY_DEFAULT_MONO_FONT_FAMILY = "'Fira Code', 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', monospace";
-
-function normalizeFontFamily(value: unknown, fallback: string): string {
+function normalizeFontFamily(value: unknown, fallback: string, migrateMonoPresets = false): string {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
-  if (!trimmed || trimmed === LEGACY_DEFAULT_MONO_FONT_FAMILY) return fallback;
-  return trimmed;
+  if (!trimmed) return fallback;
+  return (migrateMonoPresets ? LEGACY_PRESET_FONT_MAP[trimmed] : undefined) ?? trimmed;
 }
 
 function normalizeDrawerWidth(value: unknown, min: number, fallback: number): number {
@@ -1975,7 +1973,7 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
   })();
   const activeCustomThemeId = settings.activeCustomThemeId && customThemes.some((t) => t.id === settings.activeCustomThemeId) ? settings.activeCustomThemeId : (customThemes[0]?.id ?? "default");
   return {
-    fontFamily: normalizeFontFamily(settings.fontFamily, DEFAULT_EDITOR_SETTINGS.fontFamily),
+    fontFamily: normalizeFontFamily(settings.fontFamily, DEFAULT_EDITOR_SETTINGS.fontFamily, true),
     fontSize: settings.fontSize ?? DEFAULT_EDITOR_SETTINGS.fontSize,
     uiFontFamily: normalizeFontFamily(settings.uiFontFamily, DEFAULT_EDITOR_SETTINGS.uiFontFamily),
     aiFontFamily: normalizeAiConversationFontFamily(settings.aiFontFamily),

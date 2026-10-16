@@ -8707,7 +8707,7 @@ export default {
     sqlFormatterIndentStyleTabularLeft: "Tabular left",
     sqlFormatterIndentStyleTabularRight: "Tabular right",
     sqlFormatterLayoutStyle: "Layout style",
-    sqlFormatterLayoutStyleDbx: "DBX (default)",
+    sqlFormatterLayoutStyleDbx: "DBX",
     sqlFormatterLayoutStyleClassic: "Classic",
     sqlFormatterLogicalOperatorNewline: "Logical operator newline",
     sqlFormatterLogicalBefore: "Before operator",
