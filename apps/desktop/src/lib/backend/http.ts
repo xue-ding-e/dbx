@@ -5627,6 +5627,14 @@ export async function checkMcpServerStatus(): Promise<import("@/lib/backend/taur
   };
 }
 
+export async function checkMcpKeychainAccess(): Promise<import("@/lib/backend/tauri").McpKeychainAccess> {
+  return "not_applicable";
+}
+
+export async function authorizeMcpKeychain(): Promise<string> {
+  throw new Error("MCP Keychain authorization is only available in the desktop app.");
+}
+
 export async function installMcpServer(): Promise<string> {
   throw new Error("MCP Server installation is only available in the desktop app.");
 }

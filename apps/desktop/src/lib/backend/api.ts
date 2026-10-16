@@ -978,6 +978,8 @@ export const deleteHistoryEntry = forward("deleteHistoryEntry");
 
 // Updates
 export const checkMcpServerStatus = forward("checkMcpServerStatus");
+export const checkMcpKeychainAccess = forward("checkMcpKeychainAccess");
+export const authorizeMcpKeychain = forward("authorizeMcpKeychain");
 export const installMcpServer = forward("installMcpServer");
 export const installNativeMcpServer = forward("installNativeMcpServer");
 export const uninstallMcpServer = forward("uninstallMcpServer");

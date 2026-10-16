@@ -3416,6 +3416,16 @@ export async function checkMcpServerStatus(): Promise<McpServerStatus> {
   return invoke("check_mcp_server_status");
 }
 
+export type McpKeychainAccess = "authorized" | "needs_authorization" | "key_missing" | "unknown" | "not_applicable";
+
+export async function checkMcpKeychainAccess(): Promise<McpKeychainAccess> {
+  return invoke("check_mcp_keychain_access");
+}
+
+export async function authorizeMcpKeychain(): Promise<string> {
+  return invoke("authorize_mcp_keychain");
+}
+
 export async function installMcpServer(): Promise<string> {
   return invoke("install_mcp_server");
 }

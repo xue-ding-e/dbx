@@ -153,6 +153,8 @@ import {
   loadCcSwitchAiConfigs,
   loadMagpieAiConfigs,
   checkMcpServerStatus,
+  checkMcpKeychainAccess,
+  authorizeMcpKeychain,
   installMcpServer,
   installNativeMcpServer,
   uninstallMcpServer,
@@ -210,6 +212,7 @@ import {
   type WebMcpHttpStatus,
   type WebMcpHttpSettings,
   type McpServerStatus,
+  type McpKeychainAccess,
   type SnippetProvider,
   type SnippetSyncConfig,
   type SyncSelection,
@@ -3892,6 +3895,11 @@ type McpManagementTab = "access" | "permissions";
 const mcpStatus = ref<McpServerStatus | null>(null);
 const mcpStatusLoading = ref(false);
 const mcpStatusError = ref("");
+const mcpKeychainAccess = ref<McpKeychainAccess | null>(null);
+const mcpKeychainAuthorizing = ref(false);
+const mcpKeychainMessage = ref("");
+const mcpKeychainMessageError = ref(false);
+const mcpKeychainNeedsAuthorization = computed(() => mcpKeychainAccess.value === "needs_authorization");
 const mcpCopied = ref<"" | McpCopyKind>("");
 const mcpConfigTab = ref<McpConfigTab>("claude");
 const mcpTransportTab = ref<McpTransportTab>("stdio");
@@ -4556,7 +4564,7 @@ const mcpWorkBuddyRecommendedConfig = computed(() => buildMcpWorkBuddyConfig(mcp
 
 const mcpStatusTone = computed<"ok" | "warning" | "muted">(() => {
   if (!mcpStatus.value) return "muted";
-  if (!mcpStatus.value.installed || mcpStatus.value.update_available || mcpStatus.value.error) return "warning";
+  if (!mcpStatus.value.installed || mcpStatus.value.update_available || mcpStatus.value.error || mcpKeychainNeedsAuthorization.value) return "warning";
   return "ok";
 });
 
@@ -4566,6 +4574,7 @@ const mcpStatusLabel = computed(() => {
   if (!mcpStatus.value) return t("settings.mcpStatusUnknown");
   if (!mcpStatus.value.installed) return t("settings.mcpNotInstalled");
   if (mcpStatus.value.update_available) return t("settings.mcpUpdateAvailable");
+  if (mcpKeychainNeedsAuthorization.value) return t("settings.mcpKeychainBadge");
   return t("settings.mcpReady");
 });
 
@@ -4601,6 +4610,40 @@ async function refreshMcpStatus() {
     mcpStatusError.value = e?.message || String(e);
   } finally {
     mcpStatusLoading.value = false;
+  }
+  await refreshMcpKeychainAccess();
+}
+
+// macOS only: an MCP client launches dbx-mcp in the background, where Keychain cannot prompt.
+// A missing or stale authorization therefore surfaces only as an opaque tool error in the client.
+async function refreshMcpKeychainAccess() {
+  if (!mcpStatus.value?.installed) {
+    mcpKeychainAccess.value = null;
+    return;
+  }
+  try {
+    mcpKeychainAccess.value = await checkMcpKeychainAccess();
+  } catch {
+    mcpKeychainAccess.value = "unknown";
+  }
+}
+
+async function authorizeMcpKeychainAccess() {
+  if (mcpKeychainAuthorizing.value) return;
+  mcpKeychainAuthorizing.value = true;
+  mcpKeychainMessage.value = "";
+  mcpKeychainMessageError.value = false;
+  try {
+    await authorizeMcpKeychain();
+    await refreshMcpKeychainAccess();
+    // The command re-verifies from a fresh process, so a stale answer here means the choice was not retained.
+    mcpKeychainMessageError.value = mcpKeychainNeedsAuthorization.value;
+    mcpKeychainMessage.value = mcpKeychainNeedsAuthorization.value ? t("settings.mcpKeychainNotRetained") : t("settings.mcpKeychainAuthorized");
+  } catch (e: any) {
+    mcpKeychainMessage.value = t("settings.mcpKeychainAuthorizeFailed", { error: e?.message || String(e) });
+    mcpKeychainMessageError.value = true;
+  } finally {
+    mcpKeychainAuthorizing.value = false;
   }
 }
 
@@ -12086,6 +12129,27 @@ LIMIT 100;</pre>
                       </TabsContent>
 
                       <TabsContent value="stdio" class="m-0 space-y-4">
+                        <div
+                          v-if="!isWeb && (mcpKeychainNeedsAuthorization || mcpKeychainMessage)"
+                          class="space-y-2 rounded-md border px-3 py-2.5 text-xs"
+                          :class="mcpKeychainMessage && !mcpKeychainMessageError ? 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300' : 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200'"
+                        >
+                          <template v-if="mcpKeychainNeedsAuthorization">
+                            <div class="flex items-center gap-1.5 font-medium">
+                              <AlertTriangle class="h-3.5 w-3.5 shrink-0" />
+                              {{ t("settings.mcpKeychainTitle") }}
+                            </div>
+                            <p class="leading-relaxed">{{ t("settings.mcpKeychainDescription") }}</p>
+                            <div class="flex flex-wrap items-center gap-2">
+                              <Button type="button" size="sm" :disabled="mcpKeychainAuthorizing" @click="authorizeMcpKeychainAccess">
+                                <Loader2 v-if="mcpKeychainAuthorizing" class="mr-1 h-3 w-3 animate-spin" />
+                                {{ mcpKeychainAuthorizing ? t("settings.mcpKeychainAuthorizing") : t("settings.mcpKeychainAuthorizeButton") }}
+                              </Button>
+                              <span class="text-[11px] opacity-80">{{ t("settings.mcpKeychainAlwaysAllowHint") }}</span>
+                            </div>
+                          </template>
+                          <p v-if="mcpKeychainMessage" class="select-text leading-relaxed">{{ mcpKeychainMessage }}</p>
+                        </div>
                         <div v-if="!isWeb" class="grid gap-3 sm:grid-cols-2">
                           <div class="rounded-md border p-3">
                             <div class="text-xs font-medium uppercase text-muted-foreground">

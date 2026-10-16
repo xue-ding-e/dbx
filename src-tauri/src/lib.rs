@@ -2830,6 +2830,8 @@ pub fn run() {
             commands::task_history::load_task_run,
             commands::task_history::load_task_run_items,
             commands::mcp::check_mcp_server_status,
+            commands::mcp::check_mcp_keychain_access,
+            commands::mcp::authorize_mcp_keychain,
             commands::mcp::install_mcp_server,
             commands::mcp::install_native_mcp_server,
             commands::mcp::uninstall_mcp_server,
