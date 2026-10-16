@@ -10637,6 +10637,7 @@ export default withEnglishFallback({
     nextRun: "Далее: {time}",
     nextRunPreview: "Следующий запуск: {time}",
     keepRuns: "Хранить {count}",
+    keepForever: "Хранить бессрочно",
     everyHours: "Каждые {count} ч.",
     dailyAt: "Ежедневно в {time}",
     weeklyAt: "{weekday} в {time}",

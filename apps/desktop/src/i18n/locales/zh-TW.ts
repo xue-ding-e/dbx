@@ -10913,6 +10913,7 @@ export default withEnglishFallback({
     nextRun: "下次：{time}",
     nextRunPreview: "下次執行：{time}",
     keepRuns: "保留 {count} 次",
+    keepForever: "永久保存",
     everyHours: "每 {count} 小時",
     dailyAt: "每天 {time}",
     weeklyAt: "{weekday} {time}",

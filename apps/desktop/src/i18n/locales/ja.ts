@@ -10941,6 +10941,7 @@ export default withEnglishFallback({
     nextRun: "次回：{time}",
     nextRunPreview: "次回実行：{time}",
     keepRuns: "{count} 回保持",
+    keepForever: "永久保存",
     everyHours: "{count} 時間ごと",
     dailyAt: "毎日 {time}",
     weeklyAt: "{weekday} {time}",

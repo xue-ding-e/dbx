@@ -9126,6 +9126,7 @@ export default withEnglishFallback({
     nextRun: "다음: {time}",
     nextRunPreview: "다음 실행: {time}",
     keepRuns: "{count}개 보관",
+    keepForever: "영구 보관",
     everyHours: "{count}시간마다",
     dailyAt: "매일 {time}",
     weeklyAt: "{weekday} {time}",
