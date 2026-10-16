@@ -5488,6 +5488,8 @@ export default withEnglishFallback({
     sortAsc: "По возрастанию",
     sortDesc: "По убыванию",
     sortBy: "Сортировать по",
+    viewCompact: "Компактный вид сетки",
+    configureColumns: "Настроить отображаемые столбцы",
   },
   structureEditor: {
     createTitle: "Создание таблицы",

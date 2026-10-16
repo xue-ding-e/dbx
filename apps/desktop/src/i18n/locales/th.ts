@@ -5823,6 +5823,8 @@ export default withEnglishFallback({
     sortAsc: "เรียงจากน้อยไปมาก",
     sortDesc: "เรียงจากมากไปน้อย",
     sortBy: "เรียงตาม",
+    viewCompact: "มุมมองกริดแบบกะทัดรัด",
+    configureColumns: "กำหนดค่าคอลัมน์ที่แสดง",
   },
   structureEditor: {
     createTitle: "สร้าง Table",

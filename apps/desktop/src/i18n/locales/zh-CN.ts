@@ -5826,6 +5826,8 @@ export default withEnglishFallback({
     toggleCheckbox: "切换多选模式",
     viewList: "列表视图",
     viewGrid: "平铺视图",
+    viewCompact: "紧凑九宫格视图",
+    configureColumns: "配置显示列",
     sortAsc: "升序",
     sortDesc: "降序",
     sortBy: "排序方式",

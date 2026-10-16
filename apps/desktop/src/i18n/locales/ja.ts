@@ -5029,6 +5029,8 @@ export default withEnglishFallback({
     valid: "有効",
     invalid: "無効",
     refreshDiscardConfirm: "更新すると、保存されていないソースコードの変更が破棄されます。続行しますか？",
+    viewCompact: "コンパクトグリッドビュー",
+    configureColumns: "表示列を設定",
   },
   structureEditor: {
     mysqlDataTypeHelp: {

@@ -4714,6 +4714,8 @@ export default withEnglishFallback({
     valid: "有效",
     invalid: "無效",
     refreshDiscardConfirm: "重新整理將捨棄未儲存的原始碼修改，是否繼續？",
+    viewCompact: "緊湊九宮格檢視",
+    configureColumns: "設定顯示欄",
   },
   structureEditor: {
     mysqlDataTypeHelp: {
