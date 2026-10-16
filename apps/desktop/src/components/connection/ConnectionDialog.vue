@@ -125,7 +125,7 @@ import { postgresLegacyTlsEnabled, postgresTlsModeForForm, setPostgresLegacyTlsE
 import { buildMqKafkaConnectionExtra, mqKafkaConnectionTarget, resolveMqKafkaConnectionSource, type MqKafkaConnectionSource } from "@/lib/connection/mqKafkaConnection";
 import { assertCompleteDatabaseCategories, databaseSelectionForCategory } from "@/lib/connection/databaseCategoryOptions";
 import { loadConnectionPickerView, saveConnectionPickerView, type DbPickerView } from "@/lib/connection/connectionPickerViewPreference";
-import { normalizeRocketmqNamesrvAddr } from "@/lib/connection/rocketmqNamesrv";
+import { buildRocketMqConfig, hydrateRocketMqConfig, isRocketMqConfigValid, rocketMqConnectionTarget } from "@/lib/connection/rocketmqConfig";
 import { normalizeRabbitmqAddresses, parseRabbitmqAddress } from "@/lib/connection/rabbitmqAddresses";
 import { pluginFieldIsRequired, pluginFieldIsVisible } from "@/lib/plugins/pluginFieldConditions";
 import { detectMqUiAuthKind, isMqAuthKindAllowedForSystem, type MqUiAuthKind } from "@/lib/connection/mqAuth";
@@ -937,6 +937,18 @@ const mqSystemKind = ref<MqSystemKind>("pulsar");
 const mqKafkaConnectionSource = ref<MqKafkaConnectionSource>("bootstrap");
 const mqRocketmqNamesrvAddr = ref("127.0.0.1:9876");
 const mqRocketmqClusterName = ref("");
+const mqRocketmqConnectionMode = ref<"remoting" | "proxy">("remoting");
+const mqRocketmqProxyEndpoint = ref("");
+const mqRocketmqProxyTls = ref(true);
+const mqRocketmqManagementEnabled = ref(false);
+const rocketMqFormFields = () => ({
+  connectionMode: mqRocketmqConnectionMode.value,
+  proxyEndpoint: mqRocketmqProxyEndpoint.value,
+  proxyTls: mqRocketmqProxyTls.value,
+  managementEnabled: mqRocketmqManagementEnabled.value,
+  namesrvAddr: mqRocketmqNamesrvAddr.value,
+  clusterName: mqRocketmqClusterName.value,
+});
 const mqRabbitmqAddresses = ref("127.0.0.1:5672");
 const mqRabbitmqVirtualHost = ref("/");
 const mqKafkaBootstrapServers = ref("127.0.0.1:9092");
@@ -1304,8 +1316,13 @@ function resetMqFields(config?: Partial<MqAdminConfig>) {
   mqKafkaConnectionSource.value = resolveMqKafkaConnectionSource(extra);
   mqKafkaBootstrapServers.value = mqExtraString(extra, "bootstrapServers") || "127.0.0.1:9092";
   mqKafkaZooKeeperServers.value = mqExtraString(extra, "zookeeperServers");
-  mqRocketmqNamesrvAddr.value = mqExtraString(extra, "namesrvAddr") || mqExtraString(extra, "namesrv_addr") || "127.0.0.1:9876";
-  mqRocketmqClusterName.value = mqExtraString(extra, "clusterName") || mqExtraString(extra, "cluster_name");
+  const rocketmq = hydrateRocketMqConfig(config);
+  mqRocketmqNamesrvAddr.value = rocketmq.namesrvAddr;
+  mqRocketmqClusterName.value = rocketmq.clusterName;
+  mqRocketmqConnectionMode.value = rocketmq.connectionMode;
+  mqRocketmqProxyEndpoint.value = rocketmq.proxyEndpoint;
+  mqRocketmqProxyTls.value = rocketmq.proxyTls;
+  mqRocketmqManagementEnabled.value = rocketmq.managementEnabled;
   mqRabbitmqAddresses.value = mqExtraString(extra, "addresses") || "127.0.0.1:5672";
   mqRabbitmqVirtualHost.value = mqExtraString(extra, "virtualHost") || "/";
   mqKafkaSecurityProtocol.value = mqExtraString(extra, "securityProtocol") || MQ_KAFKA_SECURITY_PROTOCOL_AUTO;
@@ -2094,20 +2111,7 @@ function buildMqAdminConfig(): MqAdminConfig {
   }
 
   if (systemKind === "rocketmq") {
-    const namesrvAddr = normalizeRocketmqNamesrvAddr(mqRocketmqNamesrvAddr.value);
-    const extra: Record<string, unknown> = { namesrvAddr };
-    if (mqRocketmqClusterName.value.trim()) extra.clusterName = mqRocketmqClusterName.value.trim();
-    if (mqAuthKind.value === "basic") {
-      extra.accessKey = mqBasicUsername.value.trim();
-      extra.secretKey = mqBasicPassword.value;
-    }
-    return {
-      systemKind: "rocketmq",
-      adminUrl: "",
-      auth: buildMqAuth(),
-      tlsSkipVerify: mqTlsSkipVerify.value || undefined,
-      extra,
-    };
+    return buildRocketMqConfig(rocketMqFormFields(), buildMqAuth(), mqTlsSkipVerify.value);
   }
 
   if (systemKind === "rabbitmq") {
@@ -2627,20 +2631,6 @@ async function testConnectionWithTimeout(config: ConnectionConfig, runId: number
   } finally {
     if (timer) clearTimeout(timer);
   }
-}
-
-function applyMqRocketmqNamesrv(config: LegacyConnectionConfig, namesrvAddr: string) {
-  const first = normalizeRocketmqNamesrvAddr(namesrvAddr).split(";")[0];
-  if (!first) throw new Error(t("connection.rocketmqNamesrvAddrRequired"));
-  let parsed: URL;
-  try {
-    parsed = new URL(`rocketmq://${first}`);
-  } catch {
-    throw new Error(t("connection.rocketmqNamesrvAddrInvalid"));
-  }
-  config.host = parsed.hostname;
-  config.port = Number(parsed.port) || 9876;
-  config.ssl = false;
 }
 
 function applyMqAdminUrl(config: LegacyConnectionConfig, adminUrl: string) {
@@ -4397,7 +4387,7 @@ const hasRequiredConnectionTarget = computed(() => {
   }
   if (form.value.db_type === "mq") {
     if (mqSystemKind.value === "kafka") return mqKafkaConnectionSource.value === "zookeeper" ? !!mqKafkaZooKeeperServers.value.trim() : !!mqKafkaBootstrapServers.value.trim();
-    if (mqSystemKind.value === "rocketmq") return !!mqRocketmqNamesrvAddr.value.trim();
+    if (mqSystemKind.value === "rocketmq") return isRocketMqConfigValid(rocketMqFormFields());
     if (mqSystemKind.value === "rabbitmq") return !!mqRabbitmqAddresses.value.trim();
     return !!mqAdminUrl.value.trim();
   }
@@ -4994,8 +4984,7 @@ function connectionConfigForSubmit(id: string, generatedName = "", validatePlugi
       const extra = mqExtraRecord(mqConfig);
       applyMqKafkaConnectionTarget(config, extra);
     } else if (mqConfig.systemKind === "rocketmq") {
-      const extra = mqExtraRecord(mqConfig);
-      applyMqRocketmqNamesrv(config, mqExtraString(extra, "namesrvAddr") || mqExtraString(extra, "namesrv_addr"));
+      Object.assign(config, rocketMqConnectionTarget(mqConfig));
     } else if (mqConfig.systemKind === "rabbitmq") {
       const extra = mqExtraRecord(mqConfig);
       applyMqRabbitmqAddresses(config, mqExtraString(extra, "addresses"));
@@ -7802,10 +7791,35 @@ function openExternalUrl(url: string) {
                     </template>
                     <template v-else-if="mqSystemKind === 'rocketmq'">
                       <div class="grid grid-cols-4 items-center gap-4">
+                        <Label :class="connectionLabelClass">{{ t("connection.rocketmqConnectionMode") }}</Label>
+                        <Select v-model="mqRocketmqConnectionMode">
+                          <SelectTrigger class="col-span-3"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="remoting">Remoting</SelectItem>
+                            <SelectItem value="proxy">Proxy (gRPC)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <template v-if="mqRocketmqConnectionMode === 'proxy'">
+                        <div class="grid grid-cols-4 items-center gap-4">
+                          <Label :class="connectionLabelClass">{{ t("connection.rocketmqProxyEndpoint") }}</Label>
+                          <Input v-model="mqRocketmqProxyEndpoint" class="col-span-3" placeholder="proxy.example.com:8081" />
+                        </div>
+                        <div class="grid grid-cols-4 items-center gap-4">
+                          <Label :class="connectionLabelClass">{{ t("connection.rocketmqProxyTls") }}</Label>
+                          <input v-model="mqRocketmqProxyTls" type="checkbox" />
+                        </div>
+                        <div class="grid grid-cols-4 items-center gap-4">
+                          <Label :class="connectionLabelClass">{{ t("connection.rocketmqManagementEnabled") }}</Label>
+                          <input v-model="mqRocketmqManagementEnabled" type="checkbox" />
+                        </div>
+                        <p class="text-xs text-muted-foreground">{{ t("connection.rocketmqProxyHint") }}</p>
+                      </template>
+                      <div v-if="mqRocketmqConnectionMode === 'remoting' || mqRocketmqManagementEnabled" class="grid grid-cols-4 items-center gap-4">
                         <Label :class="connectionLabelClass">{{ t("connection.rocketmqNamesrvAddr") }}</Label>
                         <Input v-model="mqRocketmqNamesrvAddr" class="col-span-3" :placeholder="t('connection.rocketmqNamesrvAddrPlaceholder')" />
                       </div>
-                      <div class="grid grid-cols-4 items-center gap-4">
+                      <div v-if="mqRocketmqConnectionMode === 'remoting' || mqRocketmqManagementEnabled" class="grid grid-cols-4 items-center gap-4">
                         <Label :class="connectionLabelClass">{{ t("connection.rocketmqClusterName") }}</Label>
                         <Input v-model="mqRocketmqClusterName" class="col-span-3" :placeholder="t('connection.rocketmqClusterNamePlaceholder')" />
                       </div>

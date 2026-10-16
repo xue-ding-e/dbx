@@ -16,10 +16,10 @@ mod webdav_snapshot;
 
 use crate::ai::AiConfigItem;
 use crate::connection_secrets::{
-    plugin_connection_secret_key, CASSANDRA_KEYSTORE_PASSWORD_KEY, CASSANDRA_TRUSTSTORE_PASSWORD_KEY,
-    MQTT_AUTH_PASSWORD_KEY, MQ_AUTH_API_KEY_VALUE_KEY, MQ_AUTH_CLIENT_SECRET_KEY, MQ_AUTH_PASSWORD_KEY,
-    MQ_AUTH_TOKEN_KEY, MQ_TOKEN_SIGNING_KEY, NACOS_AUTH_PASSWORD_KEY, NACOS_RNACOS_CONSOLE_PASSWORD_KEY,
-    PLUGIN_CONNECTION_SECRET_PREFIX,
+    is_rocketmq_connection, normalize_rocketmq_credentials, plugin_connection_secret_key,
+    CASSANDRA_KEYSTORE_PASSWORD_KEY, CASSANDRA_TRUSTSTORE_PASSWORD_KEY, MQTT_AUTH_PASSWORD_KEY,
+    MQ_AUTH_API_KEY_VALUE_KEY, MQ_AUTH_CLIENT_SECRET_KEY, MQ_AUTH_PASSWORD_KEY, MQ_AUTH_TOKEN_KEY,
+    MQ_TOKEN_SIGNING_KEY, NACOS_AUTH_PASSWORD_KEY, NACOS_RNACOS_CONSOLE_PASSWORD_KEY, PLUGIN_CONNECTION_SECRET_PREFIX,
 };
 use crate::models::connection::{ConnectionConfig, DatabaseType, TransportLayerConfig};
 use crate::saved_sql::SavedSqlLibrary;
@@ -1416,12 +1416,27 @@ pub async fn apply_sync_snapshot_with_selection(
                     .connection_secrets
                     .iter()
                     .filter(|secret| {
-                        !(matches!(
-                            secret.key.as_str(),
-                            "password" | NACOS_AUTH_PASSWORD_KEY | NACOS_RNACOS_CONSOLE_PASSWORD_KEY
-                        ) && connections
-                            .iter()
-                            .any(|config| config.id == secret.connection_id && !config.save_password))
+                        let forbidden_rocketmq_auth =
+                            secret.key.starts_with(crate::connection_secrets::MQ_AUTH_SECRET_PREFIX)
+                                && connections.iter().any(|config| {
+                                    config.id == secret.connection_id
+                                        && is_rocketmq_connection(config)
+                                        && (!config.save_password
+                                            || config
+                                                .external_config
+                                                .as_ref()
+                                                .and_then(|external| external.get("auth"))
+                                                .and_then(|auth| auth.get("kind"))
+                                                .and_then(serde_json::Value::as_str)
+                                                == Some("none"))
+                                });
+                        !forbidden_rocketmq_auth
+                            && !(matches!(
+                                secret.key.as_str(),
+                                "password" | NACOS_AUTH_PASSWORD_KEY | NACOS_RNACOS_CONSOLE_PASSWORD_KEY
+                            ) && connections
+                                .iter()
+                                .any(|config| config.id == secret.connection_id && !config.save_password))
                     })
                     .map(|secret| SyncImportSecret {
                         connection_id: secret.connection_id.clone(),
@@ -2435,6 +2450,7 @@ fn valid_mqtt_filter(topic: &str) -> bool {
 }
 
 fn scrub_connection_secrets(config: &mut ConnectionConfig) {
+    normalize_rocketmq_credentials(config);
     config.password.clear();
     for layer in &mut config.transport_layers {
         match layer {
@@ -2532,6 +2548,10 @@ fn collect_connection_secrets(
     config: &ConnectionConfig,
     include_plugin_secrets: bool,
 ) -> Result<(), String> {
+    // Legacy snapshots may arrive without passing through local storage.
+    let mut normalized = config.clone();
+    normalize_rocketmq_credentials(&mut normalized);
+    let config = &normalized;
     // A transient password must not become durable through a sync snapshot.
     if config.save_password {
         push_secret(secrets, &config.id, "password", &config.password);
@@ -2561,7 +2581,9 @@ fn collect_connection_secrets(
     if let Some(connection_string) = &config.connection_string {
         push_secret(secrets, &config.id, "connection_string", connection_string);
     }
-    push_mq_external_config_secrets(secrets, config);
+    if !is_rocketmq_connection(config) || config.save_password {
+        push_mq_external_config_secrets(secrets, config);
+    }
     push_mqtt_external_config_secret(secrets, config);
     push_cassandra_tls_secrets(secrets, config);
     if config.save_password {
@@ -4013,6 +4035,64 @@ mod tests {
 
         let request = server.await.unwrap();
         assert!(!request.to_ascii_lowercase().contains("user-agent:"));
+    }
+
+    #[test]
+    fn rocketmq_legacy_sync_secrets_use_auth_and_never_leak_extra_copies() {
+        let mut config = postgres_connection("rocket", "");
+        config.db_type = DatabaseType::MessageQueue;
+        config.external_config =
+            Some(serde_json::json!({"systemKind":"rocketmq", "extra":{"accessKey":"ak", "secretKey":"legacy-sk"}}));
+        let mut secrets = Vec::new();
+        super::collect_connection_secrets(&mut secrets, &config, false).unwrap();
+        assert!(secrets.iter().any(|secret| secret.key == super::MQ_AUTH_PASSWORD_KEY && secret.secret == "legacy-sk"));
+        let mut public = config.clone();
+        scrub_connection_secrets(&mut public);
+        assert_eq!(public.external_config.as_ref().unwrap()["auth"]["username"], "ak");
+        assert_eq!(public.external_config.as_ref().unwrap()["auth"]["password"], "");
+        assert!(!serde_json::to_string(&public).unwrap().contains("secretKey"));
+        config.save_password = false;
+        let mut secrets = Vec::new();
+        super::collect_connection_secrets(&mut secrets, &config, false).unwrap();
+        assert!(secrets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn rocketmq_legacy_snapshot_restore_obeys_secret_consent_and_save_preference() {
+        for (label, restore_secrets, save_password, auth_none) in [
+            ("restore", true, true, false),
+            ("metadata", false, true, false),
+            ("transient", true, false, false),
+            ("none", true, true, true),
+        ] {
+            let path = temp_db_path(&format!("rocketmq-sync-{label}"));
+            let storage = crate::persistence::test_storage::open(&path).await.unwrap();
+            let mut snapshot = build_sync_snapshot(&storage, "test", None, None).await.unwrap();
+            let mut config = postgres_connection("rocket", "");
+            config.db_type = DatabaseType::MessageQueue;
+            config.save_password = save_password;
+            config.external_config =
+                Some(serde_json::json!({"systemKind":"rocketmq", "extra":{"accessKey":"ak", "secretKey":"legacy-sk"}}));
+            if auth_none {
+                config.external_config.as_mut().unwrap()["auth"] = serde_json::json!({"kind":"none"});
+            }
+            snapshot.connections = vec![config];
+            apply_sync_snapshot(
+                &storage,
+                &snapshot,
+                ApplySnapshotOptions { secrets_passphrase: None, restore_secrets },
+            )
+            .await
+            .unwrap();
+            let expected = if restore_secrets && save_password && !auth_none { Some("legacy-sk") } else { None };
+            assert_eq!(
+                storage.get_secret("rocket", super::MQ_AUTH_PASSWORD_KEY).await.unwrap().as_deref(),
+                expected,
+                "{label}"
+            );
+            let loaded = storage.load_connections().await.unwrap();
+            assert_eq!(loaded[0].external_config.as_ref().unwrap()["extra"], serde_json::json!({}));
+        }
     }
 
     #[test]

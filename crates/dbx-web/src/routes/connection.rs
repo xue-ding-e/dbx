@@ -46,8 +46,22 @@ struct SessionCredentialWrites {
 }
 
 fn prepare_runtime_config(mut config: ConnectionConfig) -> (ConnectionConfig, NoSaveRuntimeSecrets) {
+    dbx_core::connection::connection_secrets::normalize_rocketmq_credentials(&mut config);
     if config.save_password {
         return (config, NoSaveRuntimeSecrets::default());
+    }
+    if dbx_core::connection::connection_secrets::is_rocketmq_connection(&config) {
+        let primary = config
+            .external_config
+            .as_mut()
+            .and_then(|external| external.get_mut("auth"))
+            .filter(|auth| auth.get("kind").and_then(serde_json::Value::as_str) == Some("basic"))
+            .and_then(|auth| auth.as_object_mut())
+            .and_then(|auth| auth.insert("password".into(), serde_json::json!("")))
+            .and_then(|value| value.as_str().map(str::to_owned))
+            .filter(|value| !value.is_empty());
+        config.password.clear();
+        return (config, NoSaveRuntimeSecrets { primary, console: None });
     }
     if config.db_type == DatabaseType::Nacos {
         let passwords = take_transient_passwords(&mut config);
@@ -286,14 +300,50 @@ async fn sync_mongo_legacy_driver_fallback(state: &WebState, config: &Connection
     apply_mongo_legacy_driver_profile(state, config).await
 }
 
+async fn with_temporary_connection_config<T, F, Fut>(
+    app: &Arc<AppState>,
+    config: ConnectionConfig,
+    test: F,
+) -> Result<T, String>
+where
+    F: FnOnce(String, ConnectionConfig) -> Fut,
+    Fut: std::future::Future<Output = Result<T, String>>,
+{
+    let temp_id = format!("{TEST_PROBE_ID_PREFIX}{}", uuid::Uuid::new_v4());
+    // Only RocketMQ needs auth.password moved into the owner-scoped probe store.
+    // Other connectors (notably plugin password binding) consume the draft directly.
+    let (mut config, secrets) = if dbx_core::connection::connection_secrets::is_rocketmq_connection(&config) {
+        prepare_runtime_config(config)
+    } else {
+        (config, NoSaveRuntimeSecrets::default())
+    };
+    config.id = temp_id.clone();
+    let owner = dbx_core::session_credentials::current_credential_owner().unwrap_or_default();
+    record_session_credentials(app, &owner, &temp_id, &secrets, false);
+    app.configs.write().await.insert(temp_id.clone(), config.clone());
+    let result = test(temp_id.clone(), config).await;
+    app.configs.write().await.remove(&temp_id);
+    app.session_credentials.clear_connection(&temp_id);
+    result
+}
+
 async fn run_temporary_connection_test(
     app: &Arc<AppState>,
     config: ConnectionConfig,
     include_database_info: bool,
 ) -> Result<ConnectionTestResult, String> {
-    let temp_id = format!("{TEST_PROBE_ID_PREFIX}{}", uuid::Uuid::new_v4());
-    app.configs.write().await.insert(temp_id.clone(), config.clone());
+    with_temporary_connection_config(app, config, |temp_id, config| {
+        run_prepared_temporary_connection_test(app, temp_id, config, include_database_info)
+    })
+    .await
+}
 
+async fn run_prepared_temporary_connection_test(
+    app: &Arc<AppState>,
+    temp_id: String,
+    config: ConnectionConfig,
+    include_database_info: bool,
+) -> Result<ConnectionTestResult, String> {
     if config.db_type == DatabaseType::Plugin {
         let result = async {
             let endpoint = app.plugin_connection_endpoint(&temp_id, &config).await?;
@@ -301,7 +351,6 @@ async fn run_temporary_connection_test(
         }
         .await;
         app.reset_connection_transport_for_config(&temp_id, &config).await;
-        app.configs.write().await.remove(&temp_id);
         return result;
     }
 
@@ -380,7 +429,6 @@ async fn run_temporary_connection_test(
     #[cfg(feature = "mq-admin")]
     app.mq_registry.drop_connection(&temp_id).await;
     app.reset_connection_transport_for_config(&temp_id, &config).await;
-    app.configs.write().await.remove(&temp_id);
 
     result
 }
@@ -1060,6 +1108,22 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
+    #[test]
+    fn rocketmq_no_save_runtime_moves_sk_to_session_capture() {
+        let mut config = sqlite_config("rocketmq", "");
+        config.db_type = DatabaseType::MessageQueue;
+        config.save_password = false;
+        config.external_config = Some(serde_json::json!({
+            "systemKind": "rocketmq", "adminUrl": "",
+            "auth": { "kind": "basic", "username": "ak", "password": "sk" },
+            "extra": { "secretKey": "stale" }
+        }));
+        let (runtime, secrets) = super::prepare_runtime_config(config);
+        assert_eq!(secrets.primary.as_deref(), Some("sk"));
+        assert_eq!(runtime.external_config.as_ref().unwrap()["auth"]["password"], "");
+        assert!(runtime.external_config.as_ref().unwrap()["extra"].get("secretKey").is_none());
+    }
+
     fn sqlite_config(id: &str, path: &str) -> ConnectionConfig {
         ConnectionConfig {
             oracle_oci_nls_lang: None,
@@ -1274,6 +1338,69 @@ mod tests {
         let app = Arc::new(AppState::new_with_plugin_dir(storage, dir.join("plugins")));
         let state = Arc::new(WebState::for_tests(app, dir.clone()));
         (state, dir)
+    }
+
+    #[tokio::test]
+    async fn temporary_plugin_probe_preserves_no_save_password_for_password_binding() {
+        let (state, _dir) = test_web_state().await;
+        let mut config = plugin_config("plugin-probe-password");
+        config.save_password = false;
+        config.password = "plugin-password".into();
+        super::with_temporary_connection_config(&state.app, config, |_id, runtime| async move {
+            // plugin_host.test_connection receives this config directly and binds
+            // ConnectionConfig.password into the provider's declared password field.
+            assert_eq!(runtime.password, "plugin-password");
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    #[cfg(feature = "mq-admin")]
+    #[tokio::test]
+    async fn temporary_rocketmq_test_scopes_credentials_to_probe_and_cleans_success_and_failure() {
+        let (state, _dir) = test_web_state().await;
+        for fail in [false, true] {
+            let mut config = sqlite_config("saved-rocketmq", "");
+            config.db_type = DatabaseType::MessageQueue;
+            config.save_password = false;
+            config.external_config = Some(serde_json::json!({
+                "systemKind": "rocketmq", "adminUrl": "",
+                "auth": { "kind": "basic", "username": "ak", "password": "probe-sk" },
+                "extra": { "connectionMode": "proxy", "proxyEndpoint": "proxy:8081" }
+            }));
+            state.app.session_credentials.set("owner-a", "saved-rocketmq", "saved-sk");
+            let probe_id = Arc::new(std::sync::Mutex::new(String::new()));
+            let captured = probe_id.clone();
+            let app = &state.app;
+            let result = dbx_core::session_credentials::with_credential_owner(
+                Some("owner-a".into()),
+                super::with_temporary_connection_config(app, config, |id, runtime| async move {
+                    *captured.lock().unwrap() = id.clone();
+                    assert_ne!(id, "saved-rocketmq");
+                    assert_eq!(runtime.id, id);
+                    assert_eq!(runtime.external_config.as_ref().unwrap()["auth"]["password"], "");
+                    assert_eq!(app.session_credentials.get("owner-a", &id).as_deref(), Some("probe-sk"));
+                    assert!(!app.session_credentials.has("owner-b", &id));
+                    let mqc = app.mq_admin_config_for_connection(&id, &runtime).await.unwrap();
+                    match mqc.auth {
+                        dbx_core::mq::auth::MqAuth::Basic { password, .. } => assert_eq!(password, "probe-sk"),
+                        _ => panic!("expected Basic auth"),
+                    }
+                    if fail {
+                        Err("probe failed".to_string())
+                    } else {
+                        Ok(())
+                    }
+                }),
+            )
+            .await;
+            assert_eq!(result.is_err(), fail);
+            let id = probe_id.lock().unwrap().clone();
+            assert!(!state.app.session_credentials.has("owner-a", &id));
+            assert!(!state.app.configs.read().await.contains_key(&id));
+            assert_eq!(state.app.session_credentials.get("owner-a", "saved-rocketmq").as_deref(), Some("saved-sk"));
+        }
     }
 
     #[tokio::test]

@@ -4109,7 +4109,15 @@ impl AppState {
         connection_id: &str,
         config: &ConnectionConfig,
     ) -> Result<crate::mq::config::MqAdminConfig, String> {
-        let mqc = crate::mq::config::MqAdminConfig::from_connection(config)?;
+        let mut normalized = config.clone();
+        connection_secrets::normalize_rocketmq_credentials(&mut normalized);
+        let mut mqc = crate::mq::config::MqAdminConfig::from_connection(&normalized)?;
+        if !config.save_password && mqc.system_kind == crate::mq::types::MqSystemKind::RocketMq {
+            let owner = crate::session_credentials::current_credential_owner().unwrap_or_default();
+            if let crate::mq::auth::MqAuth::Basic { password, .. } = &mut mqc.auth {
+                *password = self.session_credentials.get(&owner, connection_id).unwrap_or_default();
+            }
+        }
         if !config.has_effective_transport_layers() {
             return Ok(mqc);
         }
@@ -6772,19 +6780,29 @@ fn session_scoped_pool_key_for(
     session_scoped_pool_key(base_pool_key, client_session_id)
 }
 
+fn normalize_rocketmq_runtime_credentials(config: &mut ConnectionConfig) {
+    connection_secrets::normalize_rocketmq_credentials(config);
+    if !config.save_password && connection_secrets::is_rocketmq_connection(config) {
+        if let Some(auth) = config.external_config.as_mut().and_then(|external| external.get_mut("auth")) {
+            if auth.get("kind").and_then(serde_json::Value::as_str) == Some("basic") {
+                auth["password"] = serde_json::json!("");
+            }
+        }
+    }
+}
+
 /// 两个运行态连接配置是否视为同一连接（用于决定是否销毁连接池）。
 ///
-/// 始终忽略只影响前端导航的表加载策略。仅当双方都是 `save_password=false` 时才忽略
-/// `password` 字段的差异：这类连接在 connect 时运行态配置可能携带会话密码，持久化
-/// 同步后为空，这种空值差异不应触发池重建。若任一方 `save_password=true`，密码是
-/// 真实的连接参数，任何密码变更（包括用户保存了新密码）都必须销毁旧池，否则旧池会
-/// 继续用旧密码认证。
+/// 忽略展示配置与 no-save 连接的临时密码，包括 RocketMQ auth.password。
+/// 账号、端点和持久化密码的变化仍会使已有连接失效。
 pub fn connection_configs_pool_equivalent(a: &ConnectionConfig, b: &ConnectionConfig) -> bool {
     if a == b {
         return true;
     }
     let mut a = a.clone();
     let mut b = b.clone();
+    normalize_rocketmq_runtime_credentials(&mut a);
+    normalize_rocketmq_runtime_credentials(&mut b);
     // Sidebar paging is a presentation preference and cannot change an
     // established database session.
     a.sidebar_auto_load_all_tables = false;
@@ -6809,6 +6827,7 @@ pub fn connection_configs_pool_equivalent(a: &ConnectionConfig, b: &ConnectionCo
 /// belongs to.
 pub fn connection_configs_session_credentials_compatible(a: &ConnectionConfig, b: &ConnectionConfig) -> bool {
     fn normalize(mut config: ConnectionConfig) -> ConnectionConfig {
+        normalize_rocketmq_runtime_credentials(&mut config);
         config.name.clear();
         config.note.clear();
         config.driver_label = None;
@@ -7638,6 +7657,39 @@ mod tests {
         updated.external_config.as_mut().unwrap()["auth"]["username"] = serde_json::json!("user-b");
 
         assert!(!connection_configs_session_credentials_compatible(&initial, &updated));
+    }
+
+    #[cfg(feature = "mq-admin")]
+    #[tokio::test]
+    async fn rocketmq_runtime_auth_uses_only_active_owner_password() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = crate::persistence::test_storage::open(&dir.path().join("storage.db")).await.unwrap();
+        let state = AppState::new_with_plugin_dir(storage, dir.path().join("plugins"));
+        let mut config = mysql_config(None);
+        config.db_type = DatabaseType::MessageQueue;
+        config.save_password = false;
+        config.external_config = Some(serde_json::json!({
+            "systemKind": "rocketmq", "adminUrl": "",
+            "auth": { "kind": "basic", "username": "ak", "password": "" },
+            "extra": { "connectionMode": "proxy", "proxyEndpoint": "proxy.internal:8081" }
+        }));
+        state.session_credentials.set("owner-a", &config.id, "sk-a");
+        for (owner, expected) in [("owner-a", "sk-a"), ("owner-b", "")] {
+            crate::session_credentials::with_credential_owner(Some(owner.into()), async {
+                let mqc = state.mq_admin_config_for_connection(&config.id, &config).await.unwrap();
+                match mqc.auth {
+                    crate::mq::auth::MqAuth::Basic { password, .. } => assert_eq!(password, expected),
+                    _ => panic!("expected Basic auth"),
+                }
+            })
+            .await;
+        }
+        let mut scrubbed = config.clone();
+        config.external_config.as_mut().unwrap()["auth"]["password"] = serde_json::json!("transient");
+        assert!(connection_configs_session_credentials_compatible(&config, &scrubbed));
+        assert!(connection_configs_pool_equivalent(&config, &scrubbed));
+        scrubbed.external_config.as_mut().unwrap()["auth"]["username"] = serde_json::json!("other-ak");
+        assert!(!connection_configs_session_credentials_compatible(&config, &scrubbed));
     }
 
     #[tokio::test]
