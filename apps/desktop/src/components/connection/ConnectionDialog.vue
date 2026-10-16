@@ -76,6 +76,7 @@ import type { PluginCenterFocus } from "@/lib/plugins/pluginCenterNavigation";
 import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
 import { isWindows } from "@/lib/backend/platform";
 import { applyMeilisearchBasePathToExternalConfig, applyParsedConnectionUrl, normalizeMongoConnectionString, parseConnectionUrl } from "@/lib/connection/connectionUrl";
+import { hasGbase8cConnectionDatabase } from "@/lib/connection/gbase8cDatabase";
 import { loadVisibleDatabasesPickerNames } from "@/lib/connection/visibleDatabasesPickerLoad";
 import { hasXuguConnectionDatabase } from "@/lib/connection/xuguDatabase";
 import {
@@ -3359,6 +3360,7 @@ const databasePlaceholder = computed(() => {
   if (form.value.db_type === "oracle" && form.value.oracle_connection_type === "tns") return t("connection.oracleTnsAliasPlaceholder");
   if (form.value.db_type === "xugu") return t("connection.databasePlaceholderRequired");
   if (form.value.db_type === "kingbase") return t("connection.databasePlaceholderRequired");
+  if (form.value.db_type === "gbase8c") return t("connection.databasePlaceholderRequired");
   const fallback = defaultDatabaseForProfile();
   if (!fallback) return t("connection.databasePlaceholder");
   return t("connection.databasePlaceholderWithDefault", { database: fallback });
@@ -3811,7 +3813,7 @@ function dbCategoryForOption(value: string): DbCategoryKey | undefined {
 
 const selectedDbIcon = computed(() => (isPluginConnection.value ? "plugin" : iconTypeMap[selectedType.value] || selectedProfile().icon || selectedType.value));
 function supportsNativeAgentJdbcDriverConfigType(dbType: DatabaseType): boolean {
-  return dbType === "prestosql" || dbType === "bigquery" || dbType === "dameng" || dbType === "sundb";
+  return dbType === "prestosql" || dbType === "bigquery" || dbType === "dameng" || dbType === "sundb" || dbType === "gbase8c";
 }
 
 const jdbcBackedDatabaseTypes = new Set<DatabaseType>(["jdbc", "prestosql", "bigquery"]);
@@ -3830,6 +3832,7 @@ const supportsNativeAgentJdbcDriverConfig = computed(() => supportsNativeAgentJd
 const nativeAgentJdbcDriverHint = computed(() => {
   if (form.value.db_type === "dameng") return t("connection.damengCustomDriverHint");
   if (form.value.db_type === "sundb") return t("connection.sundbCustomDriverHint");
+  if (form.value.db_type === "gbase8c") return t("connection.gbase8cCustomDriverHint");
   return t("connection.jdbcPluginHint");
 });
 const isH2FileMode = computed(() => form.value.db_type === "h2" && h2ConnectionMode.value === "file");
@@ -4912,6 +4915,12 @@ function connectionConfigForSubmit(id: string, generatedName = "", validatePlugi
     config.database = config.database?.trim() || undefined;
     if (!config.database) {
       throw new Error(t("connection.kingbaseDatabaseRequired"));
+    }
+  }
+  if (config.db_type === "gbase8c") {
+    config.database = config.database?.trim() || undefined;
+    if (!hasGbase8cConnectionDatabase(config.database, config.connection_string)) {
+      throw new Error(t("connection.gbase8cDatabaseRequired"));
     }
   }
   if (config.db_type === "dynamodb") {
