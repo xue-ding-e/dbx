@@ -4803,6 +4803,7 @@ fn uses_keyless_row_predicate(database_type: Option<DatabaseType>) -> bool {
                 | DatabaseType::Questdb
                 | DatabaseType::OceanbaseOracle
                 | DatabaseType::Gbase
+                | DatabaseType::Gbase8s
                 | DatabaseType::Access
                 | DatabaseType::H2
                 | DatabaseType::Snowflake

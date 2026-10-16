@@ -332,6 +332,7 @@ macro_rules! agent_connection_pool_database_type {
             | DatabaseType::Exasol
             | DatabaseType::OceanbaseOracle
             | DatabaseType::Gbase
+            | DatabaseType::Gbase8s
             | DatabaseType::Oracle
             | DatabaseType::H2
             | DatabaseType::Snowflake

@@ -64,7 +64,7 @@ export const CONNECTION_PROFILES = {
   exasol: { type: "exasol", port: 8563, user: "sys", label: "Exasol", icon: "exasol" },
   gbase: { type: "gbase", port: 5258, user: "gbasedbt", label: "南大通用 GBase 8a", icon: "gbase" },
   gbase8a: { type: "gbase", port: 5258, user: "gbasedbt", label: "南大通用 GBase 8a", icon: "gbase" },
-  gbase8s: { type: "gbase", port: 9088, user: "gbasedbt", label: "南大通用 GBase 8s", icon: "gbase" },
+  gbase8s: { type: "gbase8s", port: 9088, user: "gbasedbt", label: "南大通用 GBase 8s", icon: "gbase" },
   gbase8c: { type: "gbase8c", port: 5432, user: "gbase", label: "南大通用 GBase 8c", icon: "gbase" },
   opengauss: { type: "opengauss", port: 5432, user: "gaussdb", label: "openGauss", icon: "opengauss" },
   gaussdb: { type: "gaussdb", port: 5432, user: "gaussdb", label: "GaussDB", icon: "gaussdb" },

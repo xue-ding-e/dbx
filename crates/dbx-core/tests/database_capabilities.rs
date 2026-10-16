@@ -113,6 +113,7 @@ fn maps_agent_database_types_to_driver_keys() {
     assert_eq!(agent_key(&DatabaseType::Exasol, None), Some("exasol"));
     assert_eq!(agent_key(&DatabaseType::OceanbaseOracle, None), Some("oceanbase-oracle"));
     assert_eq!(agent_key(&DatabaseType::Gbase, None), Some("gbase8a"));
+    assert_eq!(agent_key(&DatabaseType::Gbase8s, None), Some("gbase8s"));
     assert_eq!(agent_key(&DatabaseType::Access, None), Some("access"));
     assert_eq!(agent_key(&DatabaseType::Oracle, None), Some("oracle"));
     assert_eq!(agent_key(&DatabaseType::Databend, None), Some("databend"));

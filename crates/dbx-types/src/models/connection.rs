@@ -887,6 +887,7 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
     {
         let mut value = Value::deserialize(deserializer)?;
         migrate_legacy_transport_layers(&mut value);
+        migrate_legacy_gbase8s_profile(&mut value);
         let data = ConnectionConfigData::deserialize(value).map_err(serde::de::Error::custom)?;
         if let Some(grouping) = &data.redis_key_grouping {
             let mut ids = std::collections::HashSet::new();
@@ -906,6 +907,20 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
             }
         }
         Ok(data.into())
+    }
+}
+
+/// GBase 8s used to be the `gbase8s` driver profile of the MySQL-based `gbase` type. It is its own
+/// `gbase8s` type now (Informix dialect), so saved and in-flight configs are rewritten on load.
+fn migrate_legacy_gbase8s_profile(value: &mut Value) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    let is_gbase = object.get("db_type").and_then(Value::as_str) == Some("gbase");
+    let is_8s_profile =
+        object.get("driver_profile").and_then(Value::as_str).is_some_and(|p| p.eq_ignore_ascii_case("gbase8s"));
+    if is_gbase && is_8s_profile {
+        object.insert("db_type".to_string(), Value::String("gbase8s".to_string()));
     }
 }
 
@@ -1324,6 +1339,7 @@ impl ConnectionConfig {
             DatabaseType::Ignite => format!("ignite://{host}:{port}{db_part}"),
             DatabaseType::Ignite3 => format!("ignite3://{host}:{port}{db_part}"),
             DatabaseType::Gbase => format!("gbase://{host}:{port}{db_part}"),
+            DatabaseType::Gbase8s => format!("gbase8s://{host}:{port}{db_part}"),
             DatabaseType::H2 => format!("h2://{host}:{port}{db_part}"),
             DatabaseType::Snowflake => format!("snowflake://{host}/{db_part}"),
             DatabaseType::Trino => format!("trino://{host}:{port}{db_part}"),
@@ -1554,6 +1570,9 @@ impl ConnectionConfig {
             }
             DatabaseType::Gbase => {
                 format!("gbase://{}:{}@{host}:{port}{db_part}", username, password)
+            }
+            DatabaseType::Gbase8s => {
+                format!("gbase8s://{}:{}@{host}:{port}{db_part}", username, password)
             }
             DatabaseType::H2 => {
                 format!("h2://{}:{}@{host}:{port}{db_part}", username, password)
@@ -3129,6 +3148,33 @@ mod tests {
         assert_eq!(parsed.server_charset.as_deref(), Some("utf8mb4"));
         assert_eq!(parsed.jdbc_version.as_deref(), Some("4.2"));
         assert_eq!(database_info_from_protocol_value(&serde_json::json!({ "ok": true })), None);
+    }
+
+    #[test]
+    fn legacy_gbase8s_profile_connections_load_as_the_gbase8s_type() {
+        let config = |db_type: &str, driver_profile: Option<&str>| {
+            let mut value = serde_json::json!({
+                "id": "id",
+                "name": "GBase",
+                "db_type": db_type,
+                "host": "localhost",
+                "port": 9088,
+                "username": "gbasedbt",
+                "password": "",
+                "database": "app"
+            });
+            if let Some(profile) = driver_profile {
+                value["driver_profile"] = serde_json::json!(profile);
+            }
+            serde_json::from_value::<ConnectionConfig>(value).unwrap()
+        };
+
+        assert_eq!(config("gbase", Some("gbase8s")).db_type, DatabaseType::Gbase8s);
+        assert_eq!(config("gbase", Some("GBASE8S")).db_type, DatabaseType::Gbase8s);
+        assert_eq!(config("gbase8s", Some("gbase8s")).db_type, DatabaseType::Gbase8s);
+        assert_eq!(config("gbase", Some("gbase8a")).db_type, DatabaseType::Gbase);
+        assert_eq!(config("gbase", None).db_type, DatabaseType::Gbase);
+        assert_eq!(config("informix", Some("gbase8s")).db_type, DatabaseType::Informix);
     }
 
     #[test]

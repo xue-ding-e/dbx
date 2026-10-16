@@ -28,7 +28,7 @@ function selectedProfileHarness(selectedTypeValue: string, driverProfile: string
       gbase8c: { label: "南大通用 GBase 8c" },
     },
     { value: selectedTypeValue },
-    { value: { db_type: driverProfile === "gbase8c" ? "gbase8c" : "gbase", driver_profile: driverProfile } },
+    { value: { db_type: driverProfile === "gbase8c" ? "gbase8c" : driverProfile === "gbase8s" ? "gbase8s" : "gbase", driver_profile: driverProfile } },
     () => null,
     { value: null },
     gbaseProfileFromConfig,

@@ -9241,7 +9241,7 @@ function openExternalUrl(url: string) {
                       <Input v-model="elasticsearchIndexGroupingPattern" class="col-span-3" :placeholder="t('connection.elasticsearchIndexGroupingPatternPlaceholder')" @input="resetTestState" />
                     </div>
 
-                    <div v-if="form.driver_profile === 'gbase8s'" class="grid grid-cols-4 items-center gap-4">
+                    <div v-if="form.db_type === 'gbase8s'" class="grid grid-cols-4 items-center gap-4">
                       <Label :class="connectionLabelSmallClass">{{ t("connection.gbaseServer") }}</Label>
                       <div class="col-span-3 space-y-1">
                         <Input v-model="form.gbase_server" placeholder="gbase01" />

@@ -534,6 +534,7 @@ fn schema_first_qualifier_type(db_type: &DatabaseType) -> bool {
             | DatabaseType::Xugu
             | DatabaseType::Oscar
             | DatabaseType::Gbase
+            | DatabaseType::Gbase8s
             | DatabaseType::SapHana
             | DatabaseType::SqlServer
             | DatabaseType::Snowflake

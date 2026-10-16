@@ -1786,13 +1786,6 @@
       "driverStoreOrder": 15,
       "driverProfiles": [
         {
-          "profile": "gbase8s",
-          "agentKey": "gbase8s",
-          "label": "南大通用 GBase 8s",
-          "storeVisible": true,
-          "storeOrder": 16
-        },
-        {
           "profile": "gbase8a",
           "agentKey": "gbase8a",
           "label": "南大通用 GBase 8a",
@@ -1804,6 +1797,47 @@
       "metadataConnectionScoped": false,
       "skipTcpProbe": true,
       "defaultPort": 5258,
+      "traits": {
+        "schemaAware": true,
+        "treeSchema": true
+      },
+      "supportLevel": "operate",
+      "capabilities": {
+        "queryExecution": true,
+        "metadataBrowse": true,
+        "objectBrowser": true,
+        "objectSource": false,
+        "schemaSearch": true,
+        "diagram": true,
+        "tableDataEdit": true,
+        "tableStructureEdit": true,
+        "tableImport": false,
+        "dataTransfer": false,
+        "sqlFileExecution": true,
+        "databaseCreate": false,
+        "fieldLineage": false,
+        "sqlExplain": false,
+        "userAdmin": false,
+        "driverManagement": true
+      }
+    },
+    {
+      "dbType": "gbase8s",
+      "compareModes": [
+        "schema",
+        "data"
+      ],
+      "label": "南大通用 GBase 8s",
+      "dialect": "Informix",
+      "runtimeMode": "agent",
+      "mcpMode": "bridge",
+      "agentKey": "gbase8s",
+      "driverStoreVisible": true,
+      "driverStoreOrder": 16,
+      "singleConnectionPool": false,
+      "metadataConnectionScoped": false,
+      "skipTcpProbe": true,
+      "defaultPort": 9088,
       "traits": {
         "schemaAware": true,
         "treeSchema": true

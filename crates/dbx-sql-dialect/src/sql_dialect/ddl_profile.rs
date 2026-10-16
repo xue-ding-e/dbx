@@ -898,7 +898,7 @@ pub fn profile_for(db_type: DatabaseType) -> DdlDialectProfile {
         ClickHouse => clickhouse_profile(),
 
         // Engines whose DROP TABLE grammar has no `IF EXISTS`.
-        Db2 | Informix | SapHana | Teradata => {
+        Db2 | Informix | Gbase8s | SapHana | Teradata => {
             let mut profile = conservative_ansi(db_type);
             profile.drop_table_supports_if_exists = false;
             profile
