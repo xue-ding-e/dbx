@@ -287,7 +287,6 @@ export const CONNECTION_PICKER_OPTIONS = [
   { value: "firebird", label: "Firebird", category: "sql" },
   { value: "exasol", label: "Exasol", category: "analytics" },
   { value: "gbase", label: "南大通用 GBase", category: "domestic" },
-  { value: "gbase8c", label: "南大通用 GBase 8c", category: "domestic" },
   { value: "opengauss", label: "openGauss", category: "domestic" },
   { value: "gaussdb", label: "GaussDB", category: "domestic" },
   { value: "kwdb", label: "KWDB", category: "domestic" },

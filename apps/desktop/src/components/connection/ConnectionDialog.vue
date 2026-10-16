@@ -77,6 +77,7 @@ import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
 import { isWindows } from "@/lib/backend/platform";
 import { applyMeilisearchBasePathToExternalConfig, applyParsedConnectionUrl, normalizeMongoConnectionString, parseConnectionUrl } from "@/lib/connection/connectionUrl";
 import { hasGbase8cConnectionDatabase } from "@/lib/connection/gbase8cDatabase";
+import { type GbaseProfile, gbaseProfileFromConfig, isGbaseProfile } from "@/lib/connection/gbaseProfiles";
 import { loadVisibleDatabasesPickerNames } from "@/lib/connection/visibleDatabasesPickerLoad";
 import { hasXuguConnectionDatabase } from "@/lib/connection/xuguDatabase";
 import {
@@ -1290,7 +1291,7 @@ function selectedProfile() {
       icon: "plugin",
     };
   }
-  const profile = selectedType.value === "gbase" && (form.value.driver_profile === "gbase8a" || form.value.driver_profile === "gbase8s") ? form.value.driver_profile : selectedType.value;
+  const profile = selectedType.value === "gbase" ? gbaseProfileFromConfig(form.value) : selectedType.value;
   return driverProfiles[profile] ?? driverProfiles.mysql;
 }
 
@@ -3079,7 +3080,9 @@ function switchOceanbaseMode(mode: "mysql" | "oracle") {
   resetTestState();
 }
 
-function switchGbaseProfile(profile: "gbase8a" | "gbase8s") {
+const gbaseFormProfile = computed(() => gbaseProfileFromConfig(form.value));
+
+function switchGbaseProfile(profile: GbaseProfile) {
   applyProfile(profile, false);
   selectedType.value = "gbase";
   resetTestState();
@@ -3261,7 +3264,7 @@ watch(
       if (profile === "oceanbase") {
         oceanbaseSubMode.value = oceanbaseMode;
       }
-      if (profile === "gbase8a" || profile === "gbase8s") {
+      if (isGbaseProfile(profile)) {
         selectedType.value = "gbase";
       }
       dremioConnectionMode.value = profile === "dremio" ? dremioConnectionModeForConfig(config) : "legacy";
@@ -4664,6 +4667,8 @@ function applyConnectionUrlToForm(input: string): boolean {
     if (parsed.driverProfile === "oceanbase-oracle") {
       oceanbaseSubMode.value = "oracle";
       selectedType.value = "oceanbase";
+    } else if (isGbaseProfile(parsed.driverProfile)) {
+      selectedType.value = "gbase";
     } else {
       selectedType.value = parsed.driverProfile;
     }
@@ -6336,7 +6341,7 @@ function applyConnectionDraftToForm(draft: ConnectionDeepLinkDraft) {
     oceanbaseSubMode.value = "oracle";
     selectedType.value = "oceanbase";
   }
-  if (draft.driverProfile === "gbase8a" || draft.driverProfile === "gbase8s") {
+  if (isGbaseProfile(draft.driverProfile)) {
     selectedType.value = "gbase";
   }
   customDriverName.value = isCustomCompatibleProfile() ? draft.driverLabel : "";
@@ -7404,8 +7409,9 @@ function openExternalUrl(url: string) {
                 <div v-if="selectedType === 'gbase'" class="grid grid-cols-4 items-center gap-4">
                   <Label :class="connectionLabelSmallClass">{{ t("connection.version") }}</Label>
                   <div class="col-span-3 flex gap-2">
-                    <Button size="sm" :variant="form.driver_profile === 'gbase8s' ? 'outline' : 'default'" @click="switchGbaseProfile('gbase8a')"> GBase 8a </Button>
-                    <Button size="sm" :variant="form.driver_profile === 'gbase8s' ? 'default' : 'outline'" @click="switchGbaseProfile('gbase8s')"> GBase 8s </Button>
+                    <Button size="sm" :variant="gbaseFormProfile === 'gbase8a' ? 'default' : 'outline'" @click="switchGbaseProfile('gbase8a')"> GBase 8a </Button>
+                    <Button size="sm" :variant="gbaseFormProfile === 'gbase8s' ? 'default' : 'outline'" @click="switchGbaseProfile('gbase8s')"> GBase 8s </Button>
+                    <Button size="sm" :variant="gbaseFormProfile === 'gbase8c' ? 'default' : 'outline'" @click="switchGbaseProfile('gbase8c')"> GBase 8c </Button>
                   </div>
                 </div>
 

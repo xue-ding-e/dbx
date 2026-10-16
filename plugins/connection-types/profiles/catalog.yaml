@@ -323,7 +323,6 @@ profiles:
     icon: gbase
     port: 5432
     user: gbase
-    category: domestic
   - id: opengauss
     dbType: opengauss
     label: openGauss
