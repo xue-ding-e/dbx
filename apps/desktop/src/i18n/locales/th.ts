@@ -1363,7 +1363,7 @@ export default withEnglishFallback({
     damengDriverModeHint: "ใช้ Driver ที่ Bundled สำหรับ DM8 สำหรับ DM6 หรือเวอร์ชันอื่นที่เข้ากันได้ ให้เลือก JDBC JAR อย่างเป็นทางการ",
     damengCustomDriverHint: "เลือก Dameng JDBC JAR จาก Source ที่มี License Driver กำหนดเองจะถูกแยกไว้ภายใน Agent ของ Dameng และไม่ต้องใช้ Plugin JDBC ทั่วไป",
     damengCustomDriverRequired: "เลือก Dameng JDBC Driver JAR",
-    gbase8cCustomDriverHint: "GBase 8c ต้องใช้ไดรเวอร์ JDBC ของผู้จำหน่าย (com.gbase8c.Driver) ซึ่งไม่ได้อยู่ในแพ็กเกจ Agent โปรดดาวน์โหลดจาก gbase.cn เปิด «Classpath ด้วยตนเอง» แล้วระบุ gbase8c-jdbc-*.jar หากแพ็กเกจไดรเวอร์ที่ติดตั้งมีไดรเวอร์นี้อยู่แล้ว ไม่ต้องกรอก",
+    gbase8cCustomDriverHint: "GBase 8c Agent มาพร้อม Driver JDBC ของผู้จำหน่าย จึงไม่ต้องใช้ JAR (คลาส Driver com.gbase8c.Driver) ระบุ JAR ที่นี่เฉพาะเมื่อต้องการโหลด Driver ของผู้จำหน่ายเวอร์ชันใหม่กว่า Driver กำหนดเองจะโหลดแบบแยกภายใน Agent",
     sundbCustomDriverHint: "SunDB Agent มาพร้อม Driver JDBC ของผู้จำหน่าย จึงไม่ต้องใช้ JAR (คลาส Driver csii.sundb.jdbc.SundbDriver) ระบุ JAR ที่นี่เฉพาะเมื่อต้องการโหลด Driver ของผู้จำหน่ายเวอร์ชันใหม่กว่า Driver กำหนดเองจะโหลดแบบแยกภายใน Agent",
     redisTlsInsecure: "ข้ามการตรวจสอบใบรับรอง",
     redisTlsInsecureHint: "เทียบเท่ากับ redis-cli --tls --insecure สำหรับใบรับรอง Self-signed หรือ CA ส่วนตัว",

@@ -1798,7 +1798,7 @@ export default withEnglishFallback({
     damengCustomDriverHint: "正規の提供元から入手した Dameng JDBC JAR を選択してください。カスタムドライバーは Dameng エージェント内で分離して読み込まれ、汎用 JDBC プラグインは不要です。",
     damengCustomDriverRequired: "Dameng JDBC ドライバー JAR を選択してください。",
     gbase8cCustomDriverHint:
-      "GBase 8c はベンダー提供の JDBC ドライバー（com.gbase8c.Driver）が必要で、Agent のパッケージには含まれていません。gbase.cn からダウンロードし、「手動クラスパス」をオンにして gbase8c-jdbc-*.jar を指定してください。インストール済みのドライバーパッケージに同梱されている場合は入力不要です。",
+      "GBase 8c エージェントにはベンダー製 JDBC ドライバーが同梱されているため、JAR の指定は不要です（ドライバークラス com.gbase8c.Driver）。より新しいベンダー製ドライバーを読み込む場合にのみ、ここで JAR を指定してください。カスタムドライバーはエージェント内で分離して読み込まれます。",
     sundbCustomDriverHint:
       "SunDB エージェントにはベンダー製 JDBC ドライバーが同梱されているため、JAR の指定は不要です（ドライバークラス csii.sundb.jdbc.SundbDriver）。より新しいベンダー製ドライバーを読み込む場合にのみ、ここで JAR を指定してください。カスタムドライバーはエージェント内で分離して読み込まれます。",
     localInfilePathHint: "LOAD DATA LOCAL INFILE を使用する場合、localInfilePath=/絶対パス/file.csv で各ファイルを明示的に許可してください。複数のファイルがある場合はこのパラメーターを繰り返します。",

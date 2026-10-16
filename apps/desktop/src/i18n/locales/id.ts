@@ -1025,7 +1025,7 @@ export default withEnglishFallback({
     damengDriverModeHint: "Gunakan driver bawaan untuk DM8. Untuk DM6 atau versi kompatibel lainnya, pilih JAR JDBC resminya.",
     damengCustomDriverHint: "Pilih JAR JDBC Dameng dari sumber berlisensi. Driver kustom diisolasi di dalam agent Dameng dan tidak memerlukan plugin JDBC generik.",
     damengCustomDriverRequired: "Pilih JAR driver JDBC Dameng.",
-    gbase8cCustomDriverHint: "GBase 8c memerlukan driver JDBC vendor (com.gbase8c.Driver) yang tidak disertakan paket Agent. Unduh dari gbase.cn, aktifkan «Classpath manual», lalu arahkan ke gbase8c-jdbc-*.jar. Jika paket driver yang Anda pasang sudah membawanya, biarkan kosong.",
+    gbase8cCustomDriverHint: "GBase 8c Agent sudah menyertakan driver JDBC vendor, jadi tidak diperlukan JAR (driver class com.gbase8c.Driver). Sediakan JAR di sini hanya untuk memuat driver vendor yang lebih baru; driver kustom dimuat secara terisolasi di dalam Agent.",
     sundbCustomDriverHint: "SunDB Agent sudah menyertakan driver JDBC vendor, jadi tidak diperlukan JAR (driver class csii.sundb.jdbc.SundbDriver). Sediakan JAR di sini hanya untuk memuat driver vendor yang lebih baru; driver kustom dimuat secara terisolasi di dalam Agent.",
     redisTlsInsecure: "Lewati verifikasi sertifikat",
     redisTlsInsecureHint: "Setara dengan redis-cli --tls --insecure, untuk sertifikat self-signed atau CA privat.",

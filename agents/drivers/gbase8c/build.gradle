@@ -1,8 +1,9 @@
 dependencies {
-    // 厂商只公开提供一个 zip 下载，Maven Central 没有 cn.gbase 坐标，也没有任何再分发条款，
-    // 因此驱动不入库：发布产物由 manifest 的 Agent-External-Driver 标记为需要用户自备，
-    // 经 jdbc_driver_paths 传入后由 AbstractJdbcAgent 用隔离的 URLClassLoader 加载。
-    // 本地开发/冒烟时可把厂商 jar 放进 libs/（agents/.gitignore 的 **/libs/*.jar 已忽略）。
+    // 厂商只公开提供一个 zip 下载，Maven Central 没有 cn.gbase 坐标，因此把驱动 jar 入库
+    // 到 libs/（agents/.gitignore 白名单，同 gbase8a/sundb/oscar/uxdb），并打进 Agent，
+    // 开箱即用。来源：gbase.cn 下载中心 GBase-JDBC-x86_64.zip / GBase-JDBC-aarch64.zip，
+    // 两个包内的 gbase8c-jdbc-3.0.0B02.jar 逐字节相同（sha256 fe115f05124f6b9f37e49c829a0def28f7d09a6d871dd62a0c9f856b0aaa7e91）。
+    // 仍可通过连接的 `jdbc_driver_paths` 指定更新版厂商 jar，由 AbstractJdbcAgent 隔离加载。
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 }
 
@@ -10,7 +11,6 @@ tasks.named('shadowJar') {
     manifest {
         attributes(
             'Agent-Label': 'GBase 8c',
-            'Agent-External-Driver': 'true',
             'Main-Class': 'com.dbx.agent.gbase8c.Gbase8cAgent'
         )
     }

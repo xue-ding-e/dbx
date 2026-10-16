@@ -770,7 +770,7 @@ export default withEnglishFallback({
     damengCustomDriverHint: "Lisenziyalı mənbədən Dameng JDBC JAR faylı seçin. Fərdi drayver Dameng agenti daxilində təcrid olunur və ümumi JDBC plaginini tələb etmir.",
     damengCustomDriverRequired: "Dameng JDBC drayverinin JAR faylını seçin.",
     gbase8cCustomDriverHint:
-      "GBase 8c üçün Agent ilə birlikdə gəlməyən vendor JDBC drayveri (com.gbase8c.Driver) tələb olunur. gbase.cn saytından endirin, «Əl ilə təyin olunan classpath» açarını yandırın və gbase8c-jdbc-*.jar faylını göstərin. Quraşdırılmış drayver paketi bu drayveri artıq ehtiva edirsə, heç nə doldurmaq lazım deyil.",
+      "GBase 8c agenti vendor JDBC drayverini özü ilə gətirir, ona görə JAR tələb olunmur (drayver sinfi com.gbase8c.Driver). Yalnız daha yeni vendor drayveri yükləmək üçün burada JAR göstərin; fərdi drayver agent daxilində təcrid olunaraq yüklənir.",
     sundbCustomDriverHint: "SunDB agenti vendor JDBC drayverini özü ilə gətirir, ona görə JAR tələb olunmur (drayver sinfi csii.sundb.jdbc.SundbDriver). Yalnız daha yeni vendor drayveri yükləmək üçün burada JAR göstərin; fərdi drayver agent daxilində təcrid olunaraq yüklənir.",
     redisTlsInsecure: "Sertifikat yoxlamasını ötür",
     redisTlsInsecureHint: "Öz imzalı sertifikatlar və ya özəl CA-lar üçün redis-cli --tls --insecure əmrinə bərabərdir.",
