@@ -1806,6 +1806,9 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
       const count = Number(matched);
       if (!Number.isFinite(count)) return KEYLESS_GUARD_UNVERIFIED_ERROR;
       if (count > guard.maxMatchedRows) return guard.message;
+      // A predicate built from a physical row locator must still address a row:
+      // zero means it moved under us, and the write would silently do nothing.
+      if (count < (guard.minMatchedRows ?? 0)) return guard.minMessage ?? guard.message;
     }
     return undefined;
   }

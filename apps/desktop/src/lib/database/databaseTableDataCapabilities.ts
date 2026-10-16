@@ -1,7 +1,7 @@
 import type { DatabaseType } from "@/types/database";
 import { isSchemaAware, usesTreeSchemaMode } from "@/lib/database/databaseFeatureSupport";
 
-export type SyntheticEditKey = "oracle-rowid" | "xugu-rowid" | "neo4j-element-id";
+export type SyntheticEditKey = "oracle-rowid" | "xugu-rowid" | "postgres-ctid" | "neo4j-element-id";
 
 export interface TableDataCapability {
   insert: boolean;
@@ -92,6 +92,10 @@ const NAVICAT_STYLE_TABLE_DATA_TYPES = new Set<DatabaseType>([
 ]);
 
 const DATABASE_CAPABILITY_OVERRIDES: Partial<Record<DatabaseType, Partial<DatabaseCapability>>> = {
+  postgres: {
+    // CTID is injected only by base-table data previews; it is not a schema key.
+    syntheticKey: "postgres-ctid",
+  },
   duckdb: {
     tableData: {
       insert: true,

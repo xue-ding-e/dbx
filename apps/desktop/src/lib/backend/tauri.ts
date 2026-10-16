@@ -2485,7 +2485,10 @@ export async function analyzeEditableQueryEditability(sql: string): Promise<Quer
 export interface DataGridSaveGuard {
   sql: string;
   maxMatchedRows: number;
+  /** Set for predicates built from a physical row locator that must still match. */
+  minMatchedRows?: number;
   message: string;
+  minMessage?: string;
 }
 
 export interface BlobBoundStatement {
