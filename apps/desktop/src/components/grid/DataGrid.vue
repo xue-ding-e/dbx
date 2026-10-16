@@ -9087,6 +9087,7 @@ const pageSizeMenuItems = computed(() =>
 const exportMenuItems = computed(() => {
   const hasFullResultExport = !!props.fullExportResult;
   const canIncludeSql = props.context === "results" && !!(props.exportSql || props.sql)?.trim();
+  const canTransferToDatabase = props.context === "results" && !!props.transferQueryResult;
   const allResultItems =
     (props.allExportResults?.length ?? 0) > 1
       ? [
@@ -9139,7 +9140,6 @@ const exportMenuItems = computed(() => {
         {
           value: "selected-columns-csv",
           label: t("grid.exportSelectedColumnsCsv"),
-          separatorBefore: true,
         },
         { value: "selected-columns-xlsx", label: t("grid.exportSelectedColumnsXlsx") },
         ...(canIncludeSql
@@ -9195,8 +9195,9 @@ const exportMenuItems = computed(() => {
 
   if (!hasFullResultExport) {
     return [
-      ...(props.context === "results" && props.transferQueryResult ? [{ value: "database", label: t("grid.exportDatabase") }] : []),
-      { value: "csv", label: t("grid.exportCsv") },
+      ...selectedColumnsItems,
+      ...(canTransferToDatabase ? [{ value: "database", label: t("grid.exportDatabase"), separatorBefore: selectedColumnsItems.length > 0 }] : []),
+      { value: "csv", label: t("grid.exportCsv"), separatorBefore: selectedColumnsItems.length > 0 && !canTransferToDatabase },
       { value: "xlsx", label: t("grid.exportXlsx") },
       ...(canIncludeSql ? [{ value: "xlsx-with-sql", label: t("grid.exportXlsxWithSql") }] : []),
       { value: "json", label: t("grid.exportJson") },
@@ -9206,14 +9207,14 @@ const exportMenuItems = computed(() => {
       { value: "txt", label: t("grid.exportTxt") },
       ...allResultItems,
       ...selectedRowsItems,
-      ...selectedColumnsItems,
       ...selectedCellsItems,
     ];
   }
 
   return [
-    ...(props.context === "results" && props.transferQueryResult ? [{ value: "database", label: t("grid.exportDatabase"), separatorBefore: true }] : []),
-    { value: "page-csv", label: t("grid.exportCurrentPageCsv") },
+    ...selectedColumnsItems,
+    ...(canTransferToDatabase ? [{ value: "database", label: t("grid.exportDatabase"), separatorBefore: selectedColumnsItems.length > 0 }] : []),
+    { value: "page-csv", label: t("grid.exportCurrentPageCsv"), separatorBefore: selectedColumnsItems.length > 0 && !canTransferToDatabase },
     { value: "page-xlsx", label: t("grid.exportCurrentPageXlsx") },
     ...(canIncludeSql
       ? [
@@ -9249,7 +9250,6 @@ const exportMenuItems = computed(() => {
     { value: "txt", label: t("grid.exportCurrentResultTxt") },
     ...allResultItems,
     ...selectedRowsItems,
-    ...selectedColumnsItems,
     ...selectedCellsItems,
   ];
 });
@@ -13651,8 +13651,7 @@ function exportSubmenu(): ContextMenuItem {
     );
   }
   if (hasSelectedColumns.value) {
-    items.push(
-      { label: "", separator: true },
+    items.unshift(
       { label: t("grid.exportSelectedColumnsCsv"), action: exportSelectedColumnsCsv },
       {
         label: t("grid.exportSelectedColumnsXlsx"),
@@ -13680,6 +13679,7 @@ function exportSubmenu(): ContextMenuItem {
       },
       { label: t("grid.exportSelectedColumnsSql"), action: exportSelectedColumnsSql },
       { label: t("grid.exportSelectedColumnsTxt"), action: exportSelectedColumnsTxt },
+      { label: "", separator: true },
     );
   }
   if (hasSelectedCells.value) {
