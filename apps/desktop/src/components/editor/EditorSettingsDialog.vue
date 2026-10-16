@@ -336,7 +336,7 @@ import ChangelogPanel from "@/components/settings/ChangelogPanel.vue";
 import SettingsTransferPanel from "@/components/settings/SettingsTransferPanel.vue";
 import McpResourceScopePicker from "@/components/settings/McpResourceScopePicker.vue";
 import McpDatabaseScopePicker from "@/components/settings/McpDatabaseScopePicker.vue";
-import McpAuthorizationStepper from "@/components/settings/McpAuthorizationStepper.vue";
+import McpAuthorizationTabs from "@/components/settings/McpAuthorizationTabs.vue";
 import ScheduledDatabaseBackupSettings from "@/components/backup/ScheduledDatabaseBackupSettings.vue";
 import SqlFormatterSettingsPanel from "./SqlFormatterSettingsPanel.vue";
 import { APP_CUSTOM_UI_COLOR_DEFS, APP_THEME_PALETTES, type AppCornerStyle, type AppCustomUiColors, type AppThemeAppearance, type AppThemeMode, type AppThemePalette } from "@/lib/app/appTheme";
@@ -12254,7 +12254,7 @@ LIMIT 100;</pre>
                 </TabsContent>
 
                 <TabsContent value="permissions" class="m-0 space-y-4">
-                  <McpAuthorizationStepper>
+                  <McpAuthorizationTabs>
                     <template #connections>
                       <div class="space-y-3">
                         <p v-if="mcpPolicyLoadError" class="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-600 dark:text-red-400">
@@ -12422,7 +12422,7 @@ LIMIT 100;</pre>
                         </section>
                       </div>
                     </template>
-                  </McpAuthorizationStepper>
+                  </McpAuthorizationTabs>
                 </TabsContent>
                 <div v-if="mcpManagementTab === 'access'" class="space-y-5 border-t border-border/60 pt-5 sm:ml-1">
                   <div class="space-y-3">
