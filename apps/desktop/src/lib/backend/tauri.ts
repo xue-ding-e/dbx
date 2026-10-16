@@ -125,6 +125,7 @@ import type { QueryEditability } from "@/lib/sql/sqlAnalysis";
 import { isTerminalTransferProgress } from "@/lib/backend/transferProgress";
 import type {
   ActivePluginSession,
+  ConnectionIdleClosedEvent,
   ConnectionLivenessMessage,
   PluginBinaryEvent,
   PluginConnectionActionResult,
@@ -3101,6 +3102,16 @@ export async function subscribePluginEvents(onEvent: (event: PluginEvent) => voi
  */
 export async function subscribeConnectionLiveness(onEvent: (event: ConnectionLivenessMessage) => void): Promise<UnlistenFn> {
   return listen<ConnectionLivenessMessage>("dbx-connection-liveness", (event) => onEvent(event.payload));
+}
+
+/**
+ * 订阅后端「空闲自动断开」事件（issue #12112）。
+ *
+ * 后端在连接池因空闲超过 `idle_disconnect_secs` 关闭时发送 `dbx:connection-idle-closed`；
+ * 监听器收到的就是载荷本身（前端把该连接标记为未连接并保留已打开页签）。
+ */
+export async function subscribeConnectionIdleClosed(onEvent: (event: ConnectionIdleClosedEvent) => void): Promise<UnlistenFn> {
+  return listen<ConnectionIdleClosedEvent>("dbx:connection-idle-closed", (event) => onEvent(event.payload));
 }
 
 export async function listJdbcDrivers(): Promise<JdbcDriverInfo[]> {

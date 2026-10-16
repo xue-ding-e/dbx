@@ -1922,6 +1922,7 @@ pub fn run() {
             app.manage(state.clone());
             commands::plugins::install_plugin_event_bridge(app.handle(), state.clone());
             commands::connection::install_connection_liveness_bridge(app.handle(), state.clone());
+            commands::connection::install_connection_idle_closed_bridge(app.handle(), state.clone());
             let app_identifier = app.config().identifier.clone();
             let backups = tauri::async_runtime::block_on(async {
                 background_backup::BackgroundBackup::new(state.clone(), data_dir.clone(), app_identifier)

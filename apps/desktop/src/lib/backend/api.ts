@@ -77,6 +77,7 @@ export const replaceNacosSessionCredential = forward("replaceNacosSessionCredent
 export const checkConnectionHealth = forward("checkConnectionHealth");
 export const connectionIsOpen = forward("connectionIsOpen");
 export const subscribeConnectionLiveness = forward("subscribeConnectionLiveness");
+export const subscribeConnectionIdleClosed = forward("subscribeConnectionIdleClosed");
 export const prewarmConnection = forward("prewarmConnection");
 export const connectionIdentifierQuote = forward("connectionIdentifierQuote");
 export const closeDatabaseConnection = forward("closeDatabaseConnection");

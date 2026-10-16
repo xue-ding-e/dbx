@@ -911,6 +911,7 @@ mod tests {
             query_timeout_secs: 30,
             idle_timeout_secs: 60,
             manual_transaction_timeout_secs: 300,
+            idle_disconnect_secs: 0,
             keepalive_interval_secs: 30,
             ssl: false,
             ca_cert_path: String::new(),

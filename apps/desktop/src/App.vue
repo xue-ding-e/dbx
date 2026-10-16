@@ -4980,7 +4980,45 @@ async function syncConnectionLivenessSubscription(active: boolean): Promise<void
   }
 }
 
-watch(appReady, (ready) => void syncConnectionLivenessSubscription(ready), { immediate: true });
+// Backend idle-closed notifications (#12112). Registered through the same `api` layer and the
+// same appReady gate as the liveness channel above, so neither transport opens a stream before
+// auth is settled.
+let connectionIdleClosedUnlisten: (() => void) | null = null;
+let connectionIdleClosedSubscribing = false;
+
+async function syncConnectionIdleClosedSubscription(active: boolean): Promise<void> {
+  if (!active) {
+    connectionIdleClosedUnlisten?.();
+    connectionIdleClosedUnlisten = null;
+    return;
+  }
+  if (connectionIdleClosedUnlisten || connectionIdleClosedSubscribing) return;
+  connectionIdleClosedSubscribing = true;
+  try {
+    const unlisten = await api.subscribeConnectionIdleClosed((payload) => {
+      void connectionStore.handleConnectionIdleClosed(payload);
+    });
+    if (!appReady.value) {
+      // Auth flipped off while the subscription was being established.
+      unlisten();
+      return;
+    }
+    connectionIdleClosedUnlisten = unlisten;
+  } catch (error) {
+    console.error("[DBX] subscribeConnectionIdleClosed error:", error);
+  } finally {
+    connectionIdleClosedSubscribing = false;
+  }
+}
+
+watch(
+  appReady,
+  (ready) => {
+    void syncConnectionLivenessSubscription(ready);
+    void syncConnectionIdleClosedSubscription(ready);
+  },
+  { immediate: true },
+);
 
 onMounted(async () => {
   clearStartupPreloadRetry();
