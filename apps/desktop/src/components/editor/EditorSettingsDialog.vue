@@ -165,6 +165,7 @@ import {
   saveWebMcpHttpSettings,
   rotateWebMcpToken,
   forgetSnippetSavedToken,
+  forgetSnippetSavedPassphrase,
   forgetWebdavSyncSecretsPassphrase,
   forgetWebdavSavedPassword,
   getAppSupportInfo,
@@ -185,6 +186,7 @@ import {
   saveWebdavSyncSecretsPreference,
   saveWebdavSavedPassword,
   saveSnippetSavedToken,
+  saveSnippetSavedPassphrase,
   saveSnippetSyncId,
   retrySnippetLegacyCleanup,
   snippetSyncDownload,
@@ -192,6 +194,7 @@ import {
   snippetSyncSettings,
   snippetSyncTest,
   snippetSyncUpload,
+  snippetPassphraseStatus,
   snippetTokenStatus,
   webdavPasswordStatus,
   webdavSyncDownload,
@@ -213,6 +216,21 @@ import {
   type SyncSnapshotCatalog,
   type WebDavConfig,
 } from "@/lib/backend/api";
+import {
+  MAX_SNIPPET_AUTO_UPLOAD_INTERVAL_MINUTES,
+  normalizedSnippetAutoUploadInterval,
+  readSnippetAutoUploadConfig,
+  readSnippetLastSuccessfulUpload,
+  readSnippetRemoteContentHash,
+  snippetRemoteContentHashKey,
+  SNIPPET_AUTO_UPLOAD_CONFIG_CHANGED_EVENT,
+  SNIPPET_LAST_UPLOAD_CHANGED_EVENT,
+  writeSnippetAutoUploadFields,
+  writeSnippetLastSuccessfulUpload,
+  writeSnippetAutoUploadSelection,
+  writeSnippetRemoteContentHash,
+  withSnippetSyncLock,
+} from "@/lib/cloudSync/snippetAutoUploadConfig";
 import { createModifierDoubleTapShortcutController } from "@/lib/editor/modifierDoubleTapShortcut";
 import { eventToModifierOnlyShortcut, eventToShortcut } from "@/lib/editor/keyboardShortcuts";
 import { shortcutRecorderAction } from "@/lib/editor/shortcutRecorder";
@@ -4715,27 +4733,99 @@ const snippetInstanceUrl = ref(localStorage.getItem("dbx-gitlab-instance-url") |
 const activeSnippetInstanceUrl = ref(snippetInstanceUrl.value);
 const snippetInstanceError = ref("");
 const snippetPreferenceKey = () => `dbx-snippet-remember-token-${snippetProvider.value}${snippetProvider.value === "gitlab" ? `-${activeSnippetInstanceUrl.value}` : ""}`;
+const snippetPassphrasePreferenceKey = () => `dbx-snippet-remember-passphrase-${snippetProvider.value}${snippetProvider.value === "gitlab" ? `-${activeSnippetInstanceUrl.value}` : ""}`;
 const snippetId = ref("");
 const snippetToken = ref("");
 const snippetRememberToken = ref(localStorage.getItem(snippetPreferenceKey()) === "true");
 const snippetHasSavedToken = ref(false);
 const snippetPassphrase = ref("");
+const snippetRememberPassphrase = ref(localStorage.getItem(snippetPassphrasePreferenceKey()) === "true");
+const snippetHasSavedPassphrase = ref(false);
+const snippetRemoteContentHashCache = ref(new Map<string, string | null>());
+const initialSnippetAutoUploadConfig = readSnippetAutoUploadConfig();
+const snippetAutoUploadEnabled = ref(initialSnippetAutoUploadConfig.enabled);
+const snippetAutoUploadIntervalMinutes = ref(initialSnippetAutoUploadConfig.intervalMinutes);
+const snippetAutoUploadIntervalHint = computed(() => {
+  const formatted = formatWebDavAutoUploadInterval(snippetAutoUploadIntervalMinutes.value, locale.value, {
+    minute: t("settings.syncAutoUploadUnitMinute"),
+    hour: t("settings.syncAutoUploadUnitHour"),
+    day: t("settings.syncAutoUploadUnitDay"),
+  });
+  return t("settings.syncAutoUploadScheduleHint", { interval: formatted.interval });
+});
 const snippetSecretsPassphrase = ref("");
 const snippetIncludeSecrets = ref(false);
 const snippetRestoreSecrets = ref(false);
 const snippetBusy = ref<"" | "test" | "upload" | "download" | "migrate" | "cleanup">("");
 const snippetMessage = ref("");
 const snippetError = ref(false);
+function currentSnippetLastSuccessfulUpload(): string | undefined {
+  const instanceUrl = snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined;
+  return readSnippetLastSuccessfulUpload(snippetProvider.value, instanceUrl, snippetId.value);
+}
+const snippetLastUploadAt = ref(currentSnippetLastSuccessfulUpload());
+const snippetLastUploadDisplay = computed(() => {
+  if (!snippetLastUploadAt.value) return "";
+  const date = new Date(snippetLastUploadAt.value);
+  if (Number.isNaN(date.getTime())) return "";
+  const time = new Intl.DateTimeFormat(locale.value, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  return t("settings.syncSnippetLastSuccessfulUpload", { time });
+});
 const legacySnippetId = ref("");
 const pendingLegacyCleanupId = ref("");
 const snippetSyncSettingsLoading = ref(true);
 
 watch(syncMethodTab, (value) => writeSyncMethod(value), { immediate: true });
 
+function refreshSnippetLastUploadTime() {
+  snippetLastUploadAt.value = currentSnippetLastSuccessfulUpload();
+}
+
+watch([snippetProvider, activeSnippetInstanceUrl, snippetId], refreshSnippetLastUploadTime);
+onMounted(() => window.addEventListener(SNIPPET_LAST_UPLOAD_CHANGED_EVENT, refreshSnippetLastUploadTime));
+onUnmounted(() => window.removeEventListener(SNIPPET_LAST_UPLOAD_CHANGED_EVENT, refreshSnippetLastUploadTime));
+
 const webdavReady = computed(() => !!webdavEndpoint.value.trim() && !webdavBusy.value);
 const localBackupCanIncludeSecrets = computed(() => !!localBackupSecretsPassphrase.value.trim());
 const snippetReady = computed(() => !snippetSyncSettingsLoading.value && !snippetBusy.value && (snippetProvider.value !== "gitlab" || (!snippetInstanceError.value && snippetInstanceUrl.value === activeSnippetInstanceUrl.value)) && (!!snippetToken.value.trim() || snippetHasSavedToken.value));
-const snippetUploadReady = computed(() => snippetReady.value && !!snippetPassphrase.value.trim());
+const snippetUploadReady = computed(() => snippetReady.value && (!!snippetPassphrase.value.trim() || snippetHasSavedPassphrase.value));
+const snippetAutoUploadRequirements = computed(() => {
+  if (snippetSyncSettingsLoading.value) return [];
+
+  const requirements: string[] = [];
+  if (snippetProvider.value === "gitlab" && (snippetInstanceError.value || snippetInstanceUrl.value !== activeSnippetInstanceUrl.value)) {
+    requirements.push(t("settings.syncSnippetAutoUploadInvalidGitLabInstance"));
+  }
+  if (!snippetHasSavedToken.value) requirements.push(t("settings.syncSnippetAutoUploadMissingToken"));
+  if (!snippetHasSavedPassphrase.value) requirements.push(t("settings.syncSnippetAutoUploadMissingPassphrase"));
+
+  const id = snippetId.value.trim();
+  if (!id) {
+    requirements.push(t("settings.syncSnippetAutoUploadMissingSnippet"));
+  } else {
+    const instanceUrl = snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined;
+    const hashKey = snippetRemoteContentHashKey(snippetProvider.value, instanceUrl, id);
+    const hashCache = snippetRemoteContentHashCache.value;
+    const remoteContentHash = hashCache.has(hashKey) ? hashCache.get(hashKey) : readSnippetRemoteContentHash(snippetProvider.value, instanceUrl, id);
+    if (!remoteContentHash) requirements.push(t("settings.syncSnippetAutoUploadMissingBaseline"));
+  }
+  return requirements;
+});
+const snippetAutoUploadReady = computed(() => !snippetSyncSettingsLoading.value && snippetAutoUploadRequirements.value.length === 0);
+const snippetAutoUploadSetupHint = computed(() => {
+  if (snippetSyncSettingsLoading.value) return t("settings.syncSnippetAutoUploadChecking");
+  return t("settings.syncSnippetAutoUploadNeedsSetup", {
+    requirements: snippetAutoUploadRequirements.value.join(t("settings.syncSnippetAutoUploadRequirementSeparator")),
+  });
+});
 // Legacy plaintext snippets have no outer encryption password. Let the
 // backend require one only after it detects an encrypted envelope so those
 // snapshots remain recoverable for migration.
@@ -4755,6 +4845,15 @@ function currentSnippetAccountConfig(): SnippetSyncConfig {
   return { ...currentSnippetConfig(), token: undefined };
 }
 
+function persistSnippetRemoteContentHash(snippetId: string, remoteContentHash: string | undefined) {
+  const provider = snippetProvider.value;
+  const instanceUrl = provider === "gitlab" ? activeSnippetInstanceUrl.value : undefined;
+  writeSnippetRemoteContentHash(provider, instanceUrl, snippetId, remoteContentHash);
+  const cache = new Map(snippetRemoteContentHashCache.value);
+  cache.set(snippetRemoteContentHashKey(provider, instanceUrl, snippetId), remoteContentHash || null);
+  snippetRemoteContentHashCache.value = cache;
+}
+
 async function refreshSnippetTokenStatus() {
   const account = `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`;
   try {
@@ -4764,6 +4863,18 @@ async function refreshSnippetTokenStatus() {
     if (status.hasSavedToken) snippetRememberToken.value = true;
   } catch {
     if (account === `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) snippetHasSavedToken.value = false;
+  }
+}
+
+async function refreshSnippetPassphraseStatus() {
+  const account = `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`;
+  try {
+    const status = await snippetPassphraseStatus(currentSnippetAccountConfig());
+    if (account !== `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) return;
+    snippetHasSavedPassphrase.value = status.hasSavedPassphrase;
+    if (status.hasSavedPassphrase) snippetRememberPassphrase.value = true;
+  } catch {
+    if (account === `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) snippetHasSavedPassphrase.value = false;
   }
 }
 
@@ -4795,7 +4906,10 @@ async function refreshSnippetSyncSettings(provider = snippetProvider.value, inst
 }
 
 async function persistSnippetSyncId() {
-  await saveSnippetSyncId(snippetProvider.value, snippetId.value.trim() || undefined, snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined);
+  const id = snippetId.value.trim();
+  const instanceUrl = snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined;
+  await saveSnippetSyncId(snippetProvider.value, id || undefined, instanceUrl);
+  if (!id || !readSnippetRemoteContentHash(snippetProvider.value, instanceUrl, id)) snippetAutoUploadEnabled.value = false;
 }
 
 function commitSnippetInstance() {
@@ -4811,14 +4925,20 @@ function commitSnippetInstance() {
   if (snippetInstanceUrl.value === activeSnippetInstanceUrl.value) return;
   activeSnippetInstanceUrl.value = snippetInstanceUrl.value;
   localStorage.setItem("dbx-gitlab-instance-url", activeSnippetInstanceUrl.value);
+  syncSnippetAutoUploadPreference();
+  window.dispatchEvent(new Event(SNIPPET_AUTO_UPLOAD_CONFIG_CHANGED_EVENT));
   snippetRememberToken.value = localStorage.getItem(snippetPreferenceKey()) === "true";
+  snippetRememberPassphrase.value = localStorage.getItem(snippetPassphrasePreferenceKey()) === "true";
   snippetToken.value = "";
+  snippetPassphrase.value = "";
   snippetHasSavedToken.value = false;
+  snippetHasSavedPassphrase.value = false;
   snippetId.value = "";
   legacySnippetId.value = "";
   pendingLegacyCleanupId.value = "";
   snippetSyncSettingsLoading.value = true;
   void refreshSnippetTokenStatus();
+  void refreshSnippetPassphraseStatus();
   void refreshSnippetSyncSettings();
 }
 
@@ -4835,16 +4955,79 @@ async function applySnippetTokenPreference() {
   }
 }
 
+async function clearSnippetSavedToken() {
+  const accountKey = `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`;
+  const accountConfig = currentSnippetAccountConfig();
+  snippetHasSavedToken.value = false;
+  snippetRememberToken.value = false;
+  snippetAutoUploadEnabled.value = false;
+  try {
+    await withSnippetSyncLock(() => forgetSnippetSavedToken(accountConfig));
+    snippetToken.value = "";
+  } catch (error: any) {
+    if (accountKey === `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) {
+      snippetHasSavedToken.value = true;
+      snippetRememberToken.value = true;
+      snippetMessage.value = error?.message || String(error);
+      snippetError.value = true;
+    }
+  }
+}
+
+async function applySnippetPassphrasePreference() {
+  const passphrase = snippetPassphrase.value.trim();
+  localStorage.setItem(snippetPassphrasePreferenceKey(), String(snippetRememberPassphrase.value));
+  if (snippetRememberPassphrase.value && passphrase) {
+    await saveSnippetSavedPassphrase(currentSnippetAccountConfig(), passphrase);
+    snippetHasSavedPassphrase.value = true;
+    snippetPassphrase.value = "";
+    return;
+  }
+  if (!snippetRememberPassphrase.value && snippetHasSavedPassphrase.value) {
+    await forgetSnippetSavedPassphrase(currentSnippetAccountConfig());
+    snippetHasSavedPassphrase.value = false;
+    snippetAutoUploadEnabled.value = false;
+  }
+}
+
+async function clearSnippetSavedPassphrase() {
+  const accountKey = `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`;
+  const accountConfig = currentSnippetAccountConfig();
+  snippetHasSavedPassphrase.value = false;
+  snippetRememberPassphrase.value = false;
+  snippetAutoUploadEnabled.value = false;
+  try {
+    await withSnippetSyncLock(() => forgetSnippetSavedPassphrase(accountConfig));
+    snippetPassphrase.value = "";
+  } catch (error: any) {
+    if (accountKey === `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) {
+      snippetHasSavedPassphrase.value = true;
+      snippetRememberPassphrase.value = true;
+    }
+    snippetMessage.value = error?.message || String(error);
+    snippetError.value = true;
+  }
+}
+
+function syncSnippetAutoUploadPreference() {
+  const config = readSnippetAutoUploadConfig();
+  snippetAutoUploadEnabled.value = config.enabled;
+  snippetAutoUploadIntervalMinutes.value = config.intervalMinutes;
+}
+
 async function runSnippetAction(kind: "test" | "upload" | "download" | "migrate" | "cleanup", action: () => Promise<string>, persistCurrentSnippetId = true) {
   snippetBusy.value = kind;
   snippetMessage.value = "";
   snippetError.value = false;
   try {
-    localStorage.setItem("dbx-snippet-provider", snippetProvider.value);
-    localStorage.setItem(snippetPreferenceKey(), String(snippetRememberToken.value));
-    if (persistCurrentSnippetId) await persistSnippetSyncId();
-    await applySnippetTokenPreference();
-    snippetMessage.value = await action();
+    await withSnippetSyncLock(async () => {
+      localStorage.setItem("dbx-snippet-provider", snippetProvider.value);
+      localStorage.setItem(snippetPreferenceKey(), String(snippetRememberToken.value));
+      if (persistCurrentSnippetId) await persistSnippetSyncId();
+      await applySnippetTokenPreference();
+      await applySnippetPassphrasePreference();
+      snippetMessage.value = await action();
+    });
   } catch (e: any) {
     snippetMessage.value = e?.message || String(e);
     if (kind === "upload" && snippetMessage.value.includes("legacy unencrypted DBX snapshot")) {
@@ -4888,6 +5071,9 @@ async function migrateLegacySnippet() {
       const summary = await snippetSyncUpload(config, settingsStore.editorSettings, snippetPassphrase.value, snippetIncludeSecrets.value, snippetSecretsPassphrase.value || undefined);
       snippetId.value = summary.snippetId;
       await persistSnippetSyncId();
+      persistSnippetRemoteContentHash(summary.snippetId, summary.remoteContentHash);
+      const instanceUrl = snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined;
+      writeSnippetLastSuccessfulUpload(snippetProvider.value, instanceUrl, summary.snippetId);
       legacySnippetId.value = "";
       pendingLegacyCleanupId.value = summary.legacyCleanupRequiredId || "";
       if (!summary.legacyCleanupRequiredId) {
@@ -5180,6 +5366,10 @@ async function confirmSyncSelection(selection: SyncSelection) {
         const summary = await snippetSyncUpload(currentSnippetConfig(), settingsStore.editorSettings, snippetPassphrase.value, selection.includeSecrets, selection.includeSecrets ? snippetSecretsPassphrase.value : undefined, selection);
         snippetId.value = summary.snippetId;
         await persistSnippetSyncId();
+        const instanceUrl = snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined;
+        writeSnippetAutoUploadSelection(snippetProvider.value, instanceUrl, selection);
+        persistSnippetRemoteContentHash(summary.snippetId, summary.remoteContentHash);
+        writeSnippetLastSuccessfulUpload(snippetProvider.value, instanceUrl, summary.snippetId);
         return t("settings.syncSnippetUploadSuccess", { bytes: summary.bytes, id: summary.snippetId });
       });
       return;
@@ -5187,6 +5377,7 @@ async function confirmSyncSelection(selection: SyncSelection) {
     snippetRestoreSecrets.value = selection.includeSecrets;
     await runSnippetAction("download", async () => {
       const result = await snippetSyncDownload(currentSnippetConfig(), snippetPassphrase.value, selection.includeSecrets, selection.includeSecrets ? snippetSecretsPassphrase.value : undefined, selection);
+      persistSnippetRemoteContentHash(result.summary.snippetId, result.summary.remoteContentHash);
       if (result.editorSettings && typeof result.editorSettings === "object") settingsStore.updateEditorSettings(result.editorSettings as any);
       await settingsStore.updateDesktopSettings(result.desktopSettings);
       await connectionStore.initFromDisk();
@@ -5309,10 +5500,13 @@ watch(
       editSidebarTablePageSize.value = settingsStore.desktopSettings.sidebar_table_page_size ?? DEFAULT_SIDEBAR_TABLE_PAGE_SIZE;
       webdavPassword.value = "";
       snippetToken.value = "";
+      snippetPassphrase.value = "";
       webdavSecretsPassphrase.value = "";
+      syncSnippetAutoUploadPreference();
       await refreshWebDavPasswordStatus();
       await refreshWebDavSyncSecretsStatus();
       await refreshSnippetTokenStatus();
+      await refreshSnippetPassphraseStatus();
       await refreshSnippetSyncSettings();
       syncAiEditState();
       await applyPendingAiConfigDeepLinkDraft();
@@ -5371,17 +5565,66 @@ watch([webdavAutoUploadEnabled, webdavAutoUploadIntervalMinutes], () => {
   webdavAutoUploadIntervalMinutes.value = normalizedWebDavAutoUploadInterval(webdavAutoUploadIntervalMinutes.value);
   rememberWebDavFields();
 });
+watch(snippetRememberToken, async (remember) => {
+  localStorage.setItem(snippetPreferenceKey(), String(remember));
+  if (remember || !snippetHasSavedToken.value) return;
+  const accountKey = `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`;
+  const accountConfig = currentSnippetAccountConfig();
+  snippetHasSavedToken.value = false;
+  snippetAutoUploadEnabled.value = false;
+  try {
+    await withSnippetSyncLock(() => forgetSnippetSavedToken(accountConfig));
+  } catch (error: any) {
+    if (accountKey === `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) {
+      snippetHasSavedToken.value = true;
+      snippetRememberToken.value = true;
+      snippetMessage.value = error?.message || String(error);
+      snippetError.value = true;
+    }
+  }
+});
+watch(snippetRememberPassphrase, async (remember) => {
+  localStorage.setItem(snippetPassphrasePreferenceKey(), String(remember));
+  if (remember || !snippetHasSavedPassphrase.value) return;
+  const accountKey = `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`;
+  const accountConfig = currentSnippetAccountConfig();
+  snippetHasSavedPassphrase.value = false;
+  snippetAutoUploadEnabled.value = false;
+  try {
+    await withSnippetSyncLock(() => forgetSnippetSavedPassphrase(accountConfig));
+  } catch (error: any) {
+    if (accountKey === `${snippetProvider.value}:${activeSnippetInstanceUrl.value}`) {
+      snippetHasSavedPassphrase.value = true;
+      snippetRememberPassphrase.value = true;
+      snippetMessage.value = error?.message || String(error);
+      snippetError.value = true;
+    }
+  }
+});
+watch([snippetAutoUploadEnabled, snippetAutoUploadIntervalMinutes], () => {
+  snippetAutoUploadIntervalMinutes.value = normalizedSnippetAutoUploadInterval(snippetAutoUploadIntervalMinutes.value);
+  const persisted = readSnippetAutoUploadConfig();
+  if (persisted.enabled !== snippetAutoUploadEnabled.value || persisted.intervalMinutes !== snippetAutoUploadIntervalMinutes.value) {
+    writeSnippetAutoUploadFields(snippetProvider.value, snippetProvider.value === "gitlab" ? activeSnippetInstanceUrl.value : undefined, { enabled: snippetAutoUploadEnabled.value, intervalMinutes: snippetAutoUploadIntervalMinutes.value });
+  }
+});
 watch(snippetProvider, (provider) => {
   localStorage.setItem("dbx-snippet-provider", provider);
   snippetId.value = "";
   snippetRememberToken.value = localStorage.getItem(snippetPreferenceKey()) === "true";
+  snippetRememberPassphrase.value = localStorage.getItem(snippetPassphrasePreferenceKey()) === "true";
   snippetToken.value = "";
+  snippetPassphrase.value = "";
   snippetHasSavedToken.value = false;
+  snippetHasSavedPassphrase.value = false;
   legacySnippetId.value = "";
   pendingLegacyCleanupId.value = "";
   snippetSyncSettingsLoading.value = true;
   void refreshSnippetTokenStatus();
+  void refreshSnippetPassphraseStatus();
   void refreshSnippetSyncSettings(provider);
+  syncSnippetAutoUploadPreference();
+  window.dispatchEvent(new Event(SNIPPET_AUTO_UPLOAD_CONFIG_CHANGED_EVENT));
 });
 
 watch(activeSettingsTab, async (tab) => {
@@ -5430,6 +5673,8 @@ watch(
 );
 
 onMounted(() => {
+  syncSnippetAutoUploadPreference();
+  window.addEventListener(SNIPPET_AUTO_UPLOAD_CONFIG_CHANGED_EVENT, syncSnippetAutoUploadPreference);
   window.addEventListener("blur", modifierDoubleTapRecorder.reset);
   document.addEventListener("visibilitychange", modifierDoubleTapRecorder.reset);
   window.addEventListener("pointerdown", modifierDoubleTapRecorder.cancel, true);
@@ -5449,6 +5694,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener(SNIPPET_AUTO_UPLOAD_CONFIG_CHANGED_EVENT, syncSnippetAutoUploadPreference);
   window.removeEventListener("blur", modifierDoubleTapRecorder.reset);
   document.removeEventListener("visibilitychange", modifierDoubleTapRecorder.reset);
   window.removeEventListener("pointerdown", modifierDoubleTapRecorder.cancel, true);
@@ -10596,12 +10842,7 @@ LIMIT 100;</pre>
                           type="button"
                           class="absolute right-1 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                           :title="t('settings.syncClearSavedPassword')"
-                          @click="
-                            snippetRememberToken = false;
-                            forgetSnippetSavedToken(currentSnippetAccountConfig());
-                            snippetHasSavedToken = false;
-                            snippetToken = '';
-                          "
+                          @click="clearSnippetSavedToken"
                         >
                           <X class="size-3.5" />
                         </button>
@@ -10616,9 +10857,42 @@ LIMIT 100;</pre>
                     </div>
                     <div class="space-y-2 md:col-span-2">
                       <Label for="snippet-sync-passphrase">{{ t("settings.syncSnippetPassphrase") }}</Label>
-                      <PasswordInput id="snippet-sync-passphrase" v-model="snippetPassphrase" autocomplete="new-password" />
+                      <PasswordInput id="snippet-sync-passphrase" v-model="snippetPassphrase" :placeholder="snippetHasSavedPassphrase ? '••••••••' : ''" autocomplete="new-password" />
+                      <div class="flex items-center justify-between gap-3">
+                        <label class="flex items-center gap-2 text-xs text-muted-foreground">
+                          <input v-model="snippetRememberPassphrase" type="checkbox" class="h-4 w-4 shrink-0 accent-primary" />
+                          <span>{{ t("settings.syncSnippetRememberPassphrase") }}</span>
+                        </label>
+                        <Button v-if="snippetHasSavedPassphrase" type="button" variant="ghost" size="sm" class="h-7 px-2 text-xs" :title="t('settings.syncClearSavedPassword')" @click="clearSnippetSavedPassphrase">
+                          <X class="mr-1 size-3.5" />
+                          {{ t("settings.syncClearSavedPassword") }}
+                        </Button>
+                      </div>
                       <p class="text-xs text-muted-foreground">
                         {{ t("settings.syncSnippetPassphraseDescription") }}
+                      </p>
+                      <p class="text-xs text-muted-foreground">
+                        {{ t("settings.syncSnippetRememberPassphraseDescription") }}
+                      </p>
+                    </div>
+                    <div class="settings-item space-y-2 md:col-span-2 rounded-md border bg-muted/20 px-3 py-3">
+                      <label class="flex items-center gap-2 text-xs">
+                        <input v-model="snippetAutoUploadEnabled" type="checkbox" class="h-4 w-4 shrink-0 accent-primary" :disabled="!snippetAutoUploadReady && !snippetAutoUploadEnabled" />
+                        <span class="font-medium">{{ t("settings.syncSnippetAutoUpload") }}</span>
+                      </label>
+                      <div class="flex items-center gap-2">
+                        <Label for="snippet-auto-upload-interval" class="text-xs text-muted-foreground">{{ t("settings.syncSnippetAutoUploadInterval") }}</Label>
+                        <Input id="snippet-auto-upload-interval" v-model.number="snippetAutoUploadIntervalMinutes" type="number" min="1" :max="MAX_SNIPPET_AUTO_UPLOAD_INTERVAL_MINUTES" step="1" class="h-7 w-24 text-xs" :disabled="!snippetAutoUploadEnabled" />
+                        <span class="text-xs text-muted-foreground">{{ t("settings.syncAutoUploadMinutes") }}</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground" aria-live="polite">
+                        {{ snippetAutoUploadIntervalHint }}
+                      </p>
+                      <p class="text-xs text-muted-foreground">
+                        {{ t("settings.syncSnippetAutoUploadDescription") }}
+                      </p>
+                      <p v-if="!snippetAutoUploadReady" role="status" aria-live="polite" class="border-l-2 border-amber-500 pl-2 text-xs text-amber-700 dark:text-amber-300">
+                        {{ snippetAutoUploadSetupHint }}
                       </p>
                     </div>
                     <div class="space-y-2 md:col-span-2">
@@ -10632,10 +10906,10 @@ LIMIT 100;</pre>
                       </label>
                     </div>
                     <div v-if="snippetIncludeSecrets || snippetRestoreSecrets || legacySnippetId" class="space-y-2 md:col-span-2">
-                      <Label for="snippet-sync-secrets-passphrase">{{ t("settings.syncSecretsPassphrase") }}</Label>
+                      <Label for="snippet-sync-secrets-passphrase">{{ t("settings.syncSnippetSecretsPassphrase") }}</Label>
                       <PasswordInput id="snippet-sync-secrets-passphrase" v-model="snippetSecretsPassphrase" autocomplete="new-password" />
                       <p class="text-xs text-muted-foreground">
-                        {{ t("settings.syncSecretsPassphraseDescription") }}
+                        {{ t("settings.syncSnippetSecretsPassphraseDescription") }}
                       </p>
                     </div>
                     <div v-if="pendingLegacyCleanupId" class="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive md:col-span-2">
@@ -10646,8 +10920,9 @@ LIMIT 100;</pre>
                       </Button>
                     </div>
                     <div class="flex flex-wrap items-center justify-between gap-3 md:col-span-2">
-                      <div v-if="snippetMessage" class="min-w-0 flex-1 text-xs" :class="snippetError ? 'text-destructive' : 'text-green-600 dark:text-green-400'">
-                        {{ snippetMessage }}
+                      <div v-if="snippetMessage || snippetLastUploadDisplay" class="min-w-0 flex-1 space-y-1 text-xs">
+                        <p v-if="snippetMessage" :class="snippetError ? 'text-destructive' : 'text-green-600 dark:text-green-400'">{{ snippetMessage }}</p>
+                        <p v-if="snippetLastUploadDisplay" class="text-muted-foreground" aria-live="polite">{{ snippetLastUploadDisplay }}</p>
                       </div>
                       <div v-else class="flex-1" />
                       <div class="flex shrink-0 flex-wrap justify-end gap-2">
