@@ -2958,6 +2958,7 @@ export default withEnglishFallback({
     setNull: "Establecer NULL",
     restoreOriginalValue: "Restaurar original",
     copyColumnName: "Copiar nombre de columna",
+    copyColumnComment: "Copiar comentario de columna",
     columnDragChipMany: "{names} ({count} columnas)",
     copySqlCondition: "Copiar condición SQL",
     copyQuerySql: "Copiar SQL",

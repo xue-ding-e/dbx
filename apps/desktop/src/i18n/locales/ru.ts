@@ -3038,6 +3038,7 @@ export default withEnglishFallback({
     setNull: "Установить NULL",
     restoreOriginalValue: "Восстановить оригинал",
     copyColumnName: "Копировать имя столбца",
+    copyColumnComment: "Копировать комментарий столбца",
     columnDragChipMany: "{names} ({count} столбцов)",
     copyAlterColumnSql: "Копировать как SQL ALTER",
     alterSqlCopied: "SQL ALTER скопирован в буфер обмена",

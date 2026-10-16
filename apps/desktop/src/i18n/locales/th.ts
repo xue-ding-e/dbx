@@ -3238,6 +3238,7 @@ export default withEnglishFallback({
     setNull: "ตั้งเป็น NULL",
     restoreOriginalValue: "คืนค่าต้นฉบับ",
     copyColumnName: "คัดลอกชื่อคอลัมน์",
+    copyColumnComment: "คัดลอกคอมเมนต์คอลัมน์",
     columnDragChipMany: "{names} ({count} คอลัมน์)",
     copyAlterColumnSql: "คัดลอกเป็น SQL ALTER",
     alterSqlCopied: "คัดลอก SQL ALTER ไปยัง Clipboard แล้ว",

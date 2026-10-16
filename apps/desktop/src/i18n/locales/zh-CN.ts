@@ -3234,6 +3234,7 @@ export default withEnglishFallback({
     setNull: "设为 NULL",
     restoreOriginalValue: "恢复原值",
     copyColumnName: "复制列名",
+    copyColumnComment: "复制列注释",
     columnDragChipMany: "{names} 等 {count} 列",
     copyAlterColumnSql: "复制为SQL ALTER",
     alterSqlCopied: "SQL ALTER 已复制到剪贴板",

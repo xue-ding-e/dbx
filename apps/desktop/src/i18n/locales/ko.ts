@@ -2899,6 +2899,7 @@ export default withEnglishFallback({
     setNull: "NULL 설정",
     restoreOriginalValue: "원래대로 복원",
     copyColumnName: "컬럼 이름 복사",
+    copyColumnComment: "컬럼 주석 복사",
     columnDragChipMany: "{names} (총 {count}개)",
     copyAlterColumnSql: "SQL ALTER로 복사",
     alterSqlCopied: "SQL ALTER를 클립보드에 복사했습니다",

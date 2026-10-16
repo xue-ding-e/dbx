@@ -2847,6 +2847,7 @@ export default withEnglishFallback({
     setNull: "設為 NULL",
     restoreOriginalValue: "復原資料",
     copyColumnName: "複製欄位名稱",
+    copyColumnComment: "複製欄位註解",
     columnDragChipMany: "{names} 等 {count} 欄",
     copyAlterColumnSql: "複製為 SQL ALTER",
     alterSqlCopied: "SQL ALTER 已複製到剪貼簿",

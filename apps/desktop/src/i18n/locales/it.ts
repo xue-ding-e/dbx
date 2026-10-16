@@ -2852,6 +2852,7 @@ export default withEnglishFallback({
     setNull: "Imposta NULL",
     restoreOriginalValue: "Ripristina Originale",
     copyColumnName: "Copia Nome Colonna",
+    copyColumnComment: "Copia Commento Colonna",
     columnDragChipMany: "{names} ({count} colonne)",
     copyAlterColumnSql: "Copia come SQL ALTER",
     alterSqlCopied: "SQL ALTER copiato negli appunti",
