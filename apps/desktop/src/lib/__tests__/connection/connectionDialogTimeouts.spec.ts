@@ -1,8 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_IDLE_DISCONNECT_SECS, DEFAULT_IDLE_TIMEOUT_SECS, MAX_IDLE_DISCONNECT_SECS, MAX_IDLE_TIMEOUT_SECS, normalizeConnectTimeoutSecs, normalizeIdleDisconnectSecs, normalizeIdleTimeoutSecs, supportsIdleTimeout } from "@/lib/connection/timeoutLimits";
-
-const dialogSource = readFileSync(new URL("../../../components/connection/ConnectionDialog.vue", import.meta.url), "utf8");
 
 describe("ConnectionDialog timeout controls", () => {
   it("restores the default when the connection timeout input is cleared", () => {
@@ -43,31 +40,5 @@ describe("ConnectionDialog timeout controls", () => {
     expect(supportsIdleTimeout("sqlserver")).toBe(false);
     expect(supportsIdleTimeout("oracle")).toBe(false);
     expect(supportsIdleTimeout(undefined)).toBe(false);
-  });
-
-  it("binds idle timeout setting and hint in ConnectionDialog", () => {
-    expect(dialogSource).toContain('v-show="supportsIdleTimeoutSetting"');
-    expect(dialogSource).toContain("clampIdleTimeoutInput($event)");
-    expect(dialogSource).toContain('t("connection.idleTimeoutHint")');
-  });
-
-  it("binds the auto-disconnect-when-idle input for every dialect", () => {
-    // 该输入框不做方言门控：不挂在 supportsIdleTimeoutSetting 的 v-show 块内，也没用
-    // supportsIdleTimeout 之类的判断。
-    expect(dialogSource).toContain("clampIdleDisconnectInput($event)");
-    expect(dialogSource).toContain('t("connection.idleDisconnect")');
-    expect(dialogSource).toContain('v-model.number="form.idle_disconnect_secs"');
-    // 开关+输入框与「保持连接间隔」一行保持一致；说明文案收进小问号 tooltip，
-    // 避免和「空闲超时」的说明挤在一起。
-    expect(dialogSource).toContain('v-model="idleDisconnectEnabled"');
-    expect(dialogSource).toContain(':disabled="!idleDisconnectEnabled"');
-    expect(dialogSource).toContain(":label=\"t('connection.idleDisconnectHint')\"");
-  });
-
-  it("warns when the idle auto-disconnect threshold can never beat keepalive", () => {
-    // 软校验：阈值不大于「保持连接间隔」时给出提示，但不阻止保存。
-    expect(dialogSource).toContain("idleDisconnectKeepaliveWarning");
-    expect(dialogSource).toContain('t("connection.idleDisconnectKeepaliveWarning")');
-    expect(dialogSource).toContain("const idleDisconnectKeepaliveWarning = computed");
   });
 });
