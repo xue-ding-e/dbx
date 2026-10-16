@@ -510,6 +510,8 @@ export default withEnglishFallback({
     pluginDetailsReleaseDate: "发布日期",
     noVersionHistory: "暂无版本历史。",
     noReleaseNotes: "开发者未提供更新说明。",
+    pluginDetailsPublishedOn: "发布于 {date}",
+    pluginDetailsOpenRelease: "GitHub Release",
     noPermissions: "未声明特殊权限。",
     pluginDetailsCompatibility: "兼容性",
     pluginDetailsCurrentTarget: "当前目标平台",
