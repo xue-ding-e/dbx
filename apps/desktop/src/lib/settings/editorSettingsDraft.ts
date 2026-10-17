@@ -165,6 +165,7 @@ export const EDITOR_SETTINGS_DRAFT_KEYS = [
   "sqlVariableSyntaxOverrides",
   "continueOnErrorOnBatch",
   "clickTableNavigationTarget",
+  "objectBrowserAutoOpenDetailPanel",
   "completionTriggerMode",
   "excludedCompletionItems",
   "defaultTransactionMode",

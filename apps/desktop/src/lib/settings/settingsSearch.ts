@@ -168,6 +168,7 @@ export const SETTINGS_SEARCH_DEFINITIONS: readonly SettingsSearchDefinition[] = 
   { id: "editor-confirm-dangerous-sql", category: "editor", titleKey: "settings.confirmDangerousSqlExecution", descriptionKey: "settings.confirmDangerousSqlExecutionDescription", targetId: "editor" },
   { id: "editor-continue-batch-on-error", category: "editor", titleKey: "settings.continueOnErrorOnBatch", descriptionKey: "settings.continueOnErrorOnBatchDescription", targetId: "editor" },
   { id: "editor-table-click-navigation", category: "navigation", titleKey: "settings.clickTableNavigationTarget", descriptionKey: "settings.clickTableNavigationTargetDescription", targetId: "navigation" },
+  { id: "editor-object-browser-auto-open-detail", category: "navigation", titleKey: "settings.objectBrowserAutoOpenDetailPanel", descriptionKey: "settings.objectBrowserAutoOpenDetailPanelDescription", targetId: "navigation" },
   { id: "formatter", category: "formatter", titleKey: "settings.sqlFormatterTab", targetId: "formatter" },
   { id: "formatter-shortcuts", category: "formatter", titleKey: "settings.sqlFormatterEditorShortcuts", targetId: "formatter" },
   { id: "formatter-keyword-case", category: "formatter", titleKey: "settings.sqlFormatterKeywordCase", targetId: "formatter" },

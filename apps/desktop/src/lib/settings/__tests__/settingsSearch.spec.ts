@@ -351,6 +351,7 @@ describe("settings search", () => {
       { titleKey: "settings.tableCompletionSchemaQualification", category: "editor", targetId: "editor" },
       { titleKey: "settings.autoAliasTables", category: "editor", targetId: "editor" },
       { titleKey: "settings.clickTableNavigationTarget", category: "navigation", targetId: "navigation" },
+      { titleKey: "settings.objectBrowserAutoOpenDetailPanel", category: "navigation", targetId: "navigation" },
       { titleKey: "settings.prefillNewQueryWithSelect", category: "navigation", targetId: "navigation" },
       { titleKey: "settings.generateSqlIncludeDatabaseName", category: "editor", targetId: "editor" },
       { titleKey: "settings.generateSqlQuoteIdentifiers", category: "editor", targetId: "editor" },

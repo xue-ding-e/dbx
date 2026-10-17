@@ -141,6 +141,7 @@ const SETTINGS_TRANSFER_CATEGORY_KEYS: Record<SettingsTransferCategoryId, readon
     "dataTabReuseMode",
     "openDataTabsNextToActive",
     "clickTableNavigationTarget",
+    "objectBrowserAutoOpenDetailPanel",
     "sidebarObjectInfoMode",
     "sidebarAllowHorizontalScroll",
     "sidebarShowTooltips",
