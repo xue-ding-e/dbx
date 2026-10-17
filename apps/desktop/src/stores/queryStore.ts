@@ -127,6 +127,8 @@ import { decodeQueryResultArchive, encodeQueryResultArchive, type DecodedQueryRe
 import * as api from "@/lib/backend/api";
 import { createFrontendPluginRegistry } from "@/lib/plugins/frontendPlugin";
 import { snapshotPluginWorkbenchContext } from "@/lib/plugins/pluginData";
+import { usePluginBottomDock } from "@/lib/plugins/pluginBottomDock";
+import { anySurfaceReferencesPluginConnection, pluginWorkbenchTitlesForConnection } from "@/lib/plugins/pluginConnectionSurfaces";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSavedSqlStore } from "@/stores/savedSqlStore";
@@ -4693,6 +4695,16 @@ export const useQueryStore = defineStore("query", () => {
    * Fire-and-forget; concurrent releases for the same connection coalesce, and
    * a reopen racing the release wins.
    */
+  /**
+   * #193b — display titles of plugin surfaces bound to the connection, exposed
+   * to plugins via host.listConnections(workbenchTitles). Dock terminal
+   * entries come first (the user-renamable terminals a batch-send panel should
+   * follow), then workbench tabs.
+   */
+  function pluginWorkbenchTitles(connectionId: string): string[] {
+    return pluginWorkbenchTitlesForConnection(tabs.value, usePluginBottomDock().entries.value, connectionId);
+  }
+
   function releasePluginConnectionsAfterClose(closedTabs: ReadonlyArray<QueryTab>) {
     const closedPluginTabsByConnection = new Map<string, Set<string>>();
     for (const tab of closedTabs) {
@@ -4713,7 +4725,12 @@ export const useQueryStore = defineStore("query", () => {
           // Yield one microtask so a same-tick reopen registers its
           // replacement plugin tab before we tear the connection down.
           await Promise.resolve();
-          if (tabs.value.some((tab) => (tab.mode === "plugin-workbench" || tab.mode === "plugin-filesystem") && pluginTabConnectionId(tab) === connectionId)) return;
+          // #193: dock terminal entries live outside `tabs` — closing the last
+          // tab while a dock terminal still holds the connection must not tear
+          // it down under the surviving terminals. Floating windows (surface
+          // "window", reserved) have no synchronous registry yet and remain a
+          // known blind spot on this path.
+          if (anySurfaceReferencesPluginConnection(tabs.value, usePluginBottomDock().entries.value, connectionId)) return;
           const connectionStore = useConnectionStore();
           const config = connectionStore.getConfig(connectionId);
           // A connection reference is not ownership: only a plugin-backed
@@ -10705,6 +10722,7 @@ export const useQueryStore = defineStore("query", () => {
     openMqttAdmin,
     openNacosAdmin,
     openPluginWorkbench,
+    pluginWorkbenchTitles,
     localizePluginTabTitles,
     openPluginFilesystem,
     reconnectRestoredPluginTabs,
