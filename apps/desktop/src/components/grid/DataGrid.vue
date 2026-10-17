@@ -5409,7 +5409,15 @@ const sortedRows = computed(() => {
     const rows = props.result.rows;
     indices = indices.filter((sourceIndex) => {
       const data = rows[sourceIndex];
-      return data.some((cell, columnIndex) => cell !== null && rowLowerTextCache.get(data, columnIndex).includes(q));
+      return data.some((cell, columnIndex) => {
+        if (cell === null) return false;
+        const text = rowLowerTextCache.get(data, columnIndex);
+        if (text.includes(q)) return true;
+        // The display cache is truncated at the cell display cap, so a match
+        // past the cut would wrongly hide a row that a WHERE clause finds;
+        // re-check the full raw string value (#11956).
+        return text.endsWith("...") && typeof cell === "string" && cell.toLowerCase().includes(q);
+      });
     });
   }
   return indices;
