@@ -2446,6 +2446,20 @@ describe("settingsStore activeModel lifecycle", () => {
     expect(store.aiConfigs[1].isDefault).toBe(false);
   });
 
+  it("updateActiveModel(null) clears the active model when the last model is deleted", async () => {
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    const store = useSettingsStore();
+
+    store.aiConfigs = [makeTestConfig({ id: "c1", model: "model-a", isDefault: true })];
+    store.isAiConfigLoaded = true;
+
+    store.updateActiveModel({ configId: "c1", modelId: "model-a" });
+    expect(store.activeModel).toEqual({ configId: "c1", modelId: "model-a" });
+
+    store.updateActiveModel(null);
+    expect(store.activeModel).toBeNull();
+  });
+
   it("setDefaultAiConfig(id) changes the fallback config without replacing the active model", async () => {
     const setDefaultAiConfig = vi.fn().mockResolvedValue(undefined);
 

@@ -2710,11 +2710,8 @@ export const useSettingsStore = defineStore("settings", () => {
     });
   }
 
-  function updateActiveModel(model: { configId: string; modelId: string }) {
-    activeModel.value = {
-      configId: model.configId,
-      modelId: model.modelId.trim(),
-    };
+  function updateActiveModel(model: { configId: string; modelId: string } | null) {
+    activeModel.value = model ? { configId: model.configId, modelId: model.modelId.trim() } : null;
     persistAiChatSelection();
   }
 
