@@ -782,11 +782,28 @@ pub(crate) fn build_data_grid_copy_insert_statements_with_formatters(
     // SQL Server and Dameng reject explicit values for identity columns unless the
     // statement runs between `SET IDENTITY_INSERT <table> ON` and `OFF` (SQL Server
     // error 544), so a copied INSERT that carries the identity column must ship the
-    // wrapper. Each statement is wrapped on its own so row-by-row copies stay
-    // individually executable, matching the SQL export path.
-    let needs_identity_insert_wrapper =
-        matches!(options.database_type, Some(DatabaseType::SqlServer | DatabaseType::Dameng))
-            && insert_columns.iter().any(|(_, _, info)| info.as_ref().is_some_and(is_auto_generated_column));
+    // wrapper. Dameng AUTO_INCREMENT columns are not IDENTITY columns (DM error -2717)
+    // and must not be wrapped. Each statement is wrapped on its own so row-by-row
+    // copies stay individually executable, matching the SQL export path.
+    let needs_identity_insert_wrapper = match options.database_type {
+        Some(DatabaseType::SqlServer) => insert_columns.iter().any(|(_, _, info)| {
+            info.as_ref().is_some_and(|col| {
+                col.extra.as_deref().is_some_and(|extra| extra.to_ascii_lowercase().contains("identity"))
+                    || is_auto_generated_column(col)
+            })
+        }),
+        Some(DatabaseType::Dameng) => insert_columns.iter().any(|(_, _, info)| {
+            info.as_ref().is_some_and(|col| {
+                col.extra.as_deref().is_some_and(|extra| {
+                    let normalized = extra.to_ascii_lowercase();
+                    normalized.contains("identity")
+                        && !normalized.contains("auto_increment")
+                        && !normalized.contains("autoincrement")
+                })
+            })
+        }),
+        _ => false,
+    };
     if needs_identity_insert_wrapper {
         return Some(
             statements
@@ -6635,6 +6652,24 @@ mod tests {
             Some(
                 "SET IDENTITY_INSERT \"dbo\".\"gen_table\" ON;\nINSERT INTO \"dbo\".\"gen_table\" (\"table_id\", \"table_name\") VALUES (1, 't_destype');\nSET IDENTITY_INSERT \"dbo\".\"gen_table\" OFF;"
             )
+        );
+    }
+
+    #[test]
+    fn dameng_copy_insert_omits_identity_wrapper_for_auto_increment_columns() {
+        let mut options = sqlserver_identity_copy_insert_options(
+            vec![vec![json!(1), json!("t_destype")]],
+            DataGridCopyInsertMode::Merged,
+        );
+        options.database_type = Some(DatabaseType::Dameng);
+        options.table_meta.as_mut().unwrap().columns = Some(vec![
+            column("table_id", "bigint", false, Some("auto_increment")),
+            column("table_name", "varchar", true, None),
+        ]);
+        let statement = build_data_grid_copy_insert_statement(options);
+        assert_eq!(
+            statement.as_deref(),
+            Some("INSERT INTO \"dbo\".\"gen_table\" (\"table_id\", \"table_name\") VALUES (1, 't_destype');")
         );
     }
 

@@ -1849,7 +1849,9 @@ pub(crate) fn is_postgres_generated_always_identity_extra(extra: Option<&str>) -
 pub(crate) fn is_identity_column_extra(extra: Option<&str>) -> bool {
     extra.is_some_and(|value| {
         let normalized = value.trim().to_ascii_lowercase();
-        normalized.contains("identity") || normalized.contains("auto_increment") || normalized.contains("autoincrement")
+        normalized.contains("identity")
+            && !normalized.contains("auto_increment")
+            && !normalized.contains("autoincrement")
     })
 }
 
@@ -16233,7 +16235,10 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
             &[String::from("id"), String::from("name")],
             &[Some(String::from("identity")), None],
         ));
-        assert!(selected_columns_include_identity_extras(
+        // Dameng AUTO_INCREMENT columns are not true identity columns (issue #12124):
+        // they must not trigger IDENTITY_INSERT wrappers, so auto_increment no
+        // longer counts as an identity extra.
+        assert!(!selected_columns_include_identity_extras(
             &[String::from("id")],
             &[Some(String::from("auto_increment"))],
         ));
@@ -16247,10 +16252,12 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
     fn detects_selected_identity_columns_from_target_metadata() {
         let target_columns = vec![
             db::ColumnInfo { extra: Some("identity".to_string()), ..test_column("ID", "INT") },
+            db::ColumnInfo { extra: Some("auto_increment".to_string()), ..test_column("AUTO_ID", "BIGINT") },
             test_column("NAME", "VARCHAR(20)"),
         ];
 
         assert!(selected_columns_include_identity_columns(&[String::from("id")], &target_columns));
+        assert!(!selected_columns_include_identity_columns(&[String::from("auto_id")], &target_columns));
         assert!(!selected_columns_include_identity_columns(&[String::from("name")], &target_columns));
     }
 
