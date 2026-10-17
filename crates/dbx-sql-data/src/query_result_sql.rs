@@ -220,14 +220,20 @@ pub fn build_query_pagination_execution_plan(
     }
 
     let can_use_first_page_cursor = options.use_agent_cursor && options.pagination.offset == 0;
-    // DB2, HighGo, OceanBase Oracle, and Xugu can spend substantially more time
+    // DB2, GoldenDB, HighGo, OceanBase Oracle, and Xugu can spend substantially more time
     // executing an unbounded query before the Agent exposes its first cursor
     // page. Prefer a bounded SQL query whenever it can be rewritten safely.
     // Independent pages of an unordered query do not have a stable row order;
     // callers should add ORDER BY when that matters.
     // Kingbase keeps the cursor for unordered queries to preserve its behavior.
     let prefer_server_pagination = match options.database_type {
-        Some(DatabaseType::Db2 | DatabaseType::Highgo | DatabaseType::OceanbaseOracle | DatabaseType::Xugu) => true,
+        Some(
+            DatabaseType::Db2
+            | DatabaseType::Goldendb
+            | DatabaseType::Highgo
+            | DatabaseType::OceanbaseOracle
+            | DatabaseType::Xugu,
+        ) => true,
         Some(DatabaseType::Kingbase) => kingbase_server_pagination_is_stable(&options.query_base_sql),
         _ => false,
     };
@@ -433,7 +439,7 @@ pub fn build_count_query_sql(options: CountQuerySqlOptions) -> QuerySqlBuildResu
             .map(|sql| ok(format!("{execution_hint}{sql}")))
             .unwrap_or_else(|| err("unsupported"));
     }
-    if options.database_type == Some(DatabaseType::Mysql) {
+    if matches!(options.database_type, Some(DatabaseType::Mysql | DatabaseType::Goldendb)) {
         return mysql_count_sql(&statement)
             .map(|sql| ok(format!("{execution_hint}{sql}")))
             .unwrap_or_else(|| err("unsupported"));
@@ -731,8 +737,8 @@ fn unsupported_pagination_type(database_type: Option<DatabaseType>) -> bool {
 }
 
 fn find_query_result_statement_at_cursor(sql: &str, cursor_pos: usize, database_type: Option<DatabaseType>) -> String {
-    if database_type == Some(DatabaseType::Mysql) {
-        find_statement_at_cursor_for_database(sql, cursor_pos, DatabaseType::Mysql)
+    if matches!(database_type, Some(DatabaseType::Mysql | DatabaseType::Goldendb)) {
+        find_statement_at_cursor_for_database(sql, cursor_pos, database_type.unwrap())
     } else {
         find_statement_at_cursor(sql, cursor_pos)
     }
@@ -2260,8 +2266,8 @@ fn add_standard_limit(
         // MySQL rejects a derived table whose columns share a name (error 1060),
         // which `SELECT t.id, t.*` produces. Page through the user's own LIMIT
         // instead of wrapping it.
-        let rewrite_limit_in_place =
-            database_type == Some(DatabaseType::Mysql) && !mysql_projection_has_unique_names(statement);
+        let rewrite_limit_in_place = matches!(database_type, Some(DatabaseType::Mysql | DatabaseType::Goldendb))
+            && !mysql_projection_has_unique_names(statement);
         if !order_sql.is_empty() {
             if rewrite_limit_in_place {
                 return rewrite_mysql_top_level_limit(statement, limit, offset, &order_sql);
@@ -6009,6 +6015,74 @@ WHERE u.id = picked.id;
         assert_eq!(plan.sql_to_execute, sql);
         assert!(plan.page_sql.is_none());
         assert!(plan.use_agent_result_session);
+    }
+
+    #[test]
+    fn goldendb_prefers_server_pagination_over_agent_cursor() {
+        let first_page = build_query_pagination_execution_plan(QueryPaginationExecutionPlanOptions {
+            sql: "SELECT * FROM events".to_string(),
+            query_base_sql: "SELECT * FROM events".to_string(),
+            database_type: Some(DatabaseType::Goldendb),
+            pagination: QueryPagination { limit: 100, offset: 0, session_id: None },
+            use_agent_cursor: true,
+            first_page_uses_actual_sql: false,
+            execution_hint: None,
+        });
+
+        assert_eq!(first_page.sql_to_execute, "SELECT * FROM events LIMIT 100;");
+        assert_eq!(first_page.page_sql, Some(first_page.sql_to_execute.clone()));
+        assert_eq!(first_page.page_limit, Some(100));
+        assert_eq!(first_page.page_offset, Some(0));
+        assert!(!first_page.use_agent_result_session);
+
+        let second_page = build_query_pagination_execution_plan(QueryPaginationExecutionPlanOptions {
+            sql: "SELECT * FROM events".to_string(),
+            query_base_sql: "SELECT * FROM events".to_string(),
+            database_type: Some(DatabaseType::Goldendb),
+            pagination: QueryPagination { limit: 100, offset: 100, session_id: None },
+            use_agent_cursor: true,
+            first_page_uses_actual_sql: false,
+            execution_hint: None,
+        });
+
+        assert_eq!(second_page.sql_to_execute, "SELECT * FROM events LIMIT 100 OFFSET 100;");
+        assert_eq!(second_page.page_sql, Some(second_page.sql_to_execute.clone()));
+        assert_eq!(second_page.page_limit, Some(100));
+        assert_eq!(second_page.page_offset, Some(100));
+        assert!(!second_page.use_agent_result_session);
+    }
+
+    #[test]
+    fn goldendb_keeps_agent_fallback_for_unrewritable_query() {
+        let sql = "SELECT * FROM events; SELECT 1";
+        let plan = build_query_pagination_execution_plan(QueryPaginationExecutionPlanOptions {
+            sql: sql.to_string(),
+            query_base_sql: sql.to_string(),
+            database_type: Some(DatabaseType::Goldendb),
+            pagination: QueryPagination { limit: 100, offset: 0, session_id: None },
+            use_agent_cursor: true,
+            first_page_uses_actual_sql: false,
+            execution_hint: None,
+        });
+
+        assert_eq!(plan.sql_to_execute, sql);
+        assert!(plan.page_sql.is_none());
+        assert!(plan.use_agent_result_session);
+    }
+
+    #[test]
+    fn goldendb_count_query_handles_duplicate_column_names() {
+        let sql = "SELECT t.id, t.* FROM events t";
+        let count = build_count_query_sql(CountQuerySqlOptions {
+            original_sql: sql.to_string(),
+            database_type: Some(DatabaseType::Goldendb),
+        });
+
+        assert!(count.ok);
+        assert_eq!(
+            count.sql.as_deref(),
+            Some("SELECT COUNT(*) AS dbx_total_rows FROM (SELECT 1 AS dbx_count_value FROM events t) `dbx_count`;")
+        );
     }
 
     #[test]
