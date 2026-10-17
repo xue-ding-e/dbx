@@ -3616,7 +3616,7 @@ watch(
         finishOrContinueLoadAllRun(requestedOffset, requestedLimit);
         return;
       }
-      if (props.result.rows.length >= infiniteScrollMaxRows.value || appendedRows < (requestedLimit ?? pageSize.value)) {
+      if (props.result.page_has_more === false || props.result.rows.length >= infiniteScrollMaxRows.value || appendedRows < (requestedLimit ?? pageSize.value)) {
         infiniteScrollAllLoaded = true;
       }
       if (shouldSelectLastRow) selectAndRevealLastLoadedRow();
@@ -3710,11 +3710,14 @@ const hasCompleteLocalResult = computed(() =>
     totalRowCount: serverKnownTotalRowCount.value,
     truncated: props.result.truncated,
     hasMore: props.result.has_more,
+    pageHasMore: props.result.page_has_more,
   }),
 );
 const canGoNextPage = computed(() => {
   return canGoNextDataGridPage({
     hasMore: props.result.has_more,
+    pageHasMore: props.result.page_has_more,
+    maxRows: paginationMaxRows.value,
     rowCount: props.result.rows.length,
     pageSize: pageSize.value,
     pageOffset: props.pageOffset,
@@ -3725,13 +3728,16 @@ const canGoNextPage = computed(() => {
 });
 const maximumPage = computed(() => {
   if (allRowsLoaded.value) return 1;
+  if (props.result.page_has_more === false) return currentPage.value;
   const total = hasKnownPaginationTotalRowCount.value ? paginationTotalRowCount.value : undefined;
+  if (props.result.page_has_more === true && canGoNextPage.value && typeof total === "number" && total <= (props.pageOffset ?? 0) + props.result.rows.length) return undefined;
   if (typeof total === "number" && Number.isFinite(total) && total >= 0) return Math.max(1, Math.ceil(total / pageSize.value));
   return canGoNextPage.value ? undefined : currentPage.value;
 });
 const canFetchNextInfiniteScrollSegment = computed(() =>
   canFetchNextDataGridSegment({
     hasMore: props.result.has_more,
+    pageHasMore: props.result.page_has_more,
     loadedRowCount: props.result.rows.length,
     pageSize: pageSize.value,
     totalRowCount: hasKnownPaginationTotalRowCount.value ? paginationTotalRowCount.value : undefined,
@@ -4017,17 +4023,19 @@ function selectAndRevealLastLoadedRow() {
 }
 
 // SQL-page counts can come from another session. Explicit load-all must
-// observe a short tail on the original execution path, even at a cached total.
+// observe exhaustion on the original execution path, even at a cached total.
 const loadsSqlPages = computed(() => isResultsContext.value && !!props.pageSql);
-const sqlPageExhausted = computed(() =>
-  hasShortDataGridSqlPage({
+const sqlPageExhausted = computed(() => {
+  if (typeof props.result.page_has_more === "boolean") return !props.result.page_has_more;
+  if (props.result.truncated === true) return false;
+  return hasShortDataGridSqlPage({
     rowCount: props.result.rows.length,
     pageOffset: props.pageOffset,
     pageLimit: props.pageLimit,
     executedPageOffset: props.executedPageOffset,
     executedPageLimit: props.executedPageLimit,
-  }),
-);
+  });
+});
 function nextLoadAllSegment() {
   if (loadsSqlPages.value) {
     if (sqlPageExhausted.value) return null;
@@ -11825,7 +11833,7 @@ watch(
       if (infiniteScrollEnabled.value || loadAllRowsLoopActive) {
         currentPage.value = appendCompletion.loadedPage;
         lastInfiniteScrollPage = Math.max(0, appendCompletion.loadedPage - 1);
-        infiniteScrollAllLoaded = appendCompletion.allLoaded;
+        infiniteScrollAllLoaded = appendCompletion.allLoaded || result.page_has_more === false;
         infiniteScrollRequestedOffset = undefined;
         infiniteScrollRequestedLimit = undefined;
         infiniteScrollLoading.value = false;
@@ -11858,7 +11866,7 @@ watch(
     loadAllRowsActive.value = false;
     loadAllRowsLoopActive = false;
     if (reloadedFromFirstRow) {
-      if (props.result.has_more === true && !props.result.truncated) {
+      if (props.result.page_has_more === true || (props.result.has_more === true && !props.result.truncated)) {
         loadAllRowsActive.value = true;
         loadAllRowsLoopActive = true;
         nextTick(() => {
