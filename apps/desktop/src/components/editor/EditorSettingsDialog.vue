@@ -109,6 +109,7 @@ import {
   type UpdateDownloadSource,
   type CsvQuoteMode,
   type CsvNullMode,
+  type QueryResultExportFileNameSource,
   type CustomThemeColors,
   type CustomTheme,
   DEFAULT_CUSTOM_THEMES,
@@ -990,6 +991,7 @@ const editAutoOpenExportFolder = ref(settingsStore.editorSettings.autoOpenExport
 const editApplyColumnFormattersOnExport = ref(settingsStore.editorSettings.applyColumnFormattersOnExport);
 const editCsvQuoteMode = ref<CsvQuoteMode>(settingsStore.editorSettings.csvQuoteMode);
 const editCsvNullMode = ref<CsvNullMode>(settingsStore.editorSettings.csvNullMode);
+const editQueryResultExportFileNameSource = ref<QueryResultExportFileNameSource>(settingsStore.editorSettings.queryResultExportFileNameSource);
 const editGlobalDateTimeDisplayFormat = ref(settingsStore.editorSettings.globalDateTimeDisplayFormat);
 const editGlobalDateTimeExportFormat = ref(settingsStore.editorSettings.globalDateTimeExportFormat);
 const editGlobalDateTimeImportFormat = ref(settingsStore.editorSettings.globalDateTimeImportFormat);
@@ -1283,6 +1285,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     applyColumnFormattersOnExport: editApplyColumnFormattersOnExport.value,
     csvQuoteMode: editCsvQuoteMode.value,
     csvNullMode: editCsvNullMode.value,
+    queryResultExportFileNameSource: editQueryResultExportFileNameSource.value,
     globalDateTimeDisplayFormat: editGlobalDateTimeDisplayFormat.value,
     globalDateTimeExportFormat: editGlobalDateTimeExportFormat.value,
     globalDateTimeImportFormat: editGlobalDateTimeImportFormat.value,
@@ -1976,6 +1979,7 @@ function syncEditorSettingsDraftFromStore() {
   editApplyColumnFormattersOnExport.value = settingsStore.editorSettings.applyColumnFormattersOnExport;
   editCsvQuoteMode.value = settingsStore.editorSettings.csvQuoteMode;
   editCsvNullMode.value = settingsStore.editorSettings.csvNullMode;
+  editQueryResultExportFileNameSource.value = settingsStore.editorSettings.queryResultExportFileNameSource;
   editGlobalDateTimeDisplayFormat.value = settingsStore.editorSettings.globalDateTimeDisplayFormat;
   editGlobalDateTimeExportFormat.value = settingsStore.editorSettings.globalDateTimeExportFormat;
   editGlobalDateTimeImportFormat.value = settingsStore.editorSettings.globalDateTimeImportFormat;
@@ -2141,6 +2145,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   applyColumnFormattersOnExport: editApplyColumnFormattersOnExport,
   csvQuoteMode: editCsvQuoteMode,
   csvNullMode: editCsvNullMode,
+  queryResultExportFileNameSource: editQueryResultExportFileNameSource,
   exportRowLimitEnabled: editExportRowLimitEnabled,
   exportRowLimit: editExportRowLimit,
   queryExportKeysetOptimizationEnabled: editQueryExportKeysetOptimizationEnabled,
@@ -2747,6 +2752,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editApplyColumnFormattersOnExport.value = DEFAULT_EDITOR_SETTINGS.applyColumnFormattersOnExport;
     editCsvQuoteMode.value = DEFAULT_EDITOR_SETTINGS.csvQuoteMode;
     editCsvNullMode.value = DEFAULT_EDITOR_SETTINGS.csvNullMode;
+    editQueryResultExportFileNameSource.value = DEFAULT_EDITOR_SETTINGS.queryResultExportFileNameSource;
     editGlobalDateTimeDisplayFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeDisplayFormat;
     editGlobalDateTimeExportFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeExportFormat;
     editGlobalDateTimeImportFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeImportFormat;
@@ -2916,6 +2922,7 @@ function resetAllDefaults() {
   editApplyColumnFormattersOnExport.value = DEFAULT_EDITOR_SETTINGS.applyColumnFormattersOnExport;
   editCsvQuoteMode.value = DEFAULT_EDITOR_SETTINGS.csvQuoteMode;
   editCsvNullMode.value = DEFAULT_EDITOR_SETTINGS.csvNullMode;
+  editQueryResultExportFileNameSource.value = DEFAULT_EDITOR_SETTINGS.queryResultExportFileNameSource;
   editGlobalDateTimeDisplayFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeDisplayFormat;
   editGlobalDateTimeExportFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeExportFormat;
   editGlobalDateTimeImportFormat.value = DEFAULT_EDITOR_SETTINGS.globalDateTimeImportFormat;
@@ -10146,6 +10153,23 @@ onUnmounted(() => {
                     <SelectContent>
                       <SelectItem value="marker">{{ t("settings.csvNullModeMarker") }}</SelectItem>
                       <SelectItem value="empty">{{ t("settings.csvNullModeEmpty") }}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div data-settings-search-id="data-export-file-name-source" :class="['flex items-start justify-between gap-4', settingsSearchTargetClass('data-export-file-name-source')]">
+                  <div class="min-w-0 space-y-0.5">
+                    <Label for="query-result-export-file-name-source">{{ t("settings.queryResultExportFileNameSource") }}</Label>
+                    <p class="text-xs text-muted-foreground">
+                      {{ t("settings.queryResultExportFileNameSourceDescription") }}
+                    </p>
+                  </div>
+                  <Select v-model="editQueryResultExportFileNameSource">
+                    <SelectTrigger id="query-result-export-file-name-source" class="h-8 w-56 shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="result-label">{{ t("settings.queryResultExportFileNameSourceResultLabel") }}</SelectItem>
+                      <SelectItem value="tab-title">{{ t("settings.queryResultExportFileNameSourceTabTitle") }}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

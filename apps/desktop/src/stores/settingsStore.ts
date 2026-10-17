@@ -43,6 +43,7 @@ import { normalizeExcludedCompletionItems } from "@/lib/editor/excludedCompletio
 import { DEFAULT_SQL_TABLE_COMPLETION_SCHEMA_QUALIFICATION, normalizeSqlTableCompletionSchemaQualification, type SqlTableCompletionSchemaQualification } from "@/lib/sql/sqlCompletionSchemaQualification";
 import { DEFAULT_CSV_QUOTE_MODE, normalizeCsvQuoteMode, type CsvQuoteMode } from "@/lib/export/csvQuoteMode";
 import { DEFAULT_CSV_NULL_MODE, normalizeCsvNullMode, type CsvNullMode } from "@/lib/export/csvNullMode";
+import { DEFAULT_QUERY_RESULT_EXPORT_FILE_NAME_SOURCE, normalizeQueryResultExportFileNameSource, type QueryResultExportFileNameSource } from "@/lib/export/saveTextFile";
 import { configureMetadataRuntimeCache, METADATA_CACHE_DEFAULT_MEMORY_MB, normalizeMetadataCacheMemoryMb } from "@/lib/metadata/metadataRuntimeCache";
 import type { AiApiStyle, AiAssistantMode, AiAuthMethod, AiChatSelectionState, AiConfig, AiConfigItem, AiConfiguredModel, AiEffortLevel, AiEffortSelection, AiModelEffortPreference, AiProvider, AiReasoningLevel, AiTestConnectionResult } from "@/types/ai";
 import type { SqlShortcutAction, SqlSnippet, TableInfoTab } from "@/types/database";
@@ -62,6 +63,7 @@ export type {
   CsvQuoteMode,
   CsvNullMode,
   DataTabReuseMode,
+  QueryResultExportFileNameSource,
   SavedSqlOpenTargetMode,
   SqlCompletionTriggerMode,
   SqlTableCompletionSchemaQualification,
@@ -1189,6 +1191,7 @@ export interface EditorSettings {
   applyColumnFormattersOnExport: boolean;
   csvQuoteMode: CsvQuoteMode;
   csvNullMode: CsvNullMode;
+  queryResultExportFileNameSource: QueryResultExportFileNameSource;
   /** Global Redis key-search templates; overridden by non-empty connection templates. */
   redisKeyTemplates: string[];
   /** Sidebar database-list cap for Redis connections; the rest are revealed via "load more". */
@@ -1530,6 +1533,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   applyColumnFormattersOnExport: true,
   csvQuoteMode: DEFAULT_CSV_QUOTE_MODE,
   csvNullMode: DEFAULT_CSV_NULL_MODE,
+  queryResultExportFileNameSource: DEFAULT_QUERY_RESULT_EXPORT_FILE_NAME_SOURCE,
   redisKeyTemplates: [],
   redisDatabaseDisplayLimit: REDIS_DATABASE_DISPLAY_LIMIT_DEFAULT,
   redisValuePreviewLimitKiB: REDIS_VALUE_PREVIEW_LIMIT_KIB_DEFAULT,
@@ -2239,6 +2243,7 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
     applyColumnFormattersOnExport: typeof settings.applyColumnFormattersOnExport === "boolean" ? settings.applyColumnFormattersOnExport : DEFAULT_EDITOR_SETTINGS.applyColumnFormattersOnExport,
     csvQuoteMode: normalizeCsvQuoteMode(settings.csvQuoteMode),
     csvNullMode: normalizeCsvNullMode(settings.csvNullMode),
+    queryResultExportFileNameSource: normalizeQueryResultExportFileNameSource(settings.queryResultExportFileNameSource),
     redisKeyTemplates: normalizeRedisKeyTemplates(settings.redisKeyTemplates),
     redisValuePreviewLimitKiB: normalizeRedisValuePreviewLimitKiB(settings.redisValuePreviewLimitKiB),
     redisDatabaseDisplayLimit:
@@ -3105,6 +3110,7 @@ export const useSettingsStore = defineStore("settings", () => {
     if (partial.applyColumnFormattersOnExport !== undefined) editorSettings.value.applyColumnFormattersOnExport = partial.applyColumnFormattersOnExport === true;
     if (partial.csvQuoteMode !== undefined) editorSettings.value.csvQuoteMode = normalizeCsvQuoteMode(partial.csvQuoteMode);
     if (partial.csvNullMode !== undefined) editorSettings.value.csvNullMode = normalizeCsvNullMode(partial.csvNullMode);
+    if (partial.queryResultExportFileNameSource !== undefined) editorSettings.value.queryResultExportFileNameSource = normalizeQueryResultExportFileNameSource(partial.queryResultExportFileNameSource);
     if (partial.redisValuePreviewLimitKiB !== undefined) editorSettings.value.redisValuePreviewLimitKiB = normalizeRedisValuePreviewLimitKiB(partial.redisValuePreviewLimitKiB);
     if (partial.redisKeyTemplates !== undefined) editorSettings.value.redisKeyTemplates = normalizeRedisKeyTemplates(partial.redisKeyTemplates);
     if (partial.redisDatabaseDisplayLimit !== undefined) editorSettings.value.redisDatabaseDisplayLimit = Math.min(REDIS_DATABASE_DISPLAY_LIMIT_MAX, Math.max(REDIS_DATABASE_DISPLAY_LIMIT_MIN, Math.round(partial.redisDatabaseDisplayLimit)));

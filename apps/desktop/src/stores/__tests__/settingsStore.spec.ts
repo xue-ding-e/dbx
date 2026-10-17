@@ -66,6 +66,15 @@ describe("normalizeEditorSettings", () => {
     expect(normalizeEditorSettings({ webLogoPosition: undefined }).webLogoPosition).toBe("left");
   });
 
+  it("defaults queryResultExportFileNameSource to result-label and validates options (#12092)", () => {
+    expect(DEFAULT_EDITOR_SETTINGS.queryResultExportFileNameSource).toBe("result-label");
+    expect(normalizeEditorSettings({}).queryResultExportFileNameSource).toBe("result-label");
+    expect(normalizeEditorSettings({ queryResultExportFileNameSource: "tab-title" }).queryResultExportFileNameSource).toBe("tab-title");
+    expect(normalizeEditorSettings({ queryResultExportFileNameSource: "result-label" }).queryResultExportFileNameSource).toBe("result-label");
+    expect(normalizeEditorSettings({ queryResultExportFileNameSource: "invalid" as any }).queryResultExportFileNameSource).toBe("result-label");
+    expect(normalizeEditorSettings({ queryResultExportFileNameSource: undefined }).queryResultExportFileNameSource).toBe("result-label");
+  });
+
   it("defaults caretBrowsingEnabled to false and normalizes boolean values (#11827)", () => {
     expect(DEFAULT_EDITOR_SETTINGS.caretBrowsingEnabled).toBe(false);
     expect(normalizeEditorSettings({}).caretBrowsingEnabled).toBe(false);

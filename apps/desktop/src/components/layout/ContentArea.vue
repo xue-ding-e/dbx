@@ -471,9 +471,8 @@ function increaseTableFontSize() {
   setTableFontSize(tableFontSize.value + 1);
 }
 
-/** Export file base name for the query result grid: the result's label (nearby
- *  comment or `schema.table`) names exports, matching the result tab (#9894). */
-const activeQueryResultExportBaseName = computed(() => queryResultExportBaseName(props.activeTab.result?.sourceLabel, props.activeTab.title));
+/** Export file base name for the query result grid: prefers result label or tab title based on settings (#9894, #12092). */
+const activeQueryResultExportBaseName = computed(() => queryResultExportBaseName(props.activeTab.result?.sourceLabel, props.activeTab.title, settingsStore.editorSettings.queryResultExportFileNameSource));
 
 const activeTabDimension = computed(() => {
   const tab = props.activeTab;
