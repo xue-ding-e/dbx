@@ -102,6 +102,7 @@ import {
   type SidebarObjectInfoMode,
   type SqlSemanticDiagnosticsMode,
   type SavedSqlOpenTargetMode,
+  type AiSqlApplyTargetMode,
   type TabGroupMode,
   type TabPlacement,
   type TabSortMode,
@@ -788,6 +789,7 @@ const editContinueOnErrorOnBatch = ref(settingsStore.editorSettings.continueOnEr
 const editConfirmUnsavedSqlClose = ref(settingsStore.editorSettings.confirmUnsavedSqlClose);
 const editAppCloseUnsavedTabsMode = ref<AppCloseUnsavedTabsMode>(settingsStore.editorSettings.appCloseUnsavedTabsMode);
 const editSavedSqlOpenTargetMode = ref<SavedSqlOpenTargetMode>(settingsStore.editorSettings.savedSqlOpenTargetMode);
+const editAiSqlApplyTargetMode = ref<AiSqlApplyTargetMode>(settingsStore.editorSettings.aiSqlApplyTargetMode);
 const editWelcomePageMode = ref<WelcomePageMode>(settingsStore.editorSettings.welcomePageMode);
 const editAppLayout = ref(settingsStore.editorSettings.appLayout);
 const editWebLogoPosition = ref<WebLogoPosition>(settingsStore.editorSettings.webLogoPosition);
@@ -1183,6 +1185,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     confirmUnsavedSqlClose: editConfirmUnsavedSqlClose.value,
     appCloseUnsavedTabsMode: editAppCloseUnsavedTabsMode.value,
     savedSqlOpenTargetMode: editSavedSqlOpenTargetMode.value,
+    aiSqlApplyTargetMode: editAiSqlApplyTargetMode.value,
     welcomePageMode: editWelcomePageMode.value,
     appLayout: editAppLayout.value,
     webLogoPosition: editWebLogoPosition.value,
@@ -1877,6 +1880,7 @@ function syncEditorSettingsDraftFromStore() {
   editConfirmUnsavedSqlClose.value = settingsStore.editorSettings.confirmUnsavedSqlClose;
   editAppCloseUnsavedTabsMode.value = settingsStore.editorSettings.appCloseUnsavedTabsMode;
   editSavedSqlOpenTargetMode.value = settingsStore.editorSettings.savedSqlOpenTargetMode;
+  editAiSqlApplyTargetMode.value = settingsStore.editorSettings.aiSqlApplyTargetMode;
   editWelcomePageMode.value = settingsStore.editorSettings.welcomePageMode;
   editAppLayout.value = settingsStore.editorSettings.appLayout;
   editWebLogoPosition.value = settingsStore.editorSettings.webLogoPosition;
@@ -2045,6 +2049,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   confirmUnsavedSqlClose: editConfirmUnsavedSqlClose,
   appCloseUnsavedTabsMode: editAppCloseUnsavedTabsMode,
   savedSqlOpenTargetMode: editSavedSqlOpenTargetMode,
+  aiSqlApplyTargetMode: editAiSqlApplyTargetMode,
   welcomePageMode: editWelcomePageMode,
   appLayout: editAppLayout,
   webLogoPosition: editWebLogoPosition,
@@ -2630,6 +2635,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editConfirmUnsavedSqlClose.value = DEFAULT_EDITOR_SETTINGS.confirmUnsavedSqlClose;
     editAppCloseUnsavedTabsMode.value = DEFAULT_EDITOR_SETTINGS.appCloseUnsavedTabsMode;
     editSavedSqlOpenTargetMode.value = DEFAULT_EDITOR_SETTINGS.savedSqlOpenTargetMode;
+    editAiSqlApplyTargetMode.value = DEFAULT_EDITOR_SETTINGS.aiSqlApplyTargetMode;
     editShowTableDdlHoverPreview.value = DEFAULT_EDITOR_SETTINGS.showTableDdlHoverPreview;
     editTableHoverLookupMode.value = DEFAULT_EDITOR_SETTINGS.tableHoverLookupMode;
     editExternalSqlEditorMaxMb.value = DEFAULT_EDITOR_SETTINGS.externalSqlEditorMaxMb;
@@ -2819,6 +2825,7 @@ function resetAllDefaults() {
   editConfirmUnsavedSqlClose.value = DEFAULT_EDITOR_SETTINGS.confirmUnsavedSqlClose;
   editAppCloseUnsavedTabsMode.value = DEFAULT_EDITOR_SETTINGS.appCloseUnsavedTabsMode;
   editSavedSqlOpenTargetMode.value = DEFAULT_EDITOR_SETTINGS.savedSqlOpenTargetMode;
+  editAiSqlApplyTargetMode.value = DEFAULT_EDITOR_SETTINGS.aiSqlApplyTargetMode;
   editSqlVariableSubstitutionEnabled.value = DEFAULT_EDITOR_SETTINGS.sqlVariableSubstitutionEnabled;
   editSqlVariableSyntaxOverrides.value = normalizeSqlVariableSyntaxOverrides(DEFAULT_EDITOR_SETTINGS.sqlVariableSyntaxOverrides);
   editWelcomePageMode.value = DEFAULT_EDITOR_SETTINGS.welcomePageMode;
@@ -8017,6 +8024,25 @@ onUnmounted(() => {
                   </Select>
                 </div>
 
+                <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2 md:col-span-2">
+                  <div class="min-w-0 space-y-1">
+                    <Label for="editor-ai-sql-apply-target">{{ t("settings.aiSqlApplyTarget") }}</Label>
+                    <p class="text-xs text-muted-foreground">
+                      {{ editAiSqlApplyTargetMode === "current" ? t("settings.aiSqlApplyTargetCurrentDescription") : editAiSqlApplyTargetMode === "first" ? t("settings.aiSqlApplyTargetFirstDescription") : t("settings.aiSqlApplyTargetNewDescription") }}
+                    </p>
+                  </div>
+                  <Select v-model="editAiSqlApplyTargetMode">
+                    <SelectTrigger id="editor-ai-sql-apply-target" class="h-8 w-44 shrink-0 px-2 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="current">{{ t("settings.aiSqlApplyTargetCurrent") }}</SelectItem>
+                      <SelectItem value="first">{{ t("settings.aiSqlApplyTargetFirst") }}</SelectItem>
+                      <SelectItem value="new">{{ t("settings.aiSqlApplyTargetNew") }}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div class="settings-item rounded-md border bg-muted/20 p-3 md:col-span-2" data-editor-unsaved-sql-settings>
                   <div class="grid gap-4 md:grid-cols-2">
                     <div class="flex min-w-0 items-start justify-between gap-4">
@@ -11363,6 +11389,40 @@ LIMIT 100;</pre>
                     </p>
                   </div>
                   <Switch id="ai-restore-last-conversation" :model-value="settingsStore.restoreLastConversation" @update:model-value="(value) => settingsStore.setRestoreLastConversation(Boolean(value))" />
+                </div>
+              </div>
+
+              <!-- AI SQL Apply Target (list mode, global) -->
+              <div v-if="aiConfigListMode === 'list'" class="space-y-3">
+                <Separator />
+                <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
+                  <div class="min-w-0 space-y-1">
+                    <Label for="ai-sql-apply-target">
+                      {{ t("settings.aiSqlApplyTarget") }}
+                    </Label>
+                    <p class="text-xs text-muted-foreground">
+                      {{ editAiSqlApplyTargetMode === "current" ? t("settings.aiSqlApplyTargetCurrentDescription") : editAiSqlApplyTargetMode === "first" ? t("settings.aiSqlApplyTargetFirstDescription") : t("settings.aiSqlApplyTargetNewDescription") }}
+                    </p>
+                  </div>
+                  <Select
+                    :model-value="editAiSqlApplyTargetMode"
+                    @update:model-value="
+                      (value) => {
+                        const mode = value as AiSqlApplyTargetMode;
+                        editAiSqlApplyTargetMode = mode;
+                        void settingsStore.updateEditorSettingsAndPersist({ aiSqlApplyTargetMode: mode });
+                      }
+                    "
+                  >
+                    <SelectTrigger id="ai-sql-apply-target" class="h-8 w-44 shrink-0 px-2 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="current">{{ t("settings.aiSqlApplyTargetCurrent") }}</SelectItem>
+                      <SelectItem value="first">{{ t("settings.aiSqlApplyTargetFirst") }}</SelectItem>
+                      <SelectItem value="new">{{ t("settings.aiSqlApplyTargetNew") }}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

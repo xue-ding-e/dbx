@@ -83,6 +83,12 @@ describe("EDITOR_SETTINGS_DRAFT_KEYS", () => {
     expect(EDITOR_SETTINGS_DRAFT_KEYS).toContain("savedSqlOpenTargetMode");
   });
 
+  it("includes aiSqlApplyTargetMode (#12438)", () => {
+    expect(EDITOR_SETTINGS_DRAFT_KEYS).toContain("aiSqlApplyTargetMode");
+    const draft = editorSettingsDraftFromSettings(makeSettings({ aiSqlApplyTargetMode: "new" } as Partial<EditorSettings>));
+    expect(draft.aiSqlApplyTargetMode).toBe("new");
+  });
+
   it("includes the privacy-safe welcome page mode", () => {
     expect(EDITOR_SETTINGS_DRAFT_KEYS).toContain("welcomePageMode");
     expect(editorSettingsDraftFromSettings(makeSettings({ welcomePageMode: "intro" })).welcomePageMode).toBe("intro");

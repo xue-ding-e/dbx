@@ -606,4 +606,13 @@ describe("settingsTransfer", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.editorSettings.caretBrowsingEnabled).toBe(true);
   });
+
+  it("round-trips aiSqlApplyTargetMode and rejects invalid values (#12438)", () => {
+    expect(transferCategoryForKey("aiSqlApplyTargetMode")).toBe("editor");
+    const text = serializeSettingsTransfer({ ...DEFAULT_EDITOR_SETTINGS, aiSqlApplyTargetMode: "new" });
+    const result = parseSettingsTransferFile(text);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.editorSettings.aiSqlApplyTargetMode).toBe("new");
+    expect(parseSettingsTransferFile(fileWith({ aiSqlApplyTargetMode: "invalid" })).ok).toBe(false);
+  });
 });

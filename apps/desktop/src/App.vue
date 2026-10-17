@@ -173,6 +173,7 @@ import { aiSqlActionFeedback, type AiSqlActionOutcome, type AiSqlActionReport } 
 import type { SqlExecutionOutcome } from "@/lib/sql/sqlExecutionOutcome";
 import { tabDisplayTitle } from "@/lib/tabs/tabPresentation";
 import { buildAppendedEditorSql, buildDeduplicatedAppendedEditorSql } from "@/lib/ai/aiSqlAppend";
+import { resolveAiSqlTargetTabId, type AiSqlApplyTargetMode } from "@/lib/ai/aiSqlTargetTab";
 import { assessProductionSql } from "@/lib/database/productionSafety";
 import { normalizeSqlExecutionTarget, sqlExecutionTargetCapabilities } from "@/lib/database/sqlExecutionTargetCapabilities";
 import { executeWithProductionSqlGuard } from "@/lib/database/productionExecutionGuard";
@@ -3653,7 +3654,7 @@ async function locateTabInSidebar(tab: QueryTab) {
 
 /**
  * Query tab an AI-initiated action must run in: the one belonging to the
- * *requested* connection, created on demand.
+ * *requested* connection, resolved according to `aiSqlApplyTargetMode` (#12438).
  *
  * Deliberately not `ensureQueryTab()` — that returns whichever query tab happens
  * to be active, which is how a conversation bound to one database appended its
@@ -3661,15 +3662,13 @@ async function locateTabInSidebar(tab: QueryTab) {
  * alone (`activate: false`), so running a conversation never yanks the user's
  * editor away.
  */
-function ensureQueryTabForConnection(target: AiConversationBinding): string {
+function ensureQueryTabForConnection(target: AiConversationBinding, options: { mode?: AiSqlApplyTargetMode } = {}): string {
   if (!target.connectionId) return "";
   const database = target.database || "";
   const schema = target.schema || undefined;
-  // Schema is matched exactly, empty included. Skipping the comparison when the
-  // target has no schema would reuse a tab on any schema, and execution inherits
-  // that tab's schema — silently running in the wrong namespace.
-  const existing = queryStore.tabs.find((tab) => tab.mode === "query" && tab.connectionId === target.connectionId && (tab.database || "") === database && (tab.schema || undefined) === schema);
-  if (existing) return existing.id;
+  const mode = options.mode ?? settingsStore.editorSettings.aiSqlApplyTargetMode;
+  const resolvedId = resolveAiSqlTargetTabId(queryStore.tabs, queryStore.activeTabId, target, mode);
+  if (resolvedId !== null) return resolvedId;
   return queryStore.createTab(target.connectionId, database, undefined, "query", schema, undefined, undefined, { activate: false });
 }
 
