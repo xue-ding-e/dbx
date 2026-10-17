@@ -3375,6 +3375,7 @@ export default withEnglishFallback({
     filterModeOrderMoveDown: "เลื่อนตัวดำเนินการลง",
     filterModeOrderReset: "คืนค่าลำดับเริ่มต้น",
     uncommittedBlankRow: "แถวใหม่ที่ยังไม่ได้กรอกจะถูกละเว้นเมื่อบันทึก",
+    copyExtractorSqlDeletesInserts: "คำสั่ง SQL DELETEs/INSERTs",
   },
   exportProgress: {
     streamingUnsupported: "ไม่รองรับการส่งออกแบบ Streaming สำหรับ Query นี้ ทำให้เรียบง่ายขึ้นหรือใช้ Driver ที่รองรับ",

@@ -605,6 +605,15 @@ pub(crate) fn build_data_grid_copy_insert_statement_with_formatters(
     format_reference: impl Fn(String) -> String,
     format_literal: impl Fn(&Value, Option<DatabaseType>, Option<&DataGridColumnInfo>, Option<&str>) -> String,
 ) -> Option<String> {
+    build_data_grid_copy_insert_statements_with_formatters(options, format_reference, format_literal)
+        .map(|statements| statements.join("\n"))
+}
+
+pub(crate) fn build_data_grid_copy_insert_statements_with_formatters(
+    options: DataGridCopyInsertStatementOptions,
+    format_reference: impl Fn(String) -> String,
+    format_literal: impl Fn(&Value, Option<DatabaseType>, Option<&DataGridColumnInfo>, Option<&str>) -> String,
+) -> Option<Vec<String>> {
     let save_columns = effective_copy_columns(options.source_columns.as_deref(), &options.columns);
     let column_info = options.table_meta.as_ref().and_then(|meta| meta.columns.as_deref()).unwrap_or(&[]);
     let primary_keys = options.table_meta.as_ref().map(|meta| meta.primary_keys.as_slice()).unwrap_or_default();
@@ -781,15 +790,14 @@ pub(crate) fn build_data_grid_copy_insert_statement_with_formatters(
     if needs_identity_insert_wrapper {
         return Some(
             statements
-                .iter()
+                .into_iter()
                 .map(|statement| {
                     format!("SET IDENTITY_INSERT {table} ON;\n{statement}\nSET IDENTITY_INSERT {table} OFF;")
                 })
-                .collect::<Vec<_>>()
-                .join("\n"),
+                .collect(),
         );
     }
-    Some(statements.join("\n"))
+    Some(statements)
 }
 
 pub fn build_data_grid_context_filter_condition(options: DataGridContextFilterConditionOptions) -> Option<String> {
@@ -3969,7 +3977,7 @@ fn mysql_json_predicate_literal(
     }
 }
 
-fn data_grid_statement(database_type: Option<DatabaseType>, sql: String) -> String {
+pub(crate) fn data_grid_statement(database_type: Option<DatabaseType>, sql: String) -> String {
     if database_type == Some(DatabaseType::OceanbaseOracle) {
         if let Some(statement) = oceanbase_blob_statement(&sql, false) {
             return statement;
@@ -4154,7 +4162,7 @@ fn data_grid_update_sql(database_type: Option<DatabaseType>, table: &str, sets: 
     }
 }
 
-fn data_grid_delete_sql(database_type: Option<DatabaseType>, table: &str, where_clause: &str) -> String {
+pub(crate) fn data_grid_delete_sql(database_type: Option<DatabaseType>, table: &str, where_clause: &str) -> String {
     if database_type == Some(DatabaseType::ClickHouse) {
         format!("ALTER TABLE {table} DELETE WHERE {where_clause}")
     } else {

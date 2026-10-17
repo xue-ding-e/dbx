@@ -3091,6 +3091,7 @@ export default withEnglishFallback({
     binaryImportTooLarge: "ファイルが大きすぎます（{size}、上限 {limit}）。大きなファイルの単一セルへのインポートはサポートされていません。",
     cut: "切り取りました",
     uncommittedBlankRow: "未入力の新しい行は、保存時に無視されます",
+    copyExtractorSqlDeletesInserts: "SQL DELETEs/INSERTs ステートメント",
   },
   exportProgress: {
     streamingUnsupported: "このクエリはストリーミングエクスポートに対応していません。クエリを簡略化するか、対応しているドライバーを使用してください。",

@@ -3067,6 +3067,7 @@ export default withEnglishFallback({
     binaryImportTooLarge: "O arquivo é muito grande ({size}, limite {limit}). Não há suporte para importar arquivos grandes em uma única célula.",
     cut: "Recortado",
     uncommittedBlankRow: "Nova linha não preenchida, será ignorada ao salvar",
+    copyExtractorSqlDeletesInserts: "Instruções SQL DELETEs/INSERTs",
   },
   exportProgress: {
     streamingUnsupported: "A exportação em streaming não é compatível com esta consulta. Simplifique-a ou use um driver compatível.",

@@ -2530,6 +2530,7 @@ export default withEnglishFallback({
     copyExtractorJsonArray: "JSON 数组",
     copyExtractorSqlInList: "SQL IN 列表",
     copyExtractorSqlInserts: "SQL INSERT 语句",
+    copyExtractorSqlDeletesInserts: "SQL DELETEs/INSERTs 语句",
     copyExtractorSqlInsertsWithPrimaryKeys: "SQL INSERT 语句（含主键）",
     copyExtractorSqlInsertsWithoutPrimaryKeys: "SQL INSERT 语句（不含自动生成主键）",
     copyExtractorSqlInsertsWithoutAllPrimaryKeys: "SQL INSERT 语句（不含任何主键）",

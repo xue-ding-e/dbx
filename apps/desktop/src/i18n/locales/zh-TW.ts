@@ -2966,6 +2966,7 @@ export default withEnglishFallback({
     copyExtractorJsonArray: "JSON 陣列",
     copyExtractorSqlInList: "SQL IN 列表",
     copyExtractorSqlInserts: "SQL INSERT 語句",
+    copyExtractorSqlDeletesInserts: "SQL DELETEs/INSERTs 語句",
     copyExtractorSqlInsertsWithPrimaryKeys: "SQL INSERT 語句（含主鍵）",
     copyExtractorSqlInsertsWithoutPrimaryKeys: "SQL INSERT 語句（不含自動產生的主鍵）",
     copyExtractorSqlInsertsWithoutAllPrimaryKeys: "SQL INSERT 語句（不含任何主鍵）",
