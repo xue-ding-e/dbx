@@ -2191,6 +2191,8 @@ export default withEnglishFallback({
     showLabels: "값 표시",
   },
   grid: {
+    showStatusSql: "하단에 SQL 표시",
+    showStatusSqlHint: "모든 쿼리 결과와 테이블 데이터의 하단 상태 표시줄에 SQL을 표시합니다.",
     agentExecuteTime: "실행 시간: {duration}",
     serverExecuteTime: "DB 실행: {duration}",
     serverExecuteTimeUnavailable: "DB 실행: 사용 불가",

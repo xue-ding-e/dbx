@@ -2197,6 +2197,8 @@ export default withEnglishFallback({
     showLabels: "Mostrar valores",
   },
   grid: {
+    showStatusSql: "Mostrar SQL no rodapé",
+    showStatusSqlHint: "Mostrar SQL no rodapé de todos os resultados de consultas e dados de tabelas.",
     agentExecuteTime: "Execução: {duration}",
     serverExecuteTime: "Execução no BD: {duration}",
     serverExecuteTimeUnavailable: "Execução no BD: indisponível",

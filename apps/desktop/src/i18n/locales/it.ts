@@ -2195,6 +2195,8 @@ export default withEnglishFallback({
     showLabels: "Mostra valori",
   },
   grid: {
+    showStatusSql: "Mostra SQL nel piè di pagina",
+    showStatusSqlHint: "Mostra SQL nel piè di pagina di tutti i risultati delle query e dei dati delle tabelle.",
     agentExecuteTime: "Esecuzione: {duration}",
     serverExecuteTime: "Esecuzione DB: {duration}",
     serverExecuteTimeUnavailable: "Esecuzione DB: non disponibile",

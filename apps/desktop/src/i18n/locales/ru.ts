@@ -2284,6 +2284,8 @@ export default withEnglishFallback({
     showLabels: "Показывать значения",
   },
   grid: {
+    showStatusSql: "Показывать SQL внизу",
+    showStatusSqlHint: "Показывать SQL в нижней строке всех результатов запросов и данных таблиц.",
     rows: "Строк: {count}",
     totalRows: "Всего строк: {count}",
     loadedRows: "Загружено строк: {count}",

@@ -2456,6 +2456,8 @@ export default withEnglishFallback({
     showLabels: "显示数值",
   },
   grid: {
+    showStatusSql: "显示底部 SQL",
+    showStatusSqlHint: "在所有查询结果和表数据的底部状态栏中显示 SQL。",
     rows: "{count} 行",
     totalRows: "共 {count} 行",
     loadedRows: "已加载 {count} 行",

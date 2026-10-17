@@ -2217,6 +2217,8 @@ export default withEnglishFallback({
     showLabels: "値を表示",
   },
   grid: {
+    showStatusSql: "フッターに SQL を表示",
+    showStatusSqlHint: "すべてのクエリ結果とテーブルデータのフッターに SQL を表示します。",
     agentExecuteTime: "実行時間：{duration}",
     serverExecuteTime: "DB 実行：{duration}",
     serverExecuteTimeUnavailable: "DB 実行：取得不可",

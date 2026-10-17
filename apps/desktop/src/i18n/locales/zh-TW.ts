@@ -2198,6 +2198,8 @@ export default withEnglishFallback({
     showLabels: "顯示數值",
   },
   grid: {
+    showStatusSql: "顯示底部 SQL",
+    showStatusSqlHint: "在所有查詢結果和資料表資料的底部狀態列中顯示 SQL。",
     rows: "{count} 列",
     totalRows: "共 {count} 筆",
     loadedRows: "已載入 {count} 筆",

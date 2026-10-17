@@ -2521,6 +2521,8 @@ export default {
     showLabels: "Show Values",
   },
   grid: {
+    showStatusSql: "Show SQL in Footer",
+    showStatusSqlHint: "Show SQL in the footer of all query results and table data grids.",
     rows: "{count} rows",
     totalRows: "Total {count} rows",
     loadedRows: "Loaded {count} rows",

@@ -2481,6 +2481,8 @@ export default withEnglishFallback({
     showLabels: "แสดงค่า",
   },
   grid: {
+    showStatusSql: "แสดง SQL ที่ด้านล่าง",
+    showStatusSqlHint: "แสดง SQL ในแถบสถานะด้านล่างของผลลัพธ์คิวรีและข้อมูลตารางทั้งหมด",
     rows: "{count} แถว",
     totalRows: "รวม {count} แถว",
     loadedRows: "โหลดแล้ว {count} แถว",
