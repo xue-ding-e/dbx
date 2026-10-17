@@ -2997,7 +2997,9 @@ where
                         // LISTEN/NOTIFY messages are not surfaced anywhere.
                         Some(Ok(_)) => {}
                         Some(Err(err)) => {
-                            log::warn!("[postgres] connection driver error: {err}");
+                            // `tokio_postgres::Error`'s `Display` omits the underlying
+                            // I/O error, which is the only clue to why the socket died.
+                            log::warn!("[postgres] connection driver error: {}", error_with_sources_to_string(&err));
                             break;
                         }
                         None => break,
