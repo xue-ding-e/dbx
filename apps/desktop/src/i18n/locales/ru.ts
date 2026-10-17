@@ -4593,6 +4593,10 @@ export default withEnglishFallback({
     schemaCommentPlaceholder: "Введите комментарий к схеме...",
     schemaCommentSaving: "Сохранение...",
     editSchemaCommentSuccess: "Комментарий к схеме «{name}» обновлён",
+    enableTrigger: "Включить триггер",
+    disableTrigger: "Отключить триггер",
+    enableTriggerSuccess: "Триггер «{name}» включён",
+    disableTriggerSuccess: "Триггер «{name}» отключён",
   },
   visibleDatabases: {
     title: "Видимые базы данных",

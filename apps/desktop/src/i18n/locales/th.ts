@@ -4816,6 +4816,10 @@ export default withEnglishFallback({
     schemaCommentPlaceholder: "ป้อน Comment ของ Schema...",
     schemaCommentSaving: "กำลังบันทึก...",
     editSchemaCommentSuccess: "อัปเดต Comment ของ Schema “{name}” แล้ว",
+    enableTrigger: "เปิดใช้งานทริกเกอร์",
+    disableTrigger: "ปิดใช้งานทริกเกอร์",
+    enableTriggerSuccess: 'เปิดใช้งานทริกเกอร์ "{name}" แล้ว',
+    disableTriggerSuccess: 'ปิดใช้งานทริกเกอร์ "{name}" แล้ว',
   },
   visibleDatabases: {
     title: "ฐานข้อมูลที่มองเห็นได้",

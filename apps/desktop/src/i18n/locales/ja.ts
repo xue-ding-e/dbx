@@ -4496,6 +4496,10 @@ export default withEnglishFallback({
     copyPasswordConfirmTitle: "パスワードを含めてコピー",
     copyPasswordConfirmMessage: "コピーされるテキストには保存済みのパスワードが平文で含まれます。続行しますか？",
     copyPasswordConfirmAction: "コピー",
+    enableTrigger: "トリガーを有効化",
+    disableTrigger: "トリガーを無効化",
+    enableTriggerSuccess: "トリガー「{name}」を有効化しました",
+    disableTriggerSuccess: "トリガー「{name}」を無効化しました",
   },
   visibleDatabases: {
     title: "表示するデータベース",

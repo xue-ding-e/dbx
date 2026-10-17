@@ -4404,6 +4404,10 @@ export default withEnglishFallback({
     copyPasswordConfirmTitle: "비밀번호 포함 복사",
     copyPasswordConfirmMessage: "복사되는 텍스트에 저장된 비밀번호가 평문으로 포함됩니다. 계속할까요?",
     copyPasswordConfirmAction: "복사",
+    enableTrigger: "트리거 활성화",
+    disableTrigger: "트리거 비활성화",
+    enableTriggerSuccess: "트리거 '{name}'을(를) 활성화했습니다",
+    disableTriggerSuccess: "트리거 '{name}'을(를) 비활성화했습니다",
   },
   visibleDatabases: {
     title: "표시할 데이터베이스",

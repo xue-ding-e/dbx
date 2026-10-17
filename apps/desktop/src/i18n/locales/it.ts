@@ -4473,6 +4473,10 @@ export default withEnglishFallback({
     copyPasswordConfirmTitle: "Copia con password",
     copyPasswordConfirmMessage: "Il testo copiato conterrà la password salvata in chiaro. Continuare?",
     copyPasswordConfirmAction: "Copia",
+    enableTrigger: "Abilita trigger",
+    disableTrigger: "Disabilita trigger",
+    enableTriggerSuccess: "Trigger «{name}» abilitato",
+    disableTriggerSuccess: "Trigger «{name}» disabilitato",
   },
   visibleDatabases: {
     title: "Database Visibili",
