@@ -3395,7 +3395,10 @@ pub fn escape_value_typed(val: &serde_json::Value, db_type: &DatabaseType, colum
                     "0".to_string()
                 }
             }
-            DatabaseType::SqlServer | DatabaseType::Dameng => {
+            // NUMBER(1) (see map_column_type) takes the integer spelling; Oracle and
+            // OceanBase's Oracle mode joined Dameng/SQL Server here for the same
+            // reason the DDL arm does — TRUE/FALSE is not a numeric literal.
+            DatabaseType::SqlServer | DatabaseType::Dameng | DatabaseType::Oracle | DatabaseType::OceanbaseOracle => {
                 if *b {
                     "1".to_string()
                 } else {
@@ -4131,8 +4134,20 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
             _ => base,
         };
     }
-    // Extract basic type, `bigint unsigned` -> `bigint`
-    base = base.split(' ').next().unwrap_or(base).trim();
+    // Extract basic type, `bigint unsigned` -> `bigint`.
+    //
+    // `pg_catalog.format_type()` spells a PostgreSQL varying string as the two-word
+    // `character varying`, so the space-separated reduction has to run *after* the
+    // multi-word names this function recognises have been resolved. Reducing first
+    // left `character`, which the CHAR arm below happily accepted: a source
+    // `varchar(120)` became `CHAR(120 CHAR)` and an unbounded `varchar` became
+    // `CHAR(1)` — every transferred value was blank-padded to the declared width and
+    // anything longer than a single character was rejected outright. A real `char`
+    // column still reports `character`, so it keeps taking the CHAR arm.
+    base = match base {
+        "character varying" => "varchar",
+        _ => base.split(' ').next().unwrap_or(base).trim(),
+    };
 
     // SQLite has no integer widths: every column whose declared type carries the
     // `INT` substring — `INTEGER`, `INT`, `TINYINT`, `SMALLINT`, even the
@@ -4211,6 +4226,13 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
         },
         "double" | "double precision" | "float8" => match target_db {
             target_db if is_postgres_transfer_dialect(target_db) => "DOUBLE PRECISION".into(),
+            // Oracle has no bare `DOUBLE` data type; the only accepted ANSI spelling is
+            // the two-word `DOUBLE PRECISION` (an alias for FLOAT(126)). Emitting
+            // `DOUBLE` failed `CREATE TABLE` with `ORA-00902: invalid datatype`, so a
+            // PostgreSQL `double precision` column could not be transferred to Oracle
+            // at all. OceanBase's Oracle mode follows Oracle's parser. Dameng does
+            // accept the bare spelling and keeps it.
+            DatabaseType::Oracle | DatabaseType::OceanbaseOracle => "DOUBLE PRECISION".into(),
             _ => "DOUBLE".into(),
         },
         "decimal" | "numeric" | "number" => {
@@ -4270,6 +4292,14 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
         "bool" | "boolean" => match target_db {
             DatabaseType::Mysql => "TINYINT(1)".into(),
             DatabaseType::SqlServer => "BIT".into(),
+            // The Oracle family has no BOOLEAN type (Oracle only gained it in 23ai),
+            // so passing the source spelling through fails CREATE TABLE outright on
+            // Oracle, OceanBase's Oracle mode and Dameng alike (#12453: a PostgreSQL
+            // to Dameng transfer failed every table holding a boolean column with
+            // "无效的数据类型"). NUMBER(1) is the family's boolean stand-in and pairs
+            // with the 1/0 boolean literals escape_value_typed writes for these
+            // targets, so structure and data agree without per-engine special cases.
+            DatabaseType::Oracle | DatabaseType::OceanbaseOracle | DatabaseType::Dameng => "NUMBER(1)".into(),
             _ => "BOOLEAN".into(),
         },
         "date" => "DATE".into(),
@@ -4284,6 +4314,14 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
             DatabaseType::Mysql => "DATETIME".into(),
             DatabaseType::SqlServer => "DATETIME2".into(),
             DatabaseType::ClickHouse => "DateTime64(6)".into(),
+            // Dameng's TIMESTAMP WITH TIME ZONE preserves the offset (verified against
+            // DM8 8.1.5.8: `'2022-08-25 09:58:43.123456 +08:00'` reads back with the
+            // same +08:00, and every common offset spelling is accepted), whereas a
+            // plain TIMESTAMP silently drops it. The value path needs no change: the
+            // source string literal is accepted directly.
+            DatabaseType::Dameng if t.starts_with("timestamptz") || t.contains("with time zone") => {
+                "TIMESTAMP WITH TIME ZONE".into()
+            }
             _ => "TIMESTAMP".into(),
         },
         "longblob" => match target_db {
@@ -4320,6 +4358,19 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
         },
         "bit" => match target_db {
             target_db if is_postgres_transfer_dialect(target_db) => "BOOLEAN".into(),
+            // Dameng's BIT holds a single bit and silently truncates a longer bit
+            // string (`'1010'` reads back as `1`, verified against DM8 8.1.5.8), and
+            // Oracle has no BIT type at all, so a PostgreSQL bit string is kept
+            // verbatim in a VARCHAR instead. `bit varying(n)` reduces to `bit` above,
+            // so the declared width comes from the source spelling.
+            DatabaseType::Oracle | DatabaseType::OceanbaseOracle | DatabaseType::Dameng => {
+                if t.contains('(') {
+                    let len_part = transfer_length_params(&t, source_db, target_db);
+                    format!("VARCHAR{len_part}")
+                } else {
+                    "VARCHAR(255 CHAR)".into()
+                }
+            }
             _ => "BIT".into(),
         },
         _ => target_text_type(target_db).into(),
@@ -21858,6 +21909,104 @@ SELECT 1 FROM dual"#
     }
 
     #[test]
+    fn map_column_type_uses_number1_for_boolean_on_oracle_family_targets() {
+        // Issue #12453: a PostgreSQL to Dameng transfer failed every table that held a
+        // boolean column with "无效的数据类型". The old `_ => "BOOLEAN"` fallback passed
+        // the source spelling through, and no engine in the Oracle family accepts it
+        // (Oracle only gained BOOLEAN in 23ai). NUMBER(1) is the family stand-in and
+        // pairs with the 1/0 boolean literals escape_value_typed writes for these
+        // targets.
+        for target in [DatabaseType::Dameng, DatabaseType::Oracle, DatabaseType::OceanbaseOracle] {
+            assert_eq!(map_column_type("boolean", &DatabaseType::Postgres, &target), "NUMBER(1)");
+            assert_eq!(map_column_type("bool", &DatabaseType::Postgres, &target), "NUMBER(1)");
+        }
+
+        // MySQL and SQL Server keep their proven per-engine spellings.
+        assert_eq!(map_column_type("boolean", &DatabaseType::Postgres, &DatabaseType::Mysql), "TINYINT(1)");
+        assert_eq!(map_column_type("boolean", &DatabaseType::Postgres, &DatabaseType::SqlServer), "BIT");
+        // Postgres to Postgres is the same dialect and passes through untouched.
+        assert_eq!(map_column_type("boolean", &DatabaseType::Postgres, &DatabaseType::Postgres), "boolean");
+    }
+
+    #[test]
+    fn transfer_create_table_postgres_to_dameng_rewrites_boolean_columns() {
+        // Issue #12453, structure side: the generated DDL must not contain a `boolean`
+        // column for a Dameng target.
+        let columns = vec![
+            db::ColumnInfo { is_primary_key: true, ..test_column("ID", "bigint") },
+            test_column("STATUS", "boolean"),
+            test_column("IS_SYNC", "boolean"),
+            test_column("NAME", "varchar(255)"),
+        ];
+
+        let ddl = generate_create_table_ddl(
+            &columns,
+            "T_BOOL_PROBE",
+            "DBX_TEST",
+            "DBX_TEST",
+            &DatabaseType::Dameng,
+            &DatabaseType::Postgres,
+            None,
+            None,
+        );
+
+        assert!(ddl.contains("\"STATUS\" NUMBER(1)"), "{ddl}");
+        assert!(ddl.contains("\"IS_SYNC\" NUMBER(1)"), "{ddl}");
+        assert!(!ddl.to_ascii_uppercase().contains("BOOLEAN"), "{ddl}");
+        // Untouched types survive the hop, with the Oracle-family CHAR unit pinned.
+        assert!(ddl.contains("\"NAME\" VARCHAR(255 CHAR)"), "{ddl}");
+    }
+
+    #[test]
+    fn transfer_create_table_postgres_to_dameng_keeps_varying_strings_varying() {
+        // The PostgreSQL driver reports `format_type()` output, so a varchar column
+        // arrives as the two-word `character varying(n)`. Building the DDL used to
+        // collapse it to CHAR, which pads every value to n and turns an unbounded
+        // `varchar` into CHAR(1).
+        let columns = vec![
+            db::ColumnInfo { is_primary_key: true, ..test_column("ID", "bigint") },
+            test_column("NAME", "character varying(255)"),
+            test_column("NOTE", "character varying"),
+            test_column("CODE", "character(8)"),
+        ];
+
+        let ddl = generate_create_table_ddl(
+            &columns,
+            "T_VARCHAR_PROBE",
+            "DBX_TEST",
+            "DBX_TEST",
+            &DatabaseType::Dameng,
+            &DatabaseType::Postgres,
+            None,
+            None,
+        );
+
+        assert!(ddl.contains("\"NAME\" VARCHAR(255 CHAR)"), "{ddl}");
+        assert!(ddl.contains("\"NOTE\" VARCHAR(255)"), "{ddl}");
+        // A real char column still builds a fixed-width CHAR.
+        assert!(ddl.contains("\"CODE\" CHAR(8 CHAR)"), "{ddl}");
+    }
+
+    #[test]
+    fn escape_value_typed_writes_integer_booleans_for_oracle_family_targets() {
+        // The DDL side maps boolean to NUMBER(1) for the Oracle family (#12453), so the
+        // data side must write the integer spelling there or the insert fails on the
+        // TRUE/FALSE literal.
+        for target in [DatabaseType::Dameng, DatabaseType::Oracle, DatabaseType::OceanbaseOracle] {
+            assert_eq!(escape_value_typed(&serde_json::json!(true), &target, Some("NUMBER(1)")), "1");
+            assert_eq!(escape_value_typed(&serde_json::json!(false), &target, Some("NUMBER(1)")), "0");
+        }
+        // SQL Server kept the 1/0 spelling before this change and still has it.
+        assert_eq!(escape_value_typed(&serde_json::json!(true), &DatabaseType::SqlServer, Some("BIT")), "1");
+        // Targets that own a BOOLEAN type keep the TRUE/FALSE spelling.
+        assert_eq!(escape_value_typed(&serde_json::json!(true), &DatabaseType::Postgres, Some("boolean")), "TRUE");
+        // MySQL's TINYINT(1) keeps the plain 1/0 spelling; only a BIT column is quoted.
+        assert_eq!(escape_value_typed(&serde_json::json!(true), &DatabaseType::Mysql, Some("tinyint(1)")), "1");
+        assert_eq!(escape_value_typed(&serde_json::json!(false), &DatabaseType::Mysql, Some("tinyint(1)")), "0");
+        assert_eq!(escape_value_typed(&serde_json::json!(true), &DatabaseType::Mysql, Some("bit(1)")), "b'1'");
+    }
+
+    #[test]
     fn transfer_create_table_mysql_to_oracle_uses_clob_for_text_columns() {
         let columns = vec![
             db::ColumnInfo { is_primary_key: true, ..test_column("ID", "INT") },
@@ -21899,6 +22048,126 @@ SELECT 1 FROM dual"#
             // pass through verbatim between Oracle-family databases.
             assert_eq!(map_column_type("VARCHAR2(20)", &source, &target), "VARCHAR(20)");
         }
+    }
+
+    #[test]
+    fn map_column_type_keeps_postgres_character_varying_a_varying_string() {
+        // `pg_catalog.format_type()` renders a PostgreSQL varchar as the two-word
+        // `character varying`, and the space-separated base reduction used to leave
+        // `character`, so every PostgreSQL varchar column was built as a fixed-width
+        // CHAR — blank-padded to the declared width — and an unbounded `varchar`
+        // (reported without a length) as CHAR(1), which rejects any longer value.
+        for target in [DatabaseType::Oracle, DatabaseType::OceanbaseOracle, DatabaseType::Dameng] {
+            assert_eq!(
+                map_column_type("character varying(120)", &DatabaseType::Postgres, &target),
+                "VARCHAR(120 CHAR)"
+            );
+            assert_eq!(map_column_type("character varying", &DatabaseType::Postgres, &target), "VARCHAR(255)");
+        }
+
+        // The same reduction affected every other target, not just the Oracle family.
+        assert_eq!(
+            map_column_type("character varying(120)", &DatabaseType::Postgres, &DatabaseType::Mysql),
+            "VARCHAR(120)"
+        );
+        assert_eq!(
+            map_column_type("character varying(120)", &DatabaseType::Postgres, &DatabaseType::SqlServer),
+            "NVARCHAR(120)"
+        );
+        // PostgreSQL-family targets still pass the source spelling through verbatim.
+        assert_eq!(
+            map_column_type("character varying(120)", &DatabaseType::Postgres, &DatabaseType::Postgres),
+            "character varying(120)"
+        );
+
+        // A real `char` column reports the single-word `character`, which must keep
+        // taking the CHAR arm.
+        assert_eq!(map_column_type("character(20)", &DatabaseType::Postgres, &DatabaseType::Dameng), "CHAR(20 CHAR)");
+        assert_eq!(map_column_type("character", &DatabaseType::Postgres, &DatabaseType::Dameng), "CHAR(1)");
+    }
+
+    #[test]
+    fn map_column_type_uses_two_word_double_precision_for_oracle() {
+        // Oracle has no bare `DOUBLE` data type — the only accepted ANSI spelling is
+        // the two-word `DOUBLE PRECISION` — so a PostgreSQL `double precision` column
+        // used to build `DOUBLE` and fail CREATE TABLE with `ORA-00902: invalid
+        // datatype`. The base-name reduction also truncates the two-word spelling to
+        // `double` before the match, which is why the `"double precision"` alternative
+        // in the arm was never reachable.
+        for source in ["double precision", "double", "float8"] {
+            assert_eq!(map_column_type(source, &DatabaseType::Postgres, &DatabaseType::Oracle), "DOUBLE PRECISION");
+            assert_eq!(
+                map_column_type(source, &DatabaseType::Postgres, &DatabaseType::OceanbaseOracle),
+                "DOUBLE PRECISION"
+            );
+        }
+
+        // Dameng accepts the bare spelling, so it keeps the previous output.
+        assert_eq!(map_column_type("double precision", &DatabaseType::Postgres, &DatabaseType::Dameng), "DOUBLE");
+        // Non-Oracle-family targets are unchanged.
+        assert_eq!(map_column_type("double precision", &DatabaseType::Postgres, &DatabaseType::Mysql), "DOUBLE");
+        assert_eq!(map_column_type("double precision", &DatabaseType::Postgres, &DatabaseType::SqlServer), "DOUBLE");
+        assert_eq!(
+            map_column_type("double precision", &DatabaseType::Postgres, &DatabaseType::Kingbase),
+            "DOUBLE PRECISION"
+        );
+        // Identity transfers return the source spelling untouched.
+        assert_eq!(
+            map_column_type("double precision", &DatabaseType::Postgres, &DatabaseType::Postgres),
+            "double precision"
+        );
+    }
+
+    #[test]
+    fn map_column_type_keeps_postgres_bit_strings_verbatim_for_the_oracle_family() {
+        // Dameng's BIT holds a single bit and silently truncates a longer bit string
+        // (`'1010'` reads back as `1`), and Oracle has no BIT type at all, so the
+        // Oracle family keeps the PostgreSQL bit string in a VARCHAR instead.
+        // Verified against DM8 8.1.5.8.
+        for target in [DatabaseType::Oracle, DatabaseType::OceanbaseOracle, DatabaseType::Dameng] {
+            assert_eq!(map_column_type("bit(8)", &DatabaseType::Postgres, &target), "VARCHAR(8 CHAR)");
+            assert_eq!(map_column_type("bit varying(8)", &DatabaseType::Postgres, &target), "VARCHAR(8 CHAR)");
+            assert_eq!(map_column_type("bit(1)", &DatabaseType::Postgres, &target), "VARCHAR(1 CHAR)");
+            // An unbounded `bit varying` has no width to carry over.
+            assert_eq!(map_column_type("bit", &DatabaseType::Postgres, &target), "VARCHAR(255 CHAR)");
+        }
+
+        // PostgreSQL-family targets pass the spelling through; other targets keep BIT.
+        assert_eq!(map_column_type("bit(8)", &DatabaseType::Postgres, &DatabaseType::Postgres), "bit(8)");
+        assert_eq!(map_column_type("bit(8)", &DatabaseType::Postgres, &DatabaseType::Mysql), "BIT");
+    }
+
+    #[test]
+    fn map_column_type_keeps_the_offset_for_dameng_timestamptz() {
+        // Dameng's TIMESTAMP WITH TIME ZONE preserves the offset, whereas a plain
+        // TIMESTAMP silently drops it. Verified against DM8 8.1.5.8: every common
+        // offset spelling is accepted and `+08:00` survives the round trip.
+        assert_eq!(
+            map_column_type("timestamp with time zone", &DatabaseType::Postgres, &DatabaseType::Dameng),
+            "TIMESTAMP WITH TIME ZONE"
+        );
+        assert_eq!(
+            map_column_type("timestamptz", &DatabaseType::Postgres, &DatabaseType::Dameng),
+            "TIMESTAMP WITH TIME ZONE"
+        );
+
+        // A zone-less timestamp must stay a plain TIMESTAMP.
+        assert_eq!(
+            map_column_type("timestamp without time zone", &DatabaseType::Postgres, &DatabaseType::Dameng),
+            "TIMESTAMP"
+        );
+        assert_eq!(map_column_type("timestamp", &DatabaseType::Postgres, &DatabaseType::Dameng), "TIMESTAMP");
+
+        // Oracle / OceanBase and the other targets are unchanged: the zone-preserving
+        // DDL was only verified against Dameng.
+        assert_eq!(
+            map_column_type("timestamp with time zone", &DatabaseType::Postgres, &DatabaseType::Oracle),
+            "TIMESTAMP"
+        );
+        assert_eq!(
+            map_column_type("timestamp with time zone", &DatabaseType::Postgres, &DatabaseType::Mysql),
+            "DATETIME"
+        );
     }
 
     #[test]
