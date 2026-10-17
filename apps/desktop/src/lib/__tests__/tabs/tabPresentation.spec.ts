@@ -957,6 +957,7 @@ describe("statement execution markers", () => {
 
 describe("shared tab presentation helpers", () => {
   it("classifies tab icon colors without MQ special-casing", () => {
+    expect(tabIconClass(queryTab({}))).toBe("text-blue-400");
     expect(tabIconClass(queryTab({ mode: "data" }))).toContain("text-green-500");
     const connectionStore = useConnectionStore();
     connectionStore.connections = [{ id: "dynamodb-1", name: "DynamoDB", db_type: "dynamodb", driver_profile: "dynamodb", color: "" } as ConnectionConfig];
