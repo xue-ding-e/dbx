@@ -13067,6 +13067,8 @@ async function navigateToForeignKeyCell(rowIndex: number, actualColIdx: number) 
         currentSchema: props.tableMeta?.schema || props.schema,
         fk: association.foreignKey,
         whereInput: condition,
+        connection: connectionStore.getConfig(props.connectionId),
+        databaseType: resolvedDatabaseType.value,
       }),
     );
   } catch (e: any) {
