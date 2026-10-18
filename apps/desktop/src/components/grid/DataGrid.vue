@@ -9957,6 +9957,19 @@ function fillSelectionWithValue(value: string | null, options: { preserveEmptySt
   const allowDraftSelectionValue = selectedRangeTargetsOnlyDraftRow();
   beginBatch();
   try {
+    if (selectedCellKeys.value.size > 0) {
+      for (const key of selectedCellKeys.value) {
+        const [rStr, cStr] = key.split(":");
+        const rowIndex = Number(rStr);
+        const visibleCol = Number(cStr);
+        if (Number.isNaN(rowIndex) || Number.isNaN(visibleCol)) continue;
+        const item = displayItemAt(rowIndex);
+        if (!item) continue;
+        if (cellIsSelected(rowIndex, visibleCol)) applied = applyVisibleSelectedCellValue(item, visibleCol, value, allowDraftSelectionValue, options) || applied;
+      }
+      return applied;
+    }
+
     if (range) {
       for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex++) {
         const item = displayItemAt(rowIndex);
@@ -9985,6 +9998,19 @@ function fillSelectionWithValue(value: string | null, options: { preserveEmptySt
 }
 
 function selectionHasEditableCells(): boolean {
+  if (selectedCellKeys.value.size > 0) {
+    for (const key of selectedCellKeys.value) {
+      const [rStr, cStr] = key.split(":");
+      const rowIndex = Number(rStr);
+      const visibleCol = Number(cStr);
+      if (Number.isNaN(rowIndex) || Number.isNaN(visibleCol)) continue;
+      const item = displayItemAt(rowIndex);
+      if (!item) continue;
+      if (transposeIncludesRow(item.id) && cellIsSelected(rowIndex, visibleCol) && canEditCellItem(item, actualColumnIndex(visibleCol))) return true;
+    }
+    return false;
+  }
+
   const range = selectedRange.value;
   if (range) {
     for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex++) {
@@ -10943,9 +10969,24 @@ async function onGridKeydown(event: KeyboardEvent) {
     event.preventDefault();
     return;
   }
-  if (isDeleteCurrentRowShortcut(event, settingsStore.editorSettings.shortcuts) && deleteCurrentRow()) {
-    event.preventDefault();
-    return;
+  const isBareDelete = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && (event.key === "Delete" || event.key === "Backspace");
+  if (isBareDelete) {
+    if (hasRowSelection.value && selectedRowCount.value > 0) {
+      if (deleteCurrentRow()) {
+        event.preventDefault();
+      }
+      return;
+    }
+    if (hasCellSelection.value || hasColumnSelection.value || !!selectedRange.value || selectedCellCount.value > 0 || !!currentSelectedCellPosition()) {
+      event.preventDefault();
+      setSelectionNull();
+      return;
+    }
+  } else if (isDeleteCurrentRowShortcut(event, settingsStore.editorSettings.shortcuts)) {
+    if (deleteCurrentRow()) {
+      event.preventDefault();
+      return;
+    }
   }
   if (isToggleTransposeShortcut(event, settingsStore.editorSettings.shortcuts) && toggleKeyboardTranspose()) {
     event.preventDefault();
@@ -13571,6 +13612,12 @@ defineExpose({
   focusWhere,
   editSelectedCell,
   selectSingleCell,
+  selectRow,
+  hasRowSelection,
+  displayItems,
+  hasPendingChanges,
+  showDeleteRowConfirm,
+  pendingDeleteRowIds,
   openGoToColumn,
   visibleColumnCount,
   displayableColumnCount,
