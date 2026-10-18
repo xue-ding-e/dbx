@@ -7904,7 +7904,11 @@ const canvasScrollTop = ref(0);
 const canvasHoverCell = ref<{ rowIndex: number; visibleColIdx: number } | null>(null);
 const canvasDevicePixelRatio = ref(typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
 const canvasMeasuredDevicePixelSize = ref<CanvasDevicePixelSize | null>(null);
-const canvasBackingPixelRatio = computed(() => Math.min(MAX_CANVAS_DATA_GRID_PIXEL_RATIO, Math.max(1, canvasDevicePixelRatio.value * settingsStore.editorSettings.uiScale)));
+// window.devicePixelRatio 已包含系统 DPI 与 Webview 缩放（uiScale / setZoom）。
+// 若在此处再次乘以 uiScale，会导致非 Chromium 环境（如 WebKitGTK / Safari）在未支持
+// devicePixelContentBoxSize 走 fallback 时，画布尺寸被二次放大（如 1.25^2=1.5625），
+// 与实际屏幕视口像素尺寸不符而触发合成器重采样，导致表格数据模糊（issue #12475）。
+const canvasBackingPixelRatio = computed(() => Math.min(MAX_CANVAS_DATA_GRID_PIXEL_RATIO, Math.max(1, canvasDevicePixelRatio.value)));
 const useCanvasGridRows = computed(() => dataGridRenderMode.value === "canvas");
 const canvasContentHeight = computed(() => Math.max(1, displayRowCount.value * CANVAS_DATA_GRID_ROW_HEIGHT));
 // Clamp the sticky canvas/overlay to the content width. A viewport-wide sticky surface inflates the
@@ -8067,7 +8071,9 @@ watch(isPanelResizing, (resizing) => {
 });
 
 function currentCanvasDevicePixelRatio(): number {
-  return typeof window === "undefined" ? 1 : Math.max(1, window.devicePixelRatio || 1);
+  if (typeof window === "undefined") return 1;
+  const dpr = window.devicePixelRatio;
+  return typeof dpr === "number" && Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
 }
 
 function scheduleCanvasPixelRatioRefresh() {
