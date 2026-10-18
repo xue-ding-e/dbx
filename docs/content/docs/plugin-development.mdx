@@ -125,6 +125,7 @@ Manifest paths are relative to the package root. They cannot start with `/`, con
     "host.storage",
     "host.clipboard:read",
     "host.data:read",
+    "host.connections:read",
     "host.network:https://s3.example.com:443"
   ],
   "entrypoints": {
@@ -146,6 +147,7 @@ Manifest paths are relative to the package root. They cannot start with `/`, con
 - `host.ai` lets a plugin use the global DBX AI panel for Ask snapshot conversations, optional Agent conversations backed by live plugin tools, and workbench-specific quick-question recommendations. Older DBX builds reject the unknown permission at install time, so plugins that must install everywhere should treat `host.ai` as optional and check `capabilities.ai` / `capabilities.aiRecommendations` at runtime.
 - `host.clipboard:read` allows reading the system clipboard from the workbench UI (see [System Clipboard](#system-clipboard)). Clipboard writes need no permission; reads hand user data (passwords, tokens) to plugin code, so they are gated.
 - `host.data:read` allows `window.dbxPlugin.queryData` to run one read-only SQL statement on a connection the user granted to the plugin (see [Read-only Data Queries](#read-only-data-queries)). Every connection needs the user's consent; it never grants writes, DDL, or reconnects.
+- `host.connections:read` allows `window.dbxPlugin.getConnections()` or `window.dbxPlugin.connections.list()` to read secret-free summary metadata for all configured connections (see [Connection Enumeration](#connection-enumeration)).
 - `host.network:https://host[:port]` declares a browser-accessible HTTPS origin added to CSP `connect-src`; at most eight origins are allowed, with no paths, wildcards, or tokens. The service's CORS rules still apply. This permission is not a native Sidecar network firewall.
 - `backend.transport` defaults to `stdio-jsonl`. Use `stdio-framed` for binary frames and declare `host.binary` as well.
 - `backend.executable`, `ui.root`, and `ui.entry` must point to package files. Native packages need a matching executable for every target.
@@ -523,6 +525,37 @@ if (window.dbxPlugin.capabilities.dataApi) {
 - **No credentials.** The response carries columns and rows only. A revoked grant fails with an error that starts with `PLUGIN_DATA_ACCESS_NOT_GRANTED`; the next query asks the user again.
 
 This API is Host API 1.4. Keep both the `engines.host_api` floor and the `capabilities.dataApi` runtime check; web hosts that cannot show a consent dialog deny the request instead of granting it.
+
+### Connection Enumeration
+
+Plugins that display connection pickers or perform connection-specific tasks (e.g. running queries through `host.data:read`) can enumerate all configured connections with the `host.connections:read` permission:
+
+```json
+{
+  "permissions": ["host.connections:read"]
+}
+```
+
+```js
+await window.dbxPlugin.ready;
+if (window.dbxPlugin.capabilities.connectionsApi) {
+  const connections = await window.dbxPlugin.getConnections();
+  // or await window.dbxPlugin.connections.list();
+  for (const conn of connections) {
+    console.log(conn.id, conn.name, conn.dialect, conn.connected);
+  }
+}
+```
+
+Each returned connection object includes:
+- `id`: unique connection identifier, accepted by `queryData`, `getPlanCapabilities`, etc.;
+- `name`: user-configured display name;
+- `dialect` / `dbType`: database dialect or type (e.g. `mysql`, `postgres`, `sqlite`);
+- `connected` / `isConnected`: whether the connection is currently open;
+- `readOnly`: whether the connection is marked read-only;
+- `database` / `schema`: default database or schema if configured.
+
+> **Security Boundary**: The returned list is completely sanitized and never contains passwords, usernames, hostnames, ports, or raw connection strings.
 
 ### System Clipboard
 

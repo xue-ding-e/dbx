@@ -537,21 +537,77 @@ function createBridge() {
       openFilesystem: async (pluginId, providerId, context) => emit("openFilesystem", pluginId, providerId, context),
       reopenConnection: (pluginId, connectionId) => useConnectionStore().reopenPluginConnection(connectionId, pluginId),
       // PR-A4 generic extension point: a read-only, secret-free, plugin-scoped connection list (for in-panel connection switching).
-      listConnections: (ownerPluginId) => {
+      // Extended for #12603 with `host.connections:read` / options.all to return all connections.
+      listConnections: (ownerPluginId, options?: { all?: boolean }) => {
+        const connectionStore = useConnectionStore();
+        const queryStore = useQueryStore();
+        const connectedIds = connectionStore.connectedIds;
+        if (options?.all) {
+          return connectionStore.connections.map((connection) => {
+            const connected = connectedIds.has(connection.id);
+            return {
+              id: connection.id,
+              name: connection.name,
+              dbType: connection.db_type,
+              dialect: connection.db_type,
+              databaseType: connection.db_type,
+              connected,
+              isConnected: connected,
+              readOnly: connection.read_only === true,
+              database: connection.database,
+              schema: connection.default_schema,
+              providerId: connection.plugin_connection_provider ?? "",
+              connectionType: connection.plugin_connection_type,
+              workbenchTitles: queryStore.pluginWorkbenchTitles(connection.id),
+            };
+          });
+        }
         const providerIds = new Set((props.plugin.manifest.contributions || []).filter((candidate) => candidate.type === "connection-provider").map((candidate) => candidate.id));
         if (ownerPluginId !== props.plugin.manifest.id) return [];
+        return connectionStore.connections
+          .filter((connection) => providerIds.has(connection.plugin_connection_provider ?? ""))
+          .map((connection) => {
+            const connected = connectedIds.has(connection.id);
+            return {
+              id: connection.id,
+              name: connection.name,
+              dbType: connection.db_type,
+              dialect: connection.db_type,
+              databaseType: connection.db_type,
+              connected,
+              isConnected: connected,
+              providerId: connection.plugin_connection_provider ?? "",
+              connectionType: connection.plugin_connection_type,
+              readOnly: connection.read_only === true,
+              database: connection.database,
+              schema: connection.default_schema,
+              // #193b — dock/tab titles bound to the connection (dock first), so plugins can label session rows after renamed terminals.
+              workbenchTitles: queryStore.pluginWorkbenchTitles(connection.id),
+            };
+          });
+      },
+      listAllConnections: () => {
+        const connectionStore = useConnectionStore();
         const queryStore = useQueryStore();
-        return useConnectionStore()
-          .connections.filter((connection) => providerIds.has(connection.plugin_connection_provider ?? ""))
-          .map((connection) => ({
+        const connectedIds = connectionStore.connectedIds;
+        return connectionStore.connections.map((connection) => {
+          const connected = connectedIds.has(connection.id);
+          return {
             id: connection.id,
             name: connection.name,
+            dbType: connection.db_type,
+            dialect: connection.db_type,
+            databaseType: connection.db_type,
+            connected,
+            isConnected: connected,
+            readOnly: connection.read_only === true,
+            database: connection.database,
+            schema: connection.default_schema,
             providerId: connection.plugin_connection_provider ?? "",
             connectionType: connection.plugin_connection_type,
-            readOnly: connection.read_only === true,
-            // #193b — dock/tab titles bound to the connection (dock first), so plugins can label session rows after renamed terminals.
             workbenchTitles: queryStore.pluginWorkbenchTitles(connection.id),
-          }));
+          };
+        });
       },
       // Both plan calls carry the plugin's declared `host.plans:read` gate in the
       // bridge; the backend owns EXPLAIN generation, the timeout, and the plan cap.

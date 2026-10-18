@@ -318,6 +318,25 @@ export async function createMockHost(options) {
         if (typeof p.connectionId !== "string" || !p.connectionId) throw new Error("connectionId is invalid");
         return { ok: true, mockReopenConnection: p.connectionId };
       }
+      case "host.getConnections":
+      case "host.listConnections": {
+        const hasConnectionsRead = manifest.permissions?.includes("host.connections:read") || manifest.permissions?.includes("host.connections::read");
+        if (!hasConnectionsRead) {
+          requirePermission(manifest, "host.workbench");
+        }
+        return [
+          {
+            id: frame.connectionId || "mock-conn-1",
+            name: "Mock Connection",
+            dbType: "sqlite",
+            dialect: "sqlite",
+            databaseType: "sqlite",
+            connected: true,
+            isConnected: true,
+            readOnly: false,
+          },
+        ];
+      }
       case "host.storageGet":
       case "host.storageSet":
       case "host.storageDelete": {

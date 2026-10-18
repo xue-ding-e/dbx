@@ -8,6 +8,7 @@ import { isValidPluginAiRecommendationTemplate, resolvePluginAiRecommendationUpd
 import type { PluginAiRecommendation } from "@/types/pluginAiRecommendations";
 import { MAX_PLUGIN_SCHEMA_METADATA_NAME_CHARS, PLUGIN_SCHEMA_METADATA_CAPABILITY, PLUGIN_SCHEMA_METADATA_PERMISSION, type PluginTableContext, type PluginTableMetadata } from "@/types/pluginSchemaMetadata";
 import { MAX_PLUGIN_DATA_MAX_ROWS, MAX_PLUGIN_DATA_NAME_CHARS, MAX_PLUGIN_DATA_SQL_CHARS, MAX_PLUGIN_DATA_TIMEOUT_MS, PLUGIN_DATA_ACCESS_NOT_GRANTED, PLUGIN_DATA_CAPABILITY, PLUGIN_DATA_READ_PERMISSION, type PluginDataQueryRequest, type PluginDataQueryResult } from "@/types/pluginData";
+import { PLUGIN_CONNECTIONS_CAPABILITY, PLUGIN_CONNECTIONS_READ_PERMISSION, type PluginConnectionSummary } from "@/types/pluginConnection";
 import { floatingWindowLabel } from "@/lib/app/windowContext";
 import { parseFloatingWindowRequest, type FloatingRect, type OpenFloatingWindowRequest, type OpenFloatingWindowResult } from "@/lib/plugins/pluginFloatingWindow";
 
@@ -195,8 +196,11 @@ export interface PluginHostBridgeApi {
    * PR-A4 generic extension point: a read-only, secret-free connection list scoped to the calling plugin's own
    * connection-providers, so plugins can implement their own connection switching inside panels/workbenches and
    * their own business (the host stays unaware of the purpose).
+   *
+   * With `host.connections:read` (#12603), returns all connections when requested.
    */
-  listConnections?(pluginId: string): Array<{ id: string; name: string; providerId: string; connectionType?: string; readOnly: boolean; workbenchTitles?: string[] }>;
+  listConnections?(pluginId: string, options?: { all?: boolean }): PluginConnectionSummary[];
+  listAllConnections?(): PluginConnectionSummary[];
   /**
    * Estimated plan capability metadata for one connection. Requires the plugin
    * to declare `host.plans:read`. The host only reads the stored connection
@@ -520,6 +524,7 @@ export class PluginHostBridge {
           drop: !!this.api.receiveOsDrops,
           folderExpansion: !!this.api.receiveOsDrops,
         },
+        [PLUGIN_CONNECTIONS_CAPABILITY]: !!this.api.listConnections || !!this.api.listAllConnections,
       },
       context: snapshotPluginWorkbenchContext(this.context),
     });
@@ -790,10 +795,24 @@ export class PluginHostBridge {
       await this.api.reopenConnection(this.plugin.manifest.id, requireProtocolName(input.connectionId, "connectionId"));
       return { ok: true };
     }
+    if (method === "host.getConnections") {
+      this.requirePermission(PLUGIN_CONNECTIONS_READ_PERMISSION);
+      if (!this.api.listConnections && !this.api.listAllConnections) throw new Error("Connection enumeration is unavailable on this host");
+      if (this.api.listAllConnections) return this.api.listAllConnections();
+      return this.api.listConnections!(this.plugin.manifest.id, { all: true });
+    }
     if (method === "host.listConnections") {
-      this.requirePermission("host.workbench");
-      if (!this.api.listConnections) throw new Error("Connection enumeration is unavailable on this host");
-      return this.api.listConnections(this.plugin.manifest.id);
+      const hasConnectionsRead = this.hasPermission(PLUGIN_CONNECTIONS_READ_PERMISSION);
+      const forceScoped = isRecord(params) && params.scoped === true;
+      if (!hasConnectionsRead) {
+        this.requirePermission("host.workbench");
+      }
+      if (!this.api.listConnections && !this.api.listAllConnections) throw new Error("Connection enumeration is unavailable on this host");
+      if (hasConnectionsRead && !forceScoped) {
+        if (this.api.listAllConnections) return this.api.listAllConnections();
+        return this.api.listConnections!(this.plugin.manifest.id, { all: true });
+      }
+      return this.api.listConnections ? this.api.listConnections(this.plugin.manifest.id) : [];
     }
     if (method === "host.openFilesystem") {
       this.requirePermission("host.filesystem");
@@ -1058,7 +1077,12 @@ export class PluginHostBridge {
   }
 
   private hasPermission(permission: string): boolean {
-    return (this.plugin.manifest.permissions || []).includes(permission);
+    const permissions = this.plugin.manifest.permissions || [];
+    if (permissions.includes(permission)) return true;
+    if (permission === PLUGIN_CONNECTIONS_READ_PERMISSION && permissions.includes("host.connections::read")) {
+      return true;
+    }
+    return false;
   }
 
   private respond(target: Window, id: string, payload: { result?: unknown; error?: string }): void {
@@ -1427,6 +1451,12 @@ export function pluginSdkSource(initialTheme?: PluginBridgeTheme): string {
       executeCommand: (commandId, context) => request('host.executeCommand', { commandId, context }),
       openFilesystem: (providerId, childContext) => request('host.openFilesystem', { providerId, context: childContext }),
       reopenConnection: (connectionId) => request('host.reopenConnection', { connectionId }),
+      getConnections: () => request('host.getConnections', {}),
+      listConnections: (options) => request('host.listConnections', options || {}),
+      connections: Object.freeze({
+        list: (options) => request('host.listConnections', options || {}),
+        getAll: () => request('host.getConnections', {}),
+      }),
       // Estimated plans only: mode must be sent explicitly so a plugin states
       // its intent, and the host refuses anything other than "estimated".
       getPlanCapabilities: (connectionId) => request('host.getPlanCapabilities', { connectionId }),

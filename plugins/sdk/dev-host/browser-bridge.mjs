@@ -133,6 +133,12 @@ function installBridge(channel) {
     openWorkbench: (contributionId, context, options) => request("host.openWorkbench", { contributionId, context, forceNew: !!(options && options.forceNew) }),
     openFilesystem: (providerId, context) => request("host.openFilesystem", { providerId, context }),
     reopenConnection: (connectionId) => request("host.reopenConnection", { connectionId }),
+    getConnections: () => request("host.getConnections", {}),
+    listConnections: (options) => request("host.listConnections", options || {}),
+    connections: Object.freeze({
+      list: (options) => request("host.listConnections", options || {}),
+      getAll: () => request("host.getConnections", {}),
+    }),
     copy: (text) => request("host.copy", { text }),
     storage: {
       get: (key) => request("host.storageGet", { key }),
