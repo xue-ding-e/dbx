@@ -528,6 +528,72 @@ describe("PluginHostBridge", () => {
     expect(openWorkbench).toHaveBeenNthCalledWith(2, "sample", "sample.other", undefined, { forceNew: false });
   });
 
+  it("rejects host.setTitle and host.getTitle without host.workbench permission", async () => {
+    const messages: unknown[] = [];
+    const target = { postMessage: (message: unknown) => messages.push(message) } as unknown as Window;
+    const bridge = new PluginHostBridge(plugin(), workbench, {}, () => target, {
+      invoke: vi.fn(),
+      notify: vi.fn(),
+      sendBinary: vi.fn(),
+      readAsset: vi.fn(),
+      setTitle: vi.fn(),
+      getTitle: vi.fn(),
+    });
+
+    bridge.handleWindowMessage({
+      source: target,
+      data: { source: "dbx-plugin", version: 1, type: "request", id: "t1", method: "host.setTitle", params: { title: "Custom Title" } },
+    } as MessageEvent);
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+    expect(messages[0]).toMatchObject({ id: "t1", error: "Plugin has not declared permission 'host.workbench'" });
+
+    bridge.handleWindowMessage({
+      source: target,
+      data: { source: "dbx-plugin", version: 1, type: "request", id: "t2", method: "host.getTitle" },
+    } as MessageEvent);
+    await vi.waitFor(() => expect(messages).toHaveLength(2));
+    expect(messages[1]).toMatchObject({ id: "t2", error: "Plugin has not declared permission 'host.workbench'" });
+  });
+
+  it("handles host.setTitle and host.getTitle with host.workbench permission", async () => {
+    const messages: unknown[] = [];
+    const target = { postMessage: (message: unknown) => messages.push(message) } as unknown as Window;
+    const setTitle = vi.fn();
+    const getTitle = vi.fn(() => "Current Title");
+    const bridge = new PluginHostBridge(plugin(["host.workbench"]), workbench, {}, () => target, {
+      invoke: vi.fn(),
+      notify: vi.fn(),
+      sendBinary: vi.fn(),
+      readAsset: vi.fn(),
+      setTitle,
+      getTitle,
+    });
+
+    const request = (id: string, method: string, params?: unknown) =>
+      bridge.handleWindowMessage({
+        source: target,
+        data: { source: "dbx-plugin", version: 1, type: "request", id, method, params },
+      } as MessageEvent);
+
+    request("set-1", "host.setTitle", { title: "  My Tab  " });
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+    expect(setTitle).toHaveBeenLastCalledWith("My Tab");
+    expect(messages[0]).toMatchObject({ id: "set-1", result: null });
+
+    request("set-2", "host.setTitle", { title: null });
+    await vi.waitFor(() => expect(messages).toHaveLength(2));
+    expect(setTitle).toHaveBeenLastCalledWith(null);
+
+    request("set-3", "host.setTitle", { title: "   " });
+    await vi.waitFor(() => expect(messages).toHaveLength(3));
+    expect(setTitle).toHaveBeenLastCalledWith(null);
+
+    request("get-1", "host.getTitle");
+    await vi.waitFor(() => expect(messages).toHaveLength(4));
+    expect(getTitle).toHaveBeenCalled();
+    expect(messages[3]).toMatchObject({ id: "get-1", result: "Current Title" });
+  });
+
   it("routes host.executeCommand to the surface handler scoped to the calling plugin", async () => {
     const messages: unknown[] = [];
     const target = { postMessage: (message: unknown) => messages.push(message) } as unknown as Window;
@@ -1766,6 +1832,12 @@ describe("plugin SDK source", () => {
       getPlanCapabilities: (connectionId: string) => Promise<unknown>;
       explainPlan: (request: unknown) => Promise<unknown>;
       getTableMetadata: (context: unknown) => Promise<unknown>;
+      setTitle: (title: string | null) => Promise<unknown>;
+      getTitle: () => Promise<unknown>;
+      workbench: {
+        setTitle: (title: string | null) => Promise<unknown>;
+        getTitle: () => Promise<unknown>;
+      };
     };
     receiveHostMessage: (message: unknown) => void;
   }
@@ -1917,6 +1989,29 @@ describe("plugin SDK source", () => {
     const request = firstRequest(posted);
     expect(request.method).toBe("host.getTableMetadata");
     expect(request.params).toEqual({ connectionId: "c1", database: "app", table: "users" });
+  });
+
+  it("exposes setTitle and getTitle on window.dbxPlugin and window.dbxPlugin.workbench", () => {
+    const posted: unknown[] = [];
+    const { dbxPlugin } = loadSdk(posted);
+
+    void dbxPlugin!.setTitle("New Tab Name");
+    void dbxPlugin!.getTitle();
+    void dbxPlugin!.workbench.setTitle(null);
+    void dbxPlugin!.workbench.getTitle();
+
+    const requests = posted.filter((message) => (message as { type: string }).type === "request") as {
+      method: string;
+      params: Record<string, unknown>;
+    }[];
+
+    expect(requests).toHaveLength(4);
+    expect(requests[0].method).toBe("host.setTitle");
+    expect(requests[0].params).toEqual({ title: "New Tab Name" });
+    expect(requests[1].method).toBe("host.getTitle");
+    expect(requests[2].method).toBe("host.setTitle");
+    expect(requests[2].params).toEqual({ title: null });
+    expect(requests[3].method).toBe("host.getTitle");
   });
 
   it("forwards fileTransfer requests to the host api", async () => {

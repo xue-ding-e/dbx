@@ -179,6 +179,13 @@ export interface PluginHostBridgeApi {
   setAiRecommendations?(update: PluginAiRecommendationHostUpdate): void;
   openWorkbench?(pluginId: string, contributionId: string, context?: PluginWorkbenchContext, options?: { forceNew?: boolean; target?: "tab" }): Promise<void> | void;
   /**
+   * Updates the calling workbench tab/dock title (or resets to default when title is null).
+   * Scoped to the single surface hosting the caller.
+   */
+  setTitle?(title: string | null): Promise<void> | void;
+  /** Reads the calling workbench tab/dock title. */
+  getTitle?(): Promise<string> | string;
+  /**
    * §4/§5 command execution asked from a plugin webview: the same registry
    * path as menu execution — enablement (§5.4), §4.1 singleton reuse,
    * host-authored context — scoped to the calling plugin's own declared
@@ -514,6 +521,7 @@ export class PluginHostBridge {
         // Floating desktop widget windows: advertised only when the host can both
         // open a window and drive its geometry, so a plugin sees one honest flag.
         floating: !!this.api.openFloatingWindow && !!this.api.beginFloatingDrag && !!this.api.endFloatingDrag,
+        workbenchTitle: !!this.api.setTitle,
         // The namespace exists on both hosts, but what it can DO differs:
         // portable plugins gate on these flags instead of probing calls.
         fileTransfer: {
@@ -782,6 +790,20 @@ export class PluginHostBridge {
       // older handlers stay compatible.
       await this.api.openWorkbench(this.plugin.manifest.id, requireProtocolName(input.contributionId, "workbench contribution"), isRecord(input.context) ? input.context : undefined, { forceNew: input.forceNew === true, target: input.target === "tab" ? "tab" : undefined });
       return null;
+    }
+    if (method === "host.setTitle") {
+      this.requirePermission("host.workbench");
+      if (!this.api.setTitle) throw new Error("Host tab title update is unavailable");
+      const input = requireRecord(params, "setTitle params");
+      const rawTitle = input.title;
+      const title = typeof rawTitle === "string" ? rawTitle.trim().slice(0, 256) || null : null;
+      await this.api.setTitle(title);
+      return null;
+    }
+    if (method === "host.getTitle") {
+      this.requirePermission("host.workbench");
+      if (!this.api.getTitle) throw new Error("Host tab title read is unavailable");
+      return (await this.api.getTitle()) ?? "";
     }
     if (method === "host.executeCommand") {
       this.requirePermission("host.workbench");
@@ -1417,6 +1439,8 @@ export function pluginSdkSource(initialTheme?: PluginBridgeTheme): string {
         return URL.createObjectURL(new Blob([decode(asset.dataBase64)], { type: asset.contentType }));
       },
       openWorkbench: (contributionId, childContext, options) => request('host.openWorkbench', { contributionId, context: childContext, forceNew: !!(options && options.forceNew), target: options && options.target === "tab" ? "tab" : undefined }),
+      setTitle: (title) => request('host.setTitle', { title }),
+      getTitle: () => request('host.getTitle'),
       // Closes whatever surface hosts this plugin UI — a workbench tab, a dock
       // entry, or this plugin's floating window. Same path as the Ctrl+W
       // shortcut, so a plugin can offer its own close/minimize affordance.
@@ -1531,6 +1555,8 @@ export function pluginSdkSource(initialTheme?: PluginBridgeTheme): string {
       // listener has settled. The host bounds the wait on its side.
       workbench: Object.freeze({
         onClose: (listener) => { listeners.close.add(listener); return () => listeners.close.delete(listener); },
+        setTitle: (title) => request('host.setTitle', { title }),
+        getTitle: () => request('host.getTitle'),
       }),
       decodeBase64: decode,
       encodeBase64: encode,

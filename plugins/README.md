@@ -263,10 +263,7 @@ A field may declare `visible_when` and `required_when`. A leaf clause matches wh
     ]
   },
   "required_when": {
-    "all_of": [
-      { "field": "sudo_source", "one_of": ["custom"] },
-      { "not": { "field": "read_only", "one_of": [true] } }
-    ]
+    "all_of": [{ "field": "sudo_source", "one_of": ["custom"] }, { "not": { "field": "read_only", "one_of": [true] } }]
   }
 }
 ```
@@ -369,6 +366,7 @@ A workbench opens in a normal persistent DBX tab. The iframe is loaded with `san
 - `sendBinary(channel, data)` — requires `host.binary`
 - `readAsset(path)` / `readAssetUrl(path)`
 - `openWorkbench(contributionId, context)` — requires `host.workbench`
+- `setTitle(title)` / `getTitle()` — updates (pass `null` to reset) or reads the calling tab title; requires `host.workbench`
 - `executeCommand(commandId, context?)` — executes one of this plugin's own declared commands through the same path a menu placement takes: `enablement` is re-checked, `presentation: "panel"` commands dock in the bottom panel and `presentation: "tab"` (default) commands open a workbench tab, with §4.1 singleton reuse. `context` merges over the command-declared context (reserved identity fields stay host-owned) and scopes `instance_key` `{{path}}` placeholders — declare `instance_key: "logs:{{connectionId}}"` to get one panel instance per connection; a template that cannot resolve falls back to its literal. Resolves `{ error }` for expected outcomes (unknown command, enablement-blocked); requires `host.workbench`
 - `openFilesystem(providerId, context)` — requires `host.filesystem`
 - `getPlanCapabilities(connectionId)` / `explainPlan(request)` — reads an estimated execution plan for one connection; requires `host.plans:read`, see [Estimated execution plans](#estimated-execution-plans)
@@ -600,7 +598,7 @@ if (window.dbxPlugin.capabilities.schemaMetadataApi) {
     connectionId,
     database,
     schema,
-    table: "users"
+    table: "users",
   });
   renderColumns(metadata.columns);
 }
@@ -659,7 +657,7 @@ if (window.dbxPlugin.capabilities.dataApi) {
     connectionId,
     database,
     sql: "SELECT status, count(*) AS total FROM orders GROUP BY status",
-    maxRows: 200
+    maxRows: 200,
   });
 }
 ```
@@ -683,10 +681,10 @@ A plugin can read the **estimated** execution plan of a query without touching a
 }
 ```
 
-| Request | Purpose |
-| --- | --- |
-| `host.getPlanCapabilities({ connectionId })` | Reports what the host and this connection can plan. It only reads the stored connection config; it never connects or probes the server. The connection must already be open. |
-| `host.explainPlan({ connectionId, database?, schema?, sql, mode, timeoutMs? })` | Returns the estimated plan for `sql`. The connection must already be open. |
+| Request                                                                         | Purpose                                                                                                                                                                      |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host.getPlanCapabilities({ connectionId })`                                    | Reports what the host and this connection can plan. It only reads the stored connection config; it never connects or probes the server. The connection must already be open. |
+| `host.explainPlan({ connectionId, database?, schema?, sql, mode, timeoutMs? })` | Returns the estimated plan for `sql`. The connection must already be open.                                                                                                   |
 
 `host.getPlanCapabilities` returns:
 

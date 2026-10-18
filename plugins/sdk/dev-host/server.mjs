@@ -314,6 +314,16 @@ export async function createMockHost(options) {
         requirePermission(manifest, "host.workbench");
         return { mockHostOpenFrame: await serialize(() => openFrame(session, p.context?.connectionId || frame.connectionId, p.contributionId, p.context)) };
       }
+      case "host.setTitle": {
+        requirePermission(manifest, "host.workbench");
+        const title = p.title === null || p.title === undefined ? null : typeof p.title === "string" ? p.title.trim() || null : null;
+        frame.title = title;
+        return { ok: true, title };
+      }
+      case "host.getTitle": {
+        requirePermission(manifest, "host.workbench");
+        return frame.title ?? "";
+      }
       case "host.reopenConnection": {
         if (typeof p.connectionId !== "string" || !p.connectionId) throw new Error("connectionId is invalid");
         return { ok: true, mockReopenConnection: p.connectionId };

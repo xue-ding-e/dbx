@@ -131,6 +131,12 @@ function installBridge(channel) {
       return URL.createObjectURL(new Blob([decode(asset.dataBase64)], { type: asset.contentType }));
     },
     openWorkbench: (contributionId, context, options) => request("host.openWorkbench", { contributionId, context, forceNew: !!(options && options.forceNew) }),
+    setTitle: (title) => request("host.setTitle", { title }),
+    getTitle: () => request("host.getTitle"),
+    workbench: Object.freeze({
+      setTitle: (title) => request("host.setTitle", { title }),
+      getTitle: () => request("host.getTitle"),
+    }),
     openFilesystem: (providerId, context) => request("host.openFilesystem", { providerId, context }),
     reopenConnection: (connectionId) => request("host.reopenConnection", { connectionId }),
     getConnections: () => request("host.getConnections", {}),

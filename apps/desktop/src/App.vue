@@ -5562,6 +5562,7 @@ onUnmounted(() => {
                 <div v-for="workbenchTab in mountedPluginWorkbenchTabs" :key="workbenchTab.id" v-show="activeTab && workbenchTab.id === activeTab.id" class="flex min-h-0 flex-1 flex-col">
                   <PluginWorkbenchTab
                     :ref="(element) => setPluginWorkbenchTabRef(workbenchTab.id, element)"
+                    :tab-id="workbenchTab.id"
                     :plugin-id="workbenchTab.pluginWorkbench!.pluginId"
                     :contribution-id="workbenchTab.pluginWorkbench!.contributionId"
                     :context="workbenchTab.pluginWorkbench!.context"

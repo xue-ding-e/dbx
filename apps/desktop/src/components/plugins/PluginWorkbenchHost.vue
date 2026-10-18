@@ -40,6 +40,8 @@ const props = withDefaults(
     plugin: InstalledPlugin;
     contribution: PluginUiContribution;
     context?: PluginWorkbenchContext;
+    setTitle?: (title: string | null) => Promise<void> | void;
+    getTitle?: () => Promise<string> | string;
   }>(),
   { context: () => ({}) },
 );
@@ -524,6 +526,28 @@ function createBridge() {
       ...(isTauriRuntime() ? aiCompletion : {}),
       setAiRecommendations: (update) => emit("recommendations", update),
       openWorkbench: async (pluginId, contributionId, context, options) => emit("openWorkbench", pluginId, contributionId, context, options),
+      // Only expose the title APIs on surfaces that implement them (workbench
+      // tab and dock hosts pass the props); the bridge derives the
+      // `workbenchTitle` capability from their presence, so floating windows
+      // and sidebar hosts must not advertise a silent no-op.
+      ...(() => {
+        const setTitleProp = props.setTitle;
+        const getTitleProp = props.getTitle;
+        return {
+          ...(setTitleProp
+            ? {
+                setTitle: async (newTitle: string | null) => {
+                  await setTitleProp(newTitle);
+                },
+              }
+            : {}),
+          ...(getTitleProp
+            ? {
+                getTitle: async () => await getTitleProp(),
+              }
+            : {}),
+        };
+      })(),
       // §4/§5 bridge command execution, scoped to this plugin's own manifest:
       // the single-plugin registry is equivalent here because findCommand /
       // findWorkbench / enablement never cross plugins. Panel commands dock,
