@@ -6531,6 +6531,8 @@ export default withEnglishFallback({
     },
     fileColumn: "檔案",
     totalFiles: "{count} 個檔案",
+    executeSuccess: "SQL 檔案執行成功",
+    completedWithErrors: "執行完成：成功 {succeeded} 條，失敗 {failed} 條",
     runInBackground: "背景執行",
   },
   diff: {

@@ -8168,6 +8168,8 @@ export default withEnglishFallback({
     },
     fileColumn: "文件",
     totalFiles: "{count} 个文件",
+    executeSuccess: "SQL 文件执行成功",
+    completedWithErrors: "执行完成：成功 {succeeded} 条，失败 {failed} 条",
   },
   sqlFileTree: {
     folderNameInvalid: "请输入单个文件夹名称，不能包含路径。",

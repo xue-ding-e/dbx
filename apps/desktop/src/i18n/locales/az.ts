@@ -6827,6 +6827,8 @@ export default withEnglishFallback({
     fileProgress: "Fayl {current} / {total}",
     fileColumn: "Fayl",
     totalFiles: "{count} fayl",
+    executeSuccess: "SQL faylı uğurla icra edildi",
+    completedWithErrors: "İcra tamamlandı: {succeeded} uğurlu, {failed} uğursuz",
   },
   sqlFileTree: {
     folderNameInvalid: "Yol deyil, tək qovluq adı daxil edin.",

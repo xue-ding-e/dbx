@@ -8433,6 +8433,8 @@ export default withEnglishFallback({
     },
     fileColumn: "Файл",
     totalFiles: "{count} файлов",
+    executeSuccess: "SQL-файл успешно выполнен",
+    completedWithErrors: "Выполнение завершено: успешно {succeeded}, с ошибкой {failed}",
   },
   sqlFileTree: {
     folderNameInvalid: "Введите одно имя папки, а не путь.",

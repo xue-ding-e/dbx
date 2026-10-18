@@ -6987,6 +6987,8 @@ export default withEnglishFallback({
     fileProgress: "파일 {current}/{total}",
     fileColumn: "파일",
     totalFiles: "{count}개 파일",
+    executeSuccess: "SQL 파일을 실행했습니다",
+    completedWithErrors: "실행 완료: 성공 {succeeded}개, 실패 {failed}개",
   },
   sqlFileTree: {
     folderNameInvalid: "경로가 아닌 폴더 이름 하나를 입력하세요.",

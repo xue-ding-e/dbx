@@ -7212,6 +7212,8 @@ export default withEnglishFallback({
     fileProgress: "ファイル {current}/{total}",
     fileColumn: "ファイル",
     totalFiles: "{count} ファイル",
+    executeSuccess: "SQLファイルを実行しました",
+    completedWithErrors: "実行が完了しました: 成功 {succeeded} 件、失敗 {failed} 件",
   },
   diff: {
     progress: {

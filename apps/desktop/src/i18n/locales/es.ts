@@ -7400,6 +7400,8 @@ export default withEnglishFallback({
     },
     fileColumn: "Archivo",
     totalFiles: "{count} archivos",
+    executeSuccess: "Archivo SQL ejecutado con éxito",
+    completedWithErrors: "Ejecución completada: {succeeded} correctos, {failed} fallidos",
   },
   diff: {
     progress: {

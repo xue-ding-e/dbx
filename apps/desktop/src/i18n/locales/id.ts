@@ -7526,6 +7526,8 @@ export default withEnglishFallback({
     },
     fileColumn: "File",
     totalFiles: "{count} file",
+    executeSuccess: "File SQL berhasil dijalankan",
+    completedWithErrors: "Eksekusi selesai: {succeeded} berhasil, {failed} gagal",
   },
   sqlFileTree: {
     folderNameInvalid: "Masukkan satu nama folder, bukan jalur.",

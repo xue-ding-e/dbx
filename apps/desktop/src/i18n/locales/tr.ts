@@ -6708,6 +6708,8 @@ export default withEnglishFallback({
     fileProgress: "Dosya {current} / {total}",
     fileColumn: "Dosya",
     totalFiles: "{count} dosya",
+    executeSuccess: "SQL dosyası başarıyla çalıştırıldı",
+    completedWithErrors: "Çalıştırma tamamlandı: {succeeded} başarılı, {failed} başarısız",
   },
   sqlFileTree: {
     folderNameInvalid: "Yol yerine tek bir klasör adı girin.",

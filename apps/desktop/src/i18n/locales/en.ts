@@ -8186,6 +8186,8 @@ export default {
     },
     fileColumn: "File",
     totalFiles: "{count} files",
+    executeSuccess: "SQL file executed successfully",
+    completedWithErrors: "Execution completed: {succeeded} succeeded, {failed} failed",
   },
   sqlFileTree: {
     folderNameInvalid: "Enter a single folder name, not a path.",
