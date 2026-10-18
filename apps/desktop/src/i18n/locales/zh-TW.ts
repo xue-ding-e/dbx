@@ -5968,6 +5968,7 @@ export default withEnglishFallback({
     transferMode: "傳輸模式",
     modeAppend: "追加 (INSERT)",
     modeOverwrite: "覆蓋 (TRUNCATE + INSERT)",
+    modeReplaceExisting: "已有物件則取代",
     modeUpsert: "更新插入 (按主鍵 INSERT 或 UPDATE)",
     batchSize: "每批筆數",
     operationTimeout: "操作逾時（秒）",

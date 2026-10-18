@@ -7586,6 +7586,7 @@ export default withEnglishFallback({
     transferMode: "传输模式",
     modeAppend: "追加 (INSERT)",
     modeOverwrite: "覆盖 (TRUNCATE + INSERT)",
+    modeReplaceExisting: "存在则替换对象",
     modeUpsert: "更新插入 (按主键 INSERT 或 UPDATE)",
     targetTableNameCase: "目标表名大小写",
     quoteTargetColumnNames: "引用目标字段名",

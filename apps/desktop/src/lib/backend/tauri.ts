@@ -5894,6 +5894,8 @@ export interface TransferStructurePreview {
   sql: string;
   tables: TransferStructurePreviewTable[];
   operations: TransferStructureOperation[];
+  /** Whether selected non-table schema objects are expanded in the SQL preview. */
+  schemaObjectsExpanded: boolean;
 }
 
 export interface TransferOwnershipPreview {

@@ -7870,6 +7870,7 @@ export default withEnglishFallback({
     transferMode: "Режим переноса",
     modeAppend: "Добавить (INSERT)",
     modeOverwrite: "Перезаписать (TRUNCATE + INSERT)",
+    modeReplaceExisting: "Заменить существующие объекты",
     modeUpsert: "Upsert (INSERT или UPDATE по PK)",
     targetTableNameCase: "Регистр имён целевых таблиц",
     quoteTargetColumnNames: "Заключать имена целевых столбцов в кавычки",

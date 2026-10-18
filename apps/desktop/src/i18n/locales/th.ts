@@ -8260,6 +8260,7 @@ export default withEnglishFallback({
     transferMode: "Mode การถ่ายโอน",
     modeAppend: "Append (INSERT)",
     modeOverwrite: "Overwrite (TRUNCATE + INSERT)",
+    modeReplaceExisting: "แทนที่ออบเจ็กต์ที่มีอยู่",
     modeUpsert: "Upsert (INSERT หรือ UPDATE ด้วย PK)",
     targetTableNameCase: "ตัวพิมพ์เล็กใหญ่ของชื่อ Table เป้าหมาย",
     quoteTargetColumnNames: "ใส่ Quote ชื่อ Column เป้าหมาย",

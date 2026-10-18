@@ -6657,6 +6657,7 @@ export default withEnglishFallback({
     transferMode: "転送モード",
     modeAppend: "追加 (INSERT)",
     modeOverwrite: "上書き (TRUNCATE + INSERT)",
+    modeReplaceExisting: "既存のオブジェクトを置き換え",
     modeUpsert: "アップサート (主キーでINSERT or UPDATE)",
     targetTableNameCase: "対象テーブル名の大小文字",
     quoteTargetColumnNames: "対象列名を引用",

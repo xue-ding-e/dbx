@@ -6820,6 +6820,7 @@ export default withEnglishFallback({
     transferMode: "Modo de transferencia",
     modeAppend: "Agregar (INSERT)",
     modeOverwrite: "Sobrescribir (TRUNCATE + INSERT)",
+    modeReplaceExisting: "Reemplazar objetos existentes",
     modeUpsert: "Upsert (INSERT o UPDATE por PK)",
     targetTableNameCase: "Mayúsculas/minúsculas de tabla destino",
     quoteTargetColumnNames: "Citar columnas de destino",

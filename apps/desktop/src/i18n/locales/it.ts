@@ -6637,6 +6637,7 @@ export default withEnglishFallback({
     transferMode: "Modalità trasferimento",
     modeAppend: "Accoda (INSERT)",
     modeOverwrite: "Sovrascrivi (TRUNCATE + INSERT)",
+    modeReplaceExisting: "Sostituisci oggetti esistenti",
     modeUpsert: "Aggiorna/Inserisci (INSERT o UPDATE per chiave primaria)",
     targetTableNameCase: "Maiuscole/minuscole tabella destinazione",
     quoteTargetColumnNames: "Quota colonne di destinazione",

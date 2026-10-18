@@ -7604,6 +7604,7 @@ export default {
     transferMode: "Transfer mode",
     modeAppend: "Append (INSERT)",
     modeOverwrite: "Overwrite (TRUNCATE + INSERT)",
+    modeReplaceExisting: "Replace existing objects",
     modeUpsert: "Upsert (INSERT or UPDATE by PK)",
     targetTableNameCase: "Target table name case",
     quoteTargetColumnNames: "Quote target column names",
