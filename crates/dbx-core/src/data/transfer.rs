@@ -8017,6 +8017,20 @@ fn transfer_ddl_statements(sql: &str, db_type: &DatabaseType) -> Vec<String> {
                 })
                 .collect()
         }
+    } else if matches!(db_type, DatabaseType::Gaussdb) {
+        // GaussDB's pg_get_tabledef() returns several statements per table, but GaussDB is
+        // not in `is_postgres_transfer_dialect` because its INSERT path has no ON CONFLICT.
+        // Without splitting, `Client::execute` prepares the whole script as one statement
+        // and the server rejects it with "cannot insert multiple commands into a prepared
+        // statement" (#12442). Unlike the PostgreSQL branch, index and foreign-key
+        // statements stay in the list: a GaussDB transfer does not restore them separately
+        // (`pg_compat_transfer` is false), so filtering them would drop objects.
+        let statements = split_sql_statements(sql);
+        if statements.is_empty() {
+            vec![sql.trim().to_string()]
+        } else {
+            statements
+        }
     } else if matches!(db_type, DatabaseType::Dameng | DatabaseType::Xugu) {
         let statements = split_sql_statements_for_database(sql, *db_type);
         if statements.is_empty() {
@@ -17288,6 +17302,58 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
                 "COMMENT ON TABLE \"public\".\"items\" IS 'items'".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn gaussdb_transfer_ddl_splits_reused_multi_statement_table_ddl() {
+        // GaussDB's pg_get_tabledef() also returns several statements per table, but
+        // GaussDB is not in `is_postgres_transfer_dialect` because its INSERT path has no
+        // ON CONFLICT. Without this branch the whole script is prepared as one statement
+        // and the server rejects it with "cannot insert multiple commands into a prepared
+        // statement" (#12442).
+        let ddl = "SET search_path = public;\n\
+                   CREATE TABLE \"public\".\"items\" (\"id\" integer);\n\
+                   COMMENT ON TABLE \"public\".\"items\" IS 'items';";
+
+        let statements = transfer_ddl_statements(ddl, &DatabaseType::Gaussdb);
+
+        assert_eq!(
+            statements,
+            vec![
+                "SET search_path = public".to_string(),
+                "CREATE TABLE \"public\".\"items\" (\"id\" integer)".to_string(),
+                "COMMENT ON TABLE \"public\".\"items\" IS 'items'".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn gaussdb_transfer_ddl_keeps_reused_index_and_foreign_key_statements() {
+        // A GaussDB transfer does not run the PostgreSQL metadata restore pass
+        // (`pg_compat_transfer` is false), so the index and FK statements in the reused
+        // DDL are the only thing that creates them. They must survive the split, unlike
+        // the PostgreSQL/openGauss path where restore_postgres_table_schema_objects
+        // re-adds them.
+        let ddl = "CREATE TABLE \"public\".\"items\" (\"id\" integer, \"order_id\" integer);\n\
+                   ALTER TABLE \"public\".\"items\" ADD CONSTRAINT \"items_order_id_fkey\" FOREIGN KEY (\"order_id\") REFERENCES \"public\".\"orders\" (\"id\");\n\
+                   CREATE INDEX \"items_order_id_idx\" ON \"public\".\"items\" (\"order_id\");";
+
+        let statements = transfer_ddl_statements(ddl, &DatabaseType::Gaussdb);
+
+        assert_eq!(
+            statements,
+            vec![
+                "CREATE TABLE \"public\".\"items\" (\"id\" integer, \"order_id\" integer)".to_string(),
+                "ALTER TABLE \"public\".\"items\" ADD CONSTRAINT \"items_order_id_fkey\" FOREIGN KEY (\"order_id\") REFERENCES \"public\".\"orders\" (\"id\")".to_string(),
+                "CREATE INDEX \"items_order_id_idx\" ON \"public\".\"items\" (\"order_id\")".to_string(),
+            ]
+        );
+        // The PostgreSQL/openGauss path drops these because the restore pass re-creates
+        // them; lock the contrast so a future refactor cannot silently apply the same
+        // filter to GaussDB.
+        let postgres_statements = transfer_ddl_statements(ddl, &DatabaseType::Postgres);
+        assert!(!postgres_statements.iter().any(|statement| statement.starts_with("CREATE INDEX")));
+        assert!(!postgres_statements.iter().any(|statement| statement.starts_with("ALTER TABLE")));
     }
 
     #[test]
