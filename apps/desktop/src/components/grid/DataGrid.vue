@@ -2,6 +2,7 @@
 import QueryTimingDetails from "./QueryTimingDetails.vue";
 import { applyDdlStoragePreference } from "@/lib/sql/ddlStorage";
 import { applyDdlSearchMarks } from "@/lib/sql/ddlSearchMarks";
+import { isAiPromptImeCompositionEvent } from "@/lib/ai/aiPromptKeyboard";
 import DdlStorageToggle from "@/components/objects/DdlStorageToggle.vue";
 
 import { useUpdateBlocker } from "@/lib/app/updatePreparation";
@@ -10818,7 +10819,14 @@ async function onTemporalCellEditorSave() {
   }
 }
 
+const cellEditCompositionActive = ref(false);
+
 async function onCellEditKeydown(event: KeyboardEvent) {
+  // The composition guard must also cover the save-shortcut and inline bulk
+  // edit branches below: they run before the delegation to onEditKeydown and
+  // reuse the same cell edit input, so an IME Enter would otherwise commit
+  // the bulk fill (#12470).
+  if (isAiPromptImeCompositionEvent(event, cellEditCompositionActive.value)) return;
   if (isSaveShortcut(event, settingsStore.editorSettings.shortcuts)) {
     event.preventDefault();
     event.stopPropagation();
@@ -10841,7 +10849,7 @@ async function onCellEditKeydown(event: KeyboardEvent) {
     }
     return;
   }
-  onEditKeydown(event);
+  onEditKeydown(event, cellEditCompositionActive.value);
 }
 
 function undoGridChange(): boolean {
@@ -14850,6 +14858,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                             @click.stop
                             @focus="onCellEditTextareaInput"
                             @input="onCellEditTextareaInput"
+                            @compositionstart="cellEditCompositionActive = true"
+                            @compositionend="cellEditCompositionActive = false"
                             @keydown.stop="onCellEditKeydown"
                             @paste.stop="onCellEditTextareaPaste"
                             @wheel.stop
@@ -14865,6 +14875,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                             @blur="commitEditFromCellBlur"
                             @click.stop
                             @input="onCellEditTextareaInput"
+                            @compositionstart="cellEditCompositionActive = true"
+                            @compositionend="cellEditCompositionActive = false"
                             @keydown.stop="onCellEditKeydown"
                             @paste.stop="onCellEditTextareaPaste"
                           />
@@ -15550,6 +15562,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                           @click.stop
                           @focus="onCellEditTextareaInput"
                           @input="onCellEditTextareaInput"
+                          @compositionstart="cellEditCompositionActive = true"
+                          @compositionend="cellEditCompositionActive = false"
                           @keydown.stop="onCellEditKeydown"
                           @paste.stop="onCellEditTextareaPaste"
                           @wheel.stop
@@ -15565,6 +15579,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                           @blur="commitEditFromCellBlur"
                           @click.stop
                           @input="onCellEditTextareaInput"
+                          @compositionstart="cellEditCompositionActive = true"
+                          @compositionend="cellEditCompositionActive = false"
                           @keydown.stop="onCellEditKeydown"
                           @paste.stop="onCellEditTextareaPaste"
                         />
@@ -15774,6 +15790,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                               @click.stop
                               @focus="onCellEditTextareaInput"
                               @input="onCellEditTextareaInput"
+                              @compositionstart="cellEditCompositionActive = true"
+                              @compositionend="cellEditCompositionActive = false"
                               @keydown.stop="onCellEditKeydown"
                               @paste.stop="onCellEditTextareaPaste"
                               @wheel.stop
@@ -15789,6 +15807,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                               @blur="commitEditFromCellBlur"
                               @click.stop
                               @input="onCellEditTextareaInput"
+                              @compositionstart="cellEditCompositionActive = true"
+                              @compositionend="cellEditCompositionActive = false"
                               @keydown.stop="onCellEditKeydown"
                               @paste.stop="onCellEditTextareaPaste"
                             />
