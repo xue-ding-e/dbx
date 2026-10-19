@@ -2744,12 +2744,11 @@ const columnWidthMode = computed(() => settingsStore.editorSettings.dataGridColu
 const tableFontFamily = computed(() => settingsStore.editorSettings.tableFontFamily);
 const columnWidthCacheKey = computed(() => props.columnWidthCacheKey?.trim() || props.cacheKey?.trim() || undefined);
 const columnStructureSignature = computed(() => createDataGridColumnStructureSignature(props.result.columns, props.result.column_types));
-// Bumped once the configured header font is ready, so widths measured against a temporary fallback
-// font get re-measured without reacting to unrelated fonts loaded elsewhere in the application.
-const dataGridFontReadyTick = ref(0);
-const columnFormatterReadyTick = ref(0);
-const columnHeaderMeasurementKey = computed(() => [tableFontSize.value, tableFontFamily.value, dataGridFontReadyTick.value, columnFormatterReadyTick.value]);
+// The configured header font is re-measured once ready (grown-only, never clearing user
+// adjustments), without reacting to unrelated fonts loaded elsewhere in the application.
+const columnHeaderMeasurementKey = computed(() => [tableFontSize.value, tableFontFamily.value]);
 let columnHeaderMeasureContext: CanvasRenderingContext2D | null | undefined;
+let triggerGrowColumnWidths: (() => void) | undefined;
 
 if (typeof document !== "undefined" && document.fonts) {
   let fontLoadRequestId = 0;
@@ -2762,7 +2761,9 @@ if (typeof document !== "undefined" && document.fonts) {
       } catch {
         return;
       }
-      if (requestId === fontLoadRequestId) dataGridFontReadyTick.value++;
+      if (requestId === fontLoadRequestId) {
+        triggerGrowColumnWidths?.();
+      }
     },
     { immediate: true },
   );
@@ -2787,7 +2788,7 @@ function columnWidthDisplayValue(value: CellValue, columnIndex: number): CellVal
   return showWhitespaceEnabled.value && typeof display === "string" ? gridCellDisplayValue(display, flatteningMultiLineEnabled.value, true) : display;
 }
 
-const { initColumnWidths, onResizeStart, autoFitColumn, autoFitAllColumns, renderedColumnWidths, totalWidth, columnVars, getIsResizing } = useDataGridColumnResize({
+const { initColumnWidths, growColumnWidthsToFitSamples, onResizeStart, autoFitColumn, autoFitAllColumns, renderedColumnWidths, totalWidth, columnVars, getIsResizing } = useDataGridColumnResize({
   columns: visibleColumns,
   sourceRows: computed(() => props.result.rows),
   columnIndexes: visibleColumnIndexes,
@@ -2803,6 +2804,7 @@ const { initColumnWidths, onResizeStart, autoFitColumn, autoFitAllColumns, rende
   viewportWidth: gridViewportWidth,
   displayValue: columnWidthDisplayValue,
 });
+triggerGrowColumnWidths = growColumnWidthsToFitSamples;
 const gridStyle = computed(() => ({
   ...columnVars.value,
   "--header-total-w": dataGridHeaderContentWidth("var(--total-w)", gridScrollbarGutter.value),
@@ -5680,7 +5682,6 @@ const {
   toast,
 });
 columnFormatterForWidth = columnFormatter;
-columnFormatterReadyTick.value++;
 
 initColumnWidths();
 watch([visibleColumnIndexes, () => renderedColumnWidths.value.length], () => scheduleColumnLayoutRefresh());
