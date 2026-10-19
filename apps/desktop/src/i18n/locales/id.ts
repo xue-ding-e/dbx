@@ -6969,6 +6969,7 @@ export default withEnglishFallback({
     modeOverwrite: "Timpa (TRUNCATE + INSERT)",
     modeUpsert: "Upsert (INSERT atau UPDATE berdasarkan PK)",
     targetTableNameCase: "Kapitalisasi nama tabel target",
+    targetColumnNameCase: "Kapitalisasi nama kolom target",
     quoteTargetColumnNames: "Beri tanda kutip pada nama kolom target",
     tableNameCasePreserve: "Pertahankan",
     tableNameCaseLower: "Huruf kecil",

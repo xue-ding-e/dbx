@@ -6665,6 +6665,7 @@ export default withEnglishFallback({
     modeReplaceExisting: "Sostituisci oggetti esistenti",
     modeUpsert: "Aggiorna/Inserisci (INSERT o UPDATE per chiave primaria)",
     targetTableNameCase: "Maiuscole/minuscole tabella destinazione",
+    targetColumnNameCase: "Maiuscole/minuscole colonna destinazione",
     quoteTargetColumnNames: "Quota colonne di destinazione",
     tableNameCasePreserve: "Mantieni",
     tableNameCaseLower: "Converti in minuscolo",

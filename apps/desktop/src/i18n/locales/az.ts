@@ -6306,6 +6306,7 @@ export default withEnglishFallback({
     modeOverwrite: "Üzərinə yaz (TRUNCATE + INSERT)",
     modeUpsert: "Əlavə et və ya yenilə (PK üzrə INSERT və ya UPDATE)",
     targetTableNameCase: "Hədəf cədvəl adının hərf registri",
+    targetColumnNameCase: "Hədəf sütun adının hərf registri",
     quoteTargetColumnNames: "Hədəf sütun adlarını dırnağa al",
     tableNameCasePreserve: "Qoru",
     tableNameCaseLower: "Kiçik hərflər",

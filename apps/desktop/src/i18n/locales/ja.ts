@@ -6685,6 +6685,7 @@ export default withEnglishFallback({
     modeReplaceExisting: "既存のオブジェクトを置き換え",
     modeUpsert: "アップサート (主キーでINSERT or UPDATE)",
     targetTableNameCase: "対象テーブル名の大小文字",
+    targetColumnNameCase: "対象列名の大小文字",
     quoteTargetColumnNames: "対象列名を引用",
     tableNameCasePreserve: "そのまま",
     tableNameCaseLower: "小文字に変換",

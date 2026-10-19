@@ -320,7 +320,7 @@ mod tests {
     };
     use dbx_core::persistence::task_history::{TaskRunItemsQuery, TaskRunStatus, TransferObjectSelectionMode};
     use dbx_core::transfer::{
-        TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest, TransferTableNameCase,
+        TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest, TransferColumnNameCase, TransferTableNameCase,
     };
 
     fn sqlite_config(id: &str, path: &str) -> ConnectionConfig {
@@ -428,6 +428,7 @@ mod tests {
             objects: Some(Vec::new()),
             mode: TransferMode::Append,
             target_table_name_case: TransferTableNameCase::Preserve,
+            target_column_name_case: TransferColumnNameCase::Preserve,
             quote_target_column_names: true,
             ownership_policy: TransferOwnershipPolicy::Preserve,
             batch_size: 1000,

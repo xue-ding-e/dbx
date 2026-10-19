@@ -6463,6 +6463,7 @@ export default withEnglishFallback({
     modeReplaceExisting: "기존 객체 교체",
     modeUpsert: "Upsert (PK 기준 INSERT 또는 UPDATE)",
     targetTableNameCase: "대상 테이블 이름 대소문자",
+    targetColumnNameCase: "대상 컬럼 이름 대소문자",
     quoteTargetColumnNames: "대상 열 이름 인용",
     tableNameCasePreserve: "유지",
     tableNameCaseLower: "소문자",

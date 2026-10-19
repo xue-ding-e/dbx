@@ -7632,6 +7632,7 @@ export default {
     modeReplaceExisting: "Replace existing objects",
     modeUpsert: "Upsert (INSERT or UPDATE by PK)",
     targetTableNameCase: "Target table name case",
+    targetColumnNameCase: "Target column name case",
     quoteTargetColumnNames: "Quote target column names",
     tableNameCasePreserve: "Preserve",
     tableNameCaseLower: "Lowercase",

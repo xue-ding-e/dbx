@@ -6848,6 +6848,7 @@ export default withEnglishFallback({
     modeReplaceExisting: "Reemplazar objetos existentes",
     modeUpsert: "Upsert (INSERT o UPDATE por PK)",
     targetTableNameCase: "Mayúsculas/minúsculas de tabla destino",
+    targetColumnNameCase: "Mayúsculas/minúsculas de columna destino",
     quoteTargetColumnNames: "Citar columnas de destino",
     tableNameCasePreserve: "Conservar",
     tableNameCaseLower: "Convertir a minúsculas",

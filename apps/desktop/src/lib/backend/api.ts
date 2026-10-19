@@ -1161,6 +1161,7 @@ export type {
   TransferObjectKind,
   TransferObjectSelection,
   TransferTableNameCase,
+  TransferColumnNameCase,
   TransferOwnershipPolicy,
   TransferStructureOperation,
   TransferStructureOperationKind,

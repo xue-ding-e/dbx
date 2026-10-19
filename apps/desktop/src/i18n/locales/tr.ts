@@ -6197,6 +6197,7 @@ export default withEnglishFallback({
     modeOverwrite: "Üzerine yaz (TRUNCATE + INSERT)",
     modeUpsert: "Upsert (PK'ye göre INSERT veya UPDATE)",
     targetTableNameCase: "Hedef tablo adı harf durumu",
+    targetColumnNameCase: "Hedef sütun adı harf durumu",
     quoteTargetColumnNames: "Hedef sütun adlarını tırnak içine al",
     tableNameCasePreserve: "Koru",
     tableNameCaseLower: "Küçük harf",

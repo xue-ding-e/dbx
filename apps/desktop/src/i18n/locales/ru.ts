@@ -7898,6 +7898,7 @@ export default withEnglishFallback({
     modeReplaceExisting: "Заменить существующие объекты",
     modeUpsert: "Upsert (INSERT или UPDATE по PK)",
     targetTableNameCase: "Регистр имён целевых таблиц",
+    targetColumnNameCase: "Регистр имён целевых столбцов",
     quoteTargetColumnNames: "Заключать имена целевых столбцов в кавычки",
     tableNameCasePreserve: "Сохранять",
     tableNameCaseLower: "Нижний регистр",
