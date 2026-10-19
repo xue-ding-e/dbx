@@ -2766,9 +2766,15 @@ fn parse_mysql_extra_clauses(extra: Option<&str>) -> MysqlExtraClauses {
 ///
 /// MySQL allows the clause on integer columns only, so an identity source mapped to
 /// `DECIMAL`/`NUMBER` must not receive it even when its metadata is identity-style.
-fn mysql_auto_increment_type_supported(mapped_type: &str) -> bool {
+/// Doris and StarRocks share the MySQL family but require the auto-increment column
+/// to be `BIGINT`; leaving `INT` there would turn a legal plain column into a
+/// rejected table (#11994 review).
+fn mysql_auto_increment_type_supported(mapped_type: &str, target_db: &DatabaseType) -> bool {
     let base = mapped_type.split(['(', ' ']).next().unwrap_or("").trim().to_ascii_lowercase();
-    matches!(base.as_str(), "tinyint" | "smallint" | "mediumint" | "int" | "integer" | "bigint")
+    match target_db {
+        DatabaseType::Doris | DatabaseType::StarRocks => base == "bigint",
+        _ => matches!(base.as_str(), "tinyint" | "smallint" | "mediumint" | "int" | "integer" | "bigint"),
+    }
 }
 
 fn postgres_order_by_expression(columns: &[String], db_type: &DatabaseType) -> Option<String> {
@@ -4755,7 +4761,25 @@ fn generate_create_table_ddl_with_column_quoting(
                         }
                         _ => false,
                     };
-                    if !skip_default {
+                    // MySQL rejects `DEFAULT` on an `AUTO_INCREMENT` column. The clause
+                    // can come from MySQL-spelled metadata or from identity-style sources
+                    // whose metadata may still carry a synthetic default, so decide
+                    // before rendering the default (#11994 review).
+                    let mysql_extra_clauses =
+                        if is_mysql_family { Some(parse_mysql_extra_clauses(c.extra.as_deref())) } else { None };
+                    // `AUTO_INCREMENT` must also follow identity-style sources (SQL
+                    // Server `identity(1, 1)`, Dameng `identity`): the MySQL-spelling
+                    // parser only recognises `auto_increment`. Only a primary key on
+                    // an integer column qualifies - MySQL requires the auto-increment
+                    // column to be a key and rejects the clause on other types;
+                    // Doris/StarRocks narrow the accepted type to `BIGINT`.
+                    let mysql_identity_source = is_mysql_family
+                        && c.is_primary_key
+                        && column_is_auto_increment(c)
+                        && mysql_auto_increment_type_supported(&mapped_type, target_db);
+                    let mysql_auto_increment =
+                        mysql_identity_source || mysql_extra_clauses.as_ref().is_some_and(|extra| extra.auto_increment);
+                    if !skip_default && !mysql_auto_increment {
                         if let Some(default_clause) =
                             column_default_clause(c, source_schema, schema, source_db, target_db)
                         {
@@ -4776,16 +4800,13 @@ fn generate_create_table_ddl_with_column_quoting(
                         line.push_str(" NOT NULL");
                     }
                     if is_mysql_family {
-                        let extra_clauses = parse_mysql_extra_clauses(c.extra.as_deref());
+                        let extra_clauses = mysql_extra_clauses.expect("parsed for the MySQL family");
                         // `AUTO_INCREMENT` must also follow identity-style sources (SQL
                         // Server `identity(1, 1)`, Dameng `identity`): the MySQL-spelling
                         // parser only recognises `auto_increment`. Only a primary key on
                         // an integer column qualifies — MySQL requires the auto-increment
                         // column to be a key and rejects the clause on other types.
-                        let identity_source = c.is_primary_key
-                            && column_is_auto_increment(c)
-                            && mysql_auto_increment_type_supported(&mapped_type);
-                        if extra_clauses.auto_increment || identity_source {
+                        if mysql_auto_increment {
                             line.push_str(" AUTO_INCREMENT");
                         }
                         if let Some(on_update_expr) = extra_clauses.on_update {
@@ -4968,6 +4989,11 @@ pub fn generate_insert_typed(
     generate_insert_typed_from_value_rows(columns, &value_rows, table, schema, db_type, catalog)
 }
 
+/// Values are interpolated exactly as read, including identity columns: an explicit
+/// `0` keeps its literal form. MySQL then assigns a fresh id for `0` unless
+/// `NO_AUTO_VALUE_ON_ZERO` is set, while SQL Server `IDENTITY_INSERT` can produce
+/// `0`; MySQL-to-MySQL transfers already behaved this way, so this is recorded
+/// rather than rewritten (#11994 review).
 pub(crate) fn generate_insert_typed_from_value_rows(
     columns: &[String],
     value_rows: &[String],
@@ -23400,11 +23426,106 @@ SELECT 1 FROM dual"#
     #[test]
     fn mysql_auto_increment_type_supported_accepts_only_mysql_integers() {
         for supported in ["INT", "int(11)", "BIGINT", "TINYINT(1)", "SMALLINT UNSIGNED", "MEDIUMINT", "INTEGER"] {
-            assert!(mysql_auto_increment_type_supported(supported), "{supported}");
+            assert!(mysql_auto_increment_type_supported(supported, &DatabaseType::Mysql), "{supported}");
         }
         for rejected in ["DECIMAL(10,0)", "NUMBER(10)", "VARCHAR(32)", "TEXT", "POINT", "DATETIME"] {
-            assert!(!mysql_auto_increment_type_supported(rejected), "{rejected}");
+            assert!(!mysql_auto_increment_type_supported(rejected, &DatabaseType::Mysql), "{rejected}");
         }
+    }
+
+    #[test]
+    fn mysql_auto_increment_type_supported_narrows_doris_and_starrocks_to_bigint() {
+        // Doris/StarRocks share the MySQL family but require the auto-increment column
+        // to be BIGINT; INT must stay a legal plain column (#11994 review).
+        for target in [DatabaseType::Doris, DatabaseType::StarRocks] {
+            assert!(mysql_auto_increment_type_supported("BIGINT", &target), "{target:?}");
+            assert!(mysql_auto_increment_type_supported("bigint unsigned", &target), "{target:?}");
+            for rejected in ["INT", "int(11)", "SMALLINT", "TINYINT(1)", "INTEGER"] {
+                assert!(!mysql_auto_increment_type_supported(rejected, &target), "{target:?} {rejected}");
+            }
+        }
+        // The other MySQL-family targets keep accepting every MySQL integer.
+        for target in [DatabaseType::Mysql, DatabaseType::Goldendb, DatabaseType::Sundb] {
+            assert!(mysql_auto_increment_type_supported("INT", &target), "{target:?}");
+        }
+    }
+
+    #[test]
+    fn transfer_create_table_keeps_int_identity_plain_on_doris_and_starrocks() {
+        for target in [DatabaseType::Doris, DatabaseType::StarRocks] {
+            let int_cols = vec![db::ColumnInfo {
+                is_primary_key: true,
+                is_nullable: false,
+                extra: Some("identity(1,1)".to_string()),
+                ..test_column("id", "int")
+            }];
+            let int_ddl = generate_create_table_ddl(
+                &int_cols,
+                "users",
+                "source",
+                "shop",
+                &target,
+                &DatabaseType::SqlServer,
+                None,
+                None,
+            );
+            assert!(!int_ddl.contains("AUTO_INCREMENT"), "{target:?}: {int_ddl}");
+
+            let bigint_cols = vec![db::ColumnInfo {
+                is_primary_key: true,
+                is_nullable: false,
+                extra: Some("identity(1,1)".to_string()),
+                ..test_column("id", "bigint")
+            }];
+            let bigint_ddl = generate_create_table_ddl(
+                &bigint_cols,
+                "users",
+                "source",
+                "shop",
+                &target,
+                &DatabaseType::SqlServer,
+                None,
+                None,
+            );
+            assert!(bigint_ddl.contains("AUTO_INCREMENT"), "{target:?}: {bigint_ddl}");
+        }
+    }
+
+    #[test]
+    fn transfer_create_table_skips_identity_default_on_mysql_targets() {
+        // MySQL rejects `DEFAULT` on an `AUTO_INCREMENT` column; identity metadata from
+        // SQL Server can still carry a synthetic default (#11994 review).
+        let cols = vec![
+            db::ColumnInfo {
+                is_primary_key: true,
+                is_nullable: false,
+                extra: Some("identity(1,1)".to_string()),
+                column_default: Some("((0))".to_string()),
+                ..test_column("id", "int")
+            },
+            db::ColumnInfo {
+                is_nullable: false,
+                column_default: Some("'new'".to_string()),
+                ..test_column("status", "varchar(16)")
+            },
+        ];
+
+        let ddl = generate_create_table_ddl(
+            &cols,
+            "users",
+            "source",
+            "shop",
+            &DatabaseType::Mysql,
+            &DatabaseType::SqlServer,
+            None,
+            None,
+        );
+
+        let id_line = ddl.lines().find(|line| line.contains("`id`")).expect("id line");
+        assert!(id_line.contains("AUTO_INCREMENT"), "ddl: {ddl}");
+        assert!(!id_line.to_ascii_uppercase().contains("DEFAULT"), "ddl: {ddl}");
+        let status_line = ddl.lines().find(|line| line.contains("`status`")).expect("status line");
+        assert!(status_line.to_ascii_uppercase().contains("DEFAULT"), "ddl: {ddl}");
     }
 
     #[test]
