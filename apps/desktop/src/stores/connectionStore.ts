@@ -8069,7 +8069,7 @@ export const useConnectionStore = defineStore("connection", () => {
     }
     invalidateCompletionCachesForNode(node);
     invalidateMetadataCachesForNode(node, options);
-    if (objectTypesForGroupNode(node.type)) {
+    if (objectTypesForGroupNode(node.type) && !node.tableName) {
       clearLoadedChildrenCache(node.id, { deletePersisted: false });
       await loadObjectGroupChildren(node, { force: true });
       await invalidateSidebarTableSearchIndexesForTreeRefresh(node);
@@ -8145,7 +8145,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
   async function refreshTreeNodeForTableNameFilter(node: TreeNode, scopeKey: string, revision: number) {
     invalidateMetadataCachesForNode(node);
-    if (objectTypesForGroupNode(node.type)) {
+    if (objectTypesForGroupNode(node.type) && !node.tableName) {
       clearLoadedChildrenCache(node.id);
       await loadObjectGroupChildren(node, {
         force: true,
@@ -10124,7 +10124,7 @@ export const useConnectionStore = defineStore("connection", () => {
           if (node.children) await refreshNodes(node.children);
           continue;
         }
-        if (objectTypesForGroupNode(node.type)) {
+        if (objectTypesForGroupNode(node.type) && !node.tableName) {
           if (node.connectionId && connectedIds.value.has(node.connectionId)) {
             clearLoadedChildrenCache(node.id);
             if (node.isExpanded) {

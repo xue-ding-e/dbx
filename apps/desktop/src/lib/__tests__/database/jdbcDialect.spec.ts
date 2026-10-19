@@ -85,6 +85,27 @@ describe("jdbc dialect inference", () => {
     ).toBe("iris");
   });
 
+  it("detects Firebird JDBC connections", () => {
+    expect(
+      inferJdbcDialect({
+        db_type: "jdbc",
+        connection_string: "jdbc:firebirdsql://localhost:3050/data/test.fdb",
+      }),
+    ).toBe("firebird");
+    expect(
+      inferJdbcDialect({
+        db_type: "jdbc",
+        jdbc_driver_class: "org.firebirdsql.jdbc.FBDriver",
+      }),
+    ).toBe("firebird");
+    expect(
+      inferJdbcDialect({
+        db_type: "jdbc",
+        driver_profile: "firebird",
+      }),
+    ).toBe("firebird");
+  });
+
   it("uses JDBC driver profiles when inferring dialect", () => {
     expect(
       inferJdbcDialect({
