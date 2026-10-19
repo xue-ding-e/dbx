@@ -1441,6 +1441,8 @@ export default withEnglishFallback({
     gaussdbConnectionModeMJdbc: "M 모드(공급업체 JDBC 드라이버)",
     gaussdbConnectionModeNativeHint: "GaussDB A/PG/Oracle 호환 모드에서는 DBX 내장 PostgreSQL 호환 프로토콜을 사용합니다.",
     gaussdbConnectionModeMJdbcHint: "GaussDB M 모드에서는 jdbc:gaussdb와 com.huawei.gaussdb.jdbc.Driver를 사용합니다.",
+    gaussdbConnectionModeDws: "Huawei DWS (PostgreSQL 호환 내장 드라이버)",
+    gaussdbConnectionModeDwsHint: "이 연결을 Huawei DWS로 명시적으로 표시합니다. 이 프로필에서는 GaussDB 마이너 버전을 고정하지 않고 Plugin Host Estimated Plan API를 활성화합니다. 일반 GaussDB 및 M-JDBC 연결은 계속 지원되지 않습니다. PostgreSQL 호환 내장 드라이버를 사용합니다.",
     gaussdbMJdbcDriver: "GaussDB JDBC 드라이버",
     gaussdbMJdbcDriverPlaceholder: "서버 버전에 맞는 gaussdbjdbc.jar 선택",
     gaussdbMJdbcDriverHint: "드라이버는 각 GaussDB 서버 버전과 함께 배포됩니다. 해당 GaussDB 드라이버 패키지에서 gaussdbjdbc.jar를 가져오세요.",

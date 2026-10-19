@@ -5,15 +5,17 @@ import type { CodeMirrorSqlDialectName } from "@/lib/editor/codemirrorSqlDialect
 export type JdbcDialectConnection = Partial<Pick<ConnectionConfig, "db_type" | "driver_profile" | "driver_label" | "connection_string" | "url_params" | "jdbc_driver_class" | "jdbc_driver_paths" | "database_info" | "external_config" | "username">>;
 
 export type GaussdbIdentifierQuoteStyle = "auto" | "double" | "backtick";
-export type GaussdbConnectionMode = "native" | "m-jdbc";
+export type GaussdbConnectionMode = "native" | "m-jdbc" | "dws";
 export type GaussdbTargetServerType = "master" | "slave" | "any";
 export type GaussdbCountQueryDop = 1 | 2 | 4 | 8 | 16;
 
 const GAUSSDB_IDENTIFIER_QUOTE_STYLE_KEY = "gaussdbIdentifierQuoteStyle";
+export const GAUSSDB_DWS_PRODUCT_PROFILE_KEY = "gaussdbProductProfile";
 const GAUSSDB_TARGET_SERVER_TYPE_KEY = "gaussdbTargetServerType";
 const GAUSSDB_COUNT_QUERY_DOP_KEY = "gaussdbCountQueryDop";
 export const GAUSSDB_M_JDBC_DRIVER_PROFILE = "gaussdb-m";
 export const GAUSSDB_M_JDBC_DRIVER_CLASS = "com.huawei.gaussdb.jdbc.Driver";
+export const GAUSSDB_DWS_PRODUCT_PROFILE = "huawei-dws";
 
 const DATABASE_AS_EXECUTION_SCHEMA_TYPES = new Set<DatabaseType>(["hive", "kyuubi", "impala", "argo", "transwarp", "spark"]);
 const CONNECTION_ROOT_SCHEMA_TYPES = new Set<DatabaseType>(["oracle", "dameng", "oceanbase-oracle"]);
@@ -171,11 +173,24 @@ export function gaussdbIdentifierQuoteOverride(connection: JdbcDialectConnection
 }
 
 export function gaussdbConnectionMode(connection: JdbcDialectConnection | undefined): GaussdbConnectionMode {
-  return connection?.db_type === "gaussdb" && connection.driver_profile?.toLowerCase() === GAUSSDB_M_JDBC_DRIVER_PROFILE ? "m-jdbc" : "native";
+  if (connection?.db_type !== "gaussdb") return "native";
+  const profile = connection.driver_profile?.toLowerCase();
+  if (profile === GAUSSDB_M_JDBC_DRIVER_PROFILE) return "m-jdbc";
+  if ((profile === undefined || profile === "gaussdb") && externalConfigRecord(connection.external_config)[GAUSSDB_DWS_PRODUCT_PROFILE_KEY] === GAUSSDB_DWS_PRODUCT_PROFILE) {
+    return "dws";
+  }
+  return "native";
 }
 
 export function setGaussdbConnectionMode(connection: JdbcDialectConnection, mode: GaussdbConnectionMode) {
   if (connection.db_type !== "gaussdb") return;
+  const external = externalConfigRecord(connection.external_config);
+  if (mode === "dws") {
+    external[GAUSSDB_DWS_PRODUCT_PROFILE_KEY] = GAUSSDB_DWS_PRODUCT_PROFILE;
+  } else {
+    delete external[GAUSSDB_DWS_PRODUCT_PROFILE_KEY];
+  }
+  connection.external_config = Object.keys(external).length > 0 ? external : undefined;
   connection.driver_profile = mode === "m-jdbc" ? GAUSSDB_M_JDBC_DRIVER_PROFILE : "gaussdb";
   connection.driver_label = "GaussDB";
   connection.jdbc_driver_class = mode === "m-jdbc" ? GAUSSDB_M_JDBC_DRIVER_CLASS : undefined;

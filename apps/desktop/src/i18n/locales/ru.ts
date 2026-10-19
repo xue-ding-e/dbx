@@ -1534,6 +1534,9 @@ export default withEnglishFallback({
     gaussdbConnectionModeMJdbc: "Режим M (JDBC-драйвер производителя)",
     gaussdbConnectionModeNativeHint: "Использует встроенный в DBX протокол, совместимый с PostgreSQL, для режимов совместимости GaussDB A/PG/Oracle.",
     gaussdbConnectionModeMJdbcHint: "Использует jdbc:gaussdb с com.huawei.gaussdb.jdbc.Driver для режима GaussDB M.",
+    gaussdbConnectionModeDws: "Huawei DWS (встроенный драйвер с совместимостью PostgreSQL)",
+    gaussdbConnectionModeDwsHint:
+      "Явно указывает, что это подключение Huawei DWS. Для этого профиля API Estimated Plan Plugin Host включается без привязки к минорной версии GaussDB; обычные подключения GaussDB и M-JDBC по-прежнему не поддерживаются. Используется встроенный драйвер с совместимостью PostgreSQL.",
     gaussdbMJdbcDriver: "JDBC-драйвер GaussDB",
     gaussdbMJdbcDriverPlaceholder: "Выберите gaussdbjdbc.jar, соответствующий версии сервера",
     gaussdbMJdbcDriverHint: "Драйвер выпускается для каждой версии сервера GaussDB. Получите gaussdbjdbc.jar из соответствующего пакета драйверов GaussDB.",

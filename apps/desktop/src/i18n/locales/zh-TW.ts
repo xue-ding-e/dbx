@@ -1355,6 +1355,8 @@ export default withEnglishFallback({
     gaussdbConnectionModeMJdbc: "M 模式（原廠 JDBC 驅動程式）",
     gaussdbConnectionModeNativeHint: "使用 DBX 內建的 PostgreSQL 相容協定，適用於 GaussDB 的 A/PG/Oracle 相容模式。",
     gaussdbConnectionModeMJdbcHint: "使用 jdbc:gaussdb 協定與 com.huawei.gaussdb.jdbc.Driver，適用於 GaussDB M 模式。",
+    gaussdbConnectionModeDws: "Huawei DWS（內建 PostgreSQL 相容驅動程式）",
+    gaussdbConnectionModeDwsHint: "明確將此連線標記為 Huawei DWS。此 profile 依據 DWS 身分啟用 Plugin Host Estimated Plan API，不再限制 GaussDB 小版本；一般 GaussDB 與 M-JDBC 連線仍不支援。連線仍使用內建 PostgreSQL 相容驅動程式。",
     gaussdbMJdbcDriver: "GaussDB JDBC 驅動程式",
     gaussdbMJdbcDriverPlaceholder: "選擇與伺服器版本相符的 gaussdbjdbc.jar",
     gaussdbMJdbcDriverHint: "驅動程式隨 GaussDB 伺服器版本發布，請從對應版本的 GaussDB 驅動程式套件取得 gaussdbjdbc.jar。",
