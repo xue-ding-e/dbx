@@ -206,7 +206,18 @@ import {
 import { adjacentDataGridDetailIndex, type DataGridDetailNavigationDelta } from "@/lib/dataGrid/dataGridDetailNavigation";
 import { applyColumnFormatter, DataGridDateTimePatterns, displayTimeZoneOption, formatIoTDBTimestampEditorValue, iotdbTimestampFractionDigits, iotdbTimestampPrecision, parseIoTDBTimestampEditorValue, type ColumnFormatterConfig } from "@/lib/dataGrid/columnFormatter";
 import { temporalCellEditorConfig, type TemporalCellEditorConfig } from "@/lib/dataGrid/dataGridTemporalEditor";
-import { BOOLEAN_CELL_EDITOR_VALUES, booleanCellDisplayText, booleanCellEditorValue, isBooleanCellValue, isBooleanColumnType, isPointInBooleanCheckbox, nextBooleanCellValue, normalizeBooleanCellValue, parseBooleanCellEditorValue } from "@/lib/dataGrid/dataGridBooleanColumn";
+import {
+  BOOLEAN_CELL_EDITOR_VALUES,
+  booleanCellDisplayText,
+  booleanCellEditorDisplayValues,
+  booleanCellEditorValue,
+  isBooleanCellValue,
+  isBooleanColumnType,
+  isPointInBooleanCheckbox,
+  nextBooleanCellValue,
+  normalizeBooleanCellValue,
+  parseBooleanCellEditorValue,
+} from "@/lib/dataGrid/dataGridBooleanColumn";
 import { resolveDataGridColumnNullability, resolveDataGridColumnsByResultIndex } from "@/lib/dataGrid/dataGridColumnMetadata";
 import { resolveDataGridNewRowCellPlaceholder } from "@/lib/dataGrid/dataGridDefaultPlaceholder";
 import {
@@ -474,6 +485,7 @@ const hideNullColumns = computed(() => settingsStore.editorSettings.dataGridHide
 const hideEmptyColumns = computed(() => settingsStore.editorSettings.dataGridHideEmptyColumns);
 const booleanCellsUseCheckbox = computed(() => settingsStore.editorSettings.dataGridBooleanDisplayMode === "checkbox");
 const booleanCellValueStyle = computed(() => settingsStore.editorSettings.dataGridBooleanValueStyle);
+const booleanEditorDisplayValues = computed(() => booleanCellEditorDisplayValues(booleanCellValueStyle.value));
 const booleanDisplayMode = computed(() => settingsStore.editorSettings.dataGridBooleanDisplayMode);
 const colorizeDataGridCellTypes = computed(() => settingsStore.editorSettings.colorizeDataGridCellTypes);
 const { isDark, themePalette } = useTheme();
@@ -14910,6 +14922,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                             v-else-if="isBooleanGridCell(displayItems[cell.recordIndex], cell.valueIndex)"
                             v-model="booleanEditorModelValue"
                             :values="BOOLEAN_CELL_EDITOR_VALUES"
+                            :display-values="booleanEditorDisplayValues"
                             :nullable="isBooleanGridColumnNullable(cell.valueIndex)"
                             :initial-null="isGridCellInitialNull(displayItems[cell.recordIndex]?.id, cell.valueIndex)"
                             cell-layout="transpose"
@@ -15616,6 +15629,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                           v-else-if="isBooleanGridCell(getRowItem(canvasEditingCell.rowId), canvasEditingCell.actualColIdx)"
                           v-model="booleanEditorModelValue"
                           :values="BOOLEAN_CELL_EDITOR_VALUES"
+                          :display-values="booleanEditorDisplayValues"
                           :nullable="isBooleanGridColumnNullable(canvasEditingCell.actualColIdx)"
                           :initial-null="isGridCellInitialNull(canvasEditingCell.rowId, canvasEditingCell.actualColIdx)"
                           @cancel="cancelEdit"
@@ -15844,6 +15858,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                               v-else-if="isBooleanGridCell(item, col.actualColIdx)"
                               v-model="booleanEditorModelValue"
                               :values="BOOLEAN_CELL_EDITOR_VALUES"
+                              :display-values="booleanEditorDisplayValues"
                               :nullable="isBooleanGridColumnNullable(col.actualColIdx)"
                               :initial-null="isGridCellInitialNull(item.id, col.actualColIdx)"
                               @cancel="cancelEdit"
@@ -16472,6 +16487,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
       v-model:column-open="columnDetailDialogOpen"
       :row-detail="rowDetail"
       :column-detail="columnDetail"
+      :database-type="resolvedDatabaseType"
       :type-color-class="typeColorClass"
       @navigate-row="navigateRowDetail"
       @navigate-column="navigateColumnDetail"
