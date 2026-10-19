@@ -230,7 +230,12 @@ const stopPasteHandlerRegistration = watch(
 
 const activeNode = shallowRef<TreeNode>(props.node);
 
-const isDisabledTrigger = computed(() => activeNode.value.type === "trigger" && (activeNode.value.meta as TriggerInfo | undefined)?.enabled === false);
+const isDisabledTrigger = computed(() => {
+  const current = activeNode.value;
+  if (current.type !== "trigger") return false;
+  const meta = (props.node.meta as TriggerInfo | undefined) ?? (current.meta as TriggerInfo | undefined);
+  return meta?.enabled === false;
+});
 
 const showProductionBadge = computed(() => {
   const node = activeNode.value;

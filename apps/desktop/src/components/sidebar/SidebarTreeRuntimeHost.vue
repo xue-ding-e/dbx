@@ -3070,6 +3070,17 @@ async function executeXuguSchedulerJobAction(action: XuguSchedulerJobAction) {
   }
 }
 
+function findTreeNodeById(nodes: readonly TreeNode[], id: string): TreeNode | null {
+  for (const item of nodes) {
+    if (item.id === id) return item;
+    if (item.children?.length) {
+      const found = findTreeNodeById(item.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 async function toggleTriggerState(node: TreeNode, enabled: boolean) {
   if (!node.connectionId || !node.database) return;
   const databaseType = databaseTypeForNode(node);
@@ -3089,8 +3100,18 @@ async function toggleTriggerState(node: TreeNode, enabled: boolean) {
     await connectionStore.ensureConnected(node.connectionId);
     const executed = await executeTreeNodeSqlWithProductionGuard(node, sql, { database: node.database, schema: node.schema });
     if (!executed) return;
-    if (node.meta && typeof node.meta === "object") {
-      (node.meta as TriggerInfo).enabled = enabled;
+    const updatedMeta: TriggerInfo = {
+      // The fallback must satisfy TriggerInfo; the spread ternary's narrower
+      // arm is what tripped vue-tsc (TS2322) in CI.
+      ...(node.meta && typeof node.meta === "object" ? (node.meta as TriggerInfo) : { name: triggerName, event: "", timing: "" }),
+      enabled,
+    };
+    // `node` may be a frozen action-target copy (createSidebarActionTarget);
+    // assigning to it throws in strict mode, and the live node below is the
+    // only assignment that matters.
+    const liveNode = findSidebarActionTarget(connectionStore.treeNodes, createSidebarActionTarget(node)) ?? findTreeNodeById(connectionStore.treeNodes, node.id);
+    if (liveNode) {
+      liveNode.meta = updatedMeta;
     }
     toast(t(enabled ? "contextMenu.enableTriggerSuccess" : "contextMenu.disableTriggerSuccess", { name: triggerName }), 3000);
     await connectionStore.refreshTreeNode(node);

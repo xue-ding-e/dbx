@@ -7413,7 +7413,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
   async function loadAllObjectGroupChildren(parent: TreeNode, initialLoadOptions?: LoadTreeOptions) {
     if (!parent.connectionId || !hasTreeNodeDatabaseContext(parent)) return;
-    if (!objectTypesForGroupNode(parent.type)) return;
+    if (!objectTypesForGroupNode(parent.type) || parent.tableName) return;
     const liveParent = treeNodeInSidebarTree(parent);
     if (!liveParent) return;
     if (initialLoadOptions?.force || !isTreeNodeChildrenLoaded(liveParent.id) || filteredObjectGroupChildrenIds.has(liveParent.id)) {
@@ -8069,6 +8069,13 @@ export const useConnectionStore = defineStore("connection", () => {
     }
     invalidateCompletionCachesForNode(node);
     invalidateMetadataCachesForNode(node, options);
+    if (node.type === "trigger") {
+      const parentNode = findParentNode(treeNodes.value, node.id) ?? (node.id.lastIndexOf(":") > 0 ? findNode(treeNodes.value, node.id.slice(0, node.id.lastIndexOf(":"))) : null);
+      if (parentNode) {
+        await refreshTreeNode(parentNode, options);
+        return;
+      }
+    }
     if (objectTypesForGroupNode(node.type) && !node.tableName) {
       clearLoadedChildrenCache(node.id, { deletePersisted: false });
       await loadObjectGroupChildren(node, { force: true });
