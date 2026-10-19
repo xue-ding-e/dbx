@@ -24,10 +24,10 @@ async function setup() {
     },
   );
   root = document.createElement("div");
-  root.innerHTML = '<div></div><nav><div data-shortcut-resize></div><div style="padding:4px"><div style="gap:0px"><span data-shortcut-id="a"></span></div></div></nav>';
+  root.innerHTML = '<div data-sidebar-connection-tree></div><div data-sidebar-connection-endpoint></div><nav><div data-shortcut-resize></div><div style="padding:4px"><div style="gap:0px"><span data-shortcut-id="a"></span></div></div></nav>';
   document.body.append(root);
   const tree = root.children[0] as HTMLElement;
-  const section = root.children[1] as HTMLElement;
+  const section = root.children[2] as HTMLElement;
   const handle = section.children[0] as HTMLElement;
   const scroll = section.children[1] as HTMLElement;
   let width = 184;
