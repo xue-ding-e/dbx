@@ -4551,6 +4551,12 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
             target_db if is_postgres_transfer_dialect(target_db) => "TIMESTAMP".into(),
             DatabaseType::H2 => "TIMESTAMP".into(),
             DatabaseType::ClickHouse => "DateTime64(6)".into(),
+            // Oracle and OceanBase's Oracle mode have no DATETIME type (Oracle's `DATE`
+            // drops fractional seconds), so `DATETIME` fails CREATE TABLE with
+            // `OBE-00900` / `ORA-00902` (#12741). `TIMESTAMP` defaults to six fractional
+            // digits, which covers MySQL's `datetime(0..6)`. Dameng accepts `DATETIME`
+            // natively and keeps it.
+            DatabaseType::Oracle | DatabaseType::OceanbaseOracle => "TIMESTAMP".into(),
             _ => "DATETIME".into(),
         },
         "timestamp" | "timestamptz" | "timestamp with time zone" | "timestamp without time zone" => match target_db {
@@ -22914,6 +22920,27 @@ SELECT 1 FROM dual"#
             map_column_type("timestamp with time zone", &DatabaseType::Postgres, &DatabaseType::Mysql),
             "DATETIME"
         );
+    }
+
+    #[test]
+    fn map_column_type_uses_timestamp_for_datetime_on_oracle_family_targets() {
+        // Oracle and OceanBase's Oracle mode have no DATETIME type (#12741: OBE-00900).
+        for target in [DatabaseType::Oracle, DatabaseType::OceanbaseOracle] {
+            for source in ["datetime", "datetime(6)", "DATETIME(3)"] {
+                assert_eq!(map_column_type(source, &DatabaseType::Mysql, &target), "TIMESTAMP", "{target:?} {source}");
+            }
+            assert_eq!(map_column_type("timestamp", &DatabaseType::Mysql, &target), "TIMESTAMP");
+        }
+        // Dameng accepts DATETIME natively and keeps it.
+        assert_eq!(map_column_type("datetime", &DatabaseType::Mysql, &DatabaseType::Dameng), "DATETIME");
+        assert_eq!(map_column_type("datetime(6)", &DatabaseType::Mysql, &DatabaseType::Dameng), "DATETIME");
+        // Other targets are unchanged.
+        assert_eq!(map_column_type("datetime", &DatabaseType::Mysql, &DatabaseType::SqlServer), "DATETIME");
+        assert_eq!(map_column_type("datetime", &DatabaseType::Mysql, &DatabaseType::Postgres), "TIMESTAMP");
+        assert_eq!(map_column_type("datetime", &DatabaseType::Mysql, &DatabaseType::H2), "TIMESTAMP");
+        assert_eq!(map_column_type("datetime", &DatabaseType::Mysql, &DatabaseType::ClickHouse), "DateTime64(6)");
+        assert_eq!(map_column_type("datetime", &DatabaseType::Oracle, &DatabaseType::Mysql), "DATETIME");
+        assert_eq!(map_column_type("TIMESTAMP(6)", &DatabaseType::Oracle, &DatabaseType::Mysql), "DATETIME");
     }
 
     #[test]
