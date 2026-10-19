@@ -3385,6 +3385,11 @@ export default withEnglishFallback({
     tableDataPreviewDismiss: "ไม่แสดงอีก",
     tableDataPreviewLoaded: "โหลดเซลล์ข้อความฉบับเต็มในหน้าปัจจุบันแล้ว {count} เซลล์",
     tableDataPreviewLoadFailed: "โหลดข้อความฉบับเต็มไม่สำเร็จ: {message}",
+    currentPageSql: "SQL ของหน้าปัจจุบัน",
+    actualExecutionSql: "SQL ที่ดำเนินการจริง",
+    copyCurrentPageSql: "คัดลอก SQL ของหน้าปัจจุบัน",
+    copyActualExecutionSql: "คัดลอก SQL ที่ดำเนินการจริง",
+    pageProbeDescription: "หน้านี้แสดงได้สูงสุด {count} แถว และอ่านเพิ่มได้สูงสุด 1 แถวเพื่อตรวจสอบว่ามีหน้าถัดไปหรือไม่",
   },
   exportProgress: {
     streamingUnsupported: "ไม่รองรับการส่งออกแบบ Streaming สำหรับ Query นี้ ทำให้เรียบง่ายขึ้นหรือใช้ Driver ที่รองรับ",

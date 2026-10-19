@@ -3102,6 +3102,11 @@ export default withEnglishFallback({
     tableDataPreviewDismiss: "今後表示しない",
     tableDataPreviewLoaded: "現在のページの完全なテキストセルを {count} 個読み込みました",
     tableDataPreviewLoadFailed: "完全なテキストの読み込みに失敗しました：{message}",
+    currentPageSql: "現在のページの SQL",
+    actualExecutionSql: "実際に実行された SQL",
+    copyCurrentPageSql: "現在のページの SQL をコピー",
+    copyActualExecutionSql: "実際に実行された SQL をコピー",
+    pageProbeDescription: "このページには最大 {count} 行を表示し、次のページがあるかどうかを判断するために最大 1 行を追加で読み取ります。",
   },
   exportProgress: {
     streamingUnsupported: "このクエリはストリーミングエクスポートに対応していません。クエリを簡略化するか、対応しているドライバーを使用してください。",

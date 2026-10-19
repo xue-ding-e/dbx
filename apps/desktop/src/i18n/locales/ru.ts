@@ -3162,6 +3162,11 @@ export default withEnglishFallback({
     tableDataPreviewDismiss: "Больше не показывать",
     tableDataPreviewLoaded: "Загружено {count} ячеек с полным текстом на текущей странице",
     tableDataPreviewLoadFailed: "Не удалось загрузить полный текст: {message}",
+    currentPageSql: "SQL текущей страницы",
+    actualExecutionSql: "Фактически выполненный SQL",
+    copyCurrentPageSql: "Копировать SQL текущей страницы",
+    copyActualExecutionSql: "Копировать фактически выполненный SQL",
+    pageProbeDescription: "На этой странице отображается не более {count} строк; дополнительно считывается не более 1 строки, чтобы определить, есть ли следующая страница.",
   },
   exportProgress: {
     streamingUnsupported: "Потоковый экспорт не поддерживается для этого запроса. Упростите его или используйте поддерживаемый драйвер.",

@@ -9023,6 +9023,9 @@ function changeExportQueryTimeout() {
 
 const userFacingSql = ref("");
 let userFacingSqlGeneration = 0;
+// Legacy snapshots may retain a display page without the actual execution text.
+// Do not present the original, unpaginated statement as the executed SQL there.
+const actualExecutionSql = computed(() => props.result.sqlPage?.executedSql || props.result.executedStatement || (!props.pageSql ? props.result.sourceStatement || props.sql || "" : ""));
 
 function sqlWithDisplayDatabaseName(sql: string): string {
   const database = props.tableMeta?.database ?? props.database;
@@ -9036,7 +9039,7 @@ function sqlWithDisplayDatabaseName(sql: string): string {
 
 async function syncUserFacingSql() {
   const generation = ++userFacingSqlGeneration;
-  const executionSql = (props.pageSql || props.sql)?.trim() ?? "";
+  const executionSql = (props.result.sqlPage?.sql || props.pageSql || props.sql)?.trim() ?? "";
   const includeDatabaseName = settingsStore.editorSettings.generateSqlIncludeDatabaseName;
   const shouldRebuildSql = executionSql.includes("__DBX_LARGE_VALUE_BYTES_") || includeDatabaseName;
   if (props.context !== "table-data" || !shouldRebuildSql || !props.tableMeta?.tableName) {
@@ -9078,7 +9081,7 @@ async function syncUserFacingSql() {
 }
 
 watch(
-  () => [props.sql, props.pageSql, props.context, props.tableMeta, props.pageLimit, props.pageOffset, props.executedPageLimit, props.executedPageOffset, currentWhereInput(), effectiveOrderBy(), settingsStore.editorSettings.generateSqlIncludeDatabaseName],
+  () => [props.sql, props.pageSql, props.result.sqlPage, props.context, props.tableMeta, props.pageLimit, props.pageOffset, props.executedPageLimit, props.executedPageOffset, currentWhereInput(), effectiveOrderBy(), settingsStore.editorSettings.generateSqlIncludeDatabaseName],
   () => void syncUserFacingSql(),
   { immediate: true },
 );
@@ -12439,8 +12442,9 @@ async function copyUserFacingSqlWithoutComments() {
 }
 
 const statusSqlContextMenuItems = computed<ContextMenuItem[]>(() => [
-  { label: t("grid.copyQuerySql"), icon: Copy, action: () => void copyUserFacingSql() },
+  { label: t(props.result.sqlPage ? "grid.copyCurrentPageSql" : "grid.copyQuerySql"), icon: Copy, action: () => void copyUserFacingSql() },
   { label: t("grid.copyExecutableSql"), icon: Copy, action: () => void copyUserFacingSqlWithoutComments() },
+  ...(actualExecutionSql.value ? [{ label: t("grid.copyActualExecutionSql"), icon: Copy, action: () => void copyText(actualExecutionSql.value) }] : []),
 ]);
 
 type TableInfoTabItem = {
@@ -16418,11 +16422,18 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
           <Tooltip>
             <TooltipTrigger as-child>
               <span class="block min-w-0 max-w-full truncate opacity-60 cursor-pointer hover:opacity-100" data-result-sql @click="copyUserFacingSql" @contextmenu="onContextMenu">
+                <span v-if="result.sqlPage">{{ t("grid.currentPageSql") }}: </span>
                 {{ sqlOneLiner }}
               </span>
             </TooltipTrigger>
             <TooltipContent side="top" class="max-w-md">
+              <div v-if="result.sqlPage" class="mb-1 font-medium">{{ t("grid.currentPageSql") }}</div>
               <pre class="text-xs font-mono whitespace-pre-wrap">{{ userFacingSql }}</pre>
+              <p v-if="result.sqlPage?.probe" class="mt-2 text-xs">{{ t("grid.pageProbeDescription", { count: result.sqlPage.executedLimit }) }}</p>
+              <template v-if="actualExecutionSql && actualExecutionSql.trim() !== userFacingSql.trim()">
+                <div class="mt-3 mb-1 font-medium">{{ t("grid.actualExecutionSql") }}</div>
+                <pre class="max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap">{{ actualExecutionSql }}</pre>
+              </template>
             </TooltipContent>
           </Tooltip>
         </CustomContextMenu>

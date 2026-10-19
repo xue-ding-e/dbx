@@ -3078,6 +3078,11 @@ export default withEnglishFallback({
     tableDataPreviewDismiss: "Não mostrar novamente",
     tableDataPreviewLoaded: "Carregadas {count} células de texto completo na página atual",
     tableDataPreviewLoadFailed: "Falha ao carregar o texto completo: {message}",
+    currentPageSql: "SQL da página atual",
+    actualExecutionSql: "SQL de execução real",
+    copyCurrentPageSql: "Copiar SQL da página atual",
+    copyActualExecutionSql: "Copiar SQL de execução real",
+    pageProbeDescription: "Esta página exibe no máximo {count} linhas, com leitura adicional de no máximo 1 linha para determinar se há uma próxima página.",
   },
   exportProgress: {
     streamingUnsupported: "A exportação em streaming não é compatível com esta consulta. Simplifique-a ou use um driver compatível.",
