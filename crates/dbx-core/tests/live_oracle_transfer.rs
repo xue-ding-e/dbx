@@ -2,8 +2,9 @@ use dbx_core::connection::AppState;
 use dbx_core::models::connection::{ConnectionConfig, DatabaseType};
 use dbx_core::query::execute_sql_statement;
 use dbx_core::transfer::{
-    ensure_transfer_pool, transfer_schema_objects, transfer_table, TransferContent, TransferMode, TransferObjectKind,
-    TransferObjectSelection, TransferOwnershipPolicy, TransferRequest, TransferColumnNameCase, TransferTableNameCase,
+    ensure_transfer_pool, transfer_schema_objects, transfer_table, TransferColumnNameCase, TransferContent,
+    TransferMode, TransferObjectKind, TransferObjectSelection, TransferOwnershipPolicy, TransferRequest,
+    TransferTableNameCase,
 };
 use std::sync::Arc;
 

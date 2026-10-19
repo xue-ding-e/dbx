@@ -2,8 +2,8 @@ use dbx_core::connection::AppState;
 use dbx_core::models::connection::{ConnectionConfig, DatabaseType};
 use dbx_core::transfer::{
     clear_foreign_key_linked_overwrite_targets, drop_backup_tables, rename_tables_to_backup,
-    sort_tables_by_fk_dependency_with_foreign_keys, transfer_table, transfer_table_with_result, TransferContent,
-    TransferMode, TransferOwnershipPolicy, TransferRequest, TransferColumnNameCase, TransferTableNameCase,
+    sort_tables_by_fk_dependency_with_foreign_keys, transfer_table, transfer_table_with_result, TransferColumnNameCase,
+    TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest, TransferTableNameCase,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

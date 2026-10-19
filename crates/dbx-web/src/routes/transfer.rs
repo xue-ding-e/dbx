@@ -320,7 +320,8 @@ mod tests {
     };
     use dbx_core::persistence::task_history::{TaskRunItemsQuery, TaskRunStatus, TransferObjectSelectionMode};
     use dbx_core::transfer::{
-        TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest, TransferColumnNameCase, TransferTableNameCase,
+        TransferColumnNameCase, TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest,
+        TransferTableNameCase,
     };
 
     fn sqlite_config(id: &str, path: &str) -> ConnectionConfig {

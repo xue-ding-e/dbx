@@ -3,9 +3,9 @@ use dbx_core::db::postgres;
 use dbx_core::models::connection::{ConnectionConfig, DatabaseType};
 use dbx_core::transfer::{
     drop_backup_tables, get_db_type, preview_transfer_ownership, rename_tables_to_backup,
-    transfer_postgres_schema_dependencies, transfer_postgres_schema_objects, transfer_table, TransferContent,
-    TransferMode, TransferObjectKind, TransferObjectSelection, TransferOwnershipPolicy, TransferRequest,
-    TransferColumnNameCase, TransferTableNameCase,
+    transfer_postgres_schema_dependencies, transfer_postgres_schema_objects, transfer_table, TransferColumnNameCase,
+    TransferContent, TransferMode, TransferObjectKind, TransferObjectSelection, TransferOwnershipPolicy,
+    TransferRequest, TransferTableNameCase,
 };
 use serde_json::json;
 use std::sync::Arc;

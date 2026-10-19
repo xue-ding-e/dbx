@@ -8,7 +8,8 @@
 use dbx_core::connection::AppState;
 use dbx_core::models::connection::{ConnectionConfig, DatabaseType};
 use dbx_core::transfer::{
-    transfer_table, TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest, TransferColumnNameCase, TransferTableNameCase,
+    transfer_table, TransferColumnNameCase, TransferContent, TransferMode, TransferOwnershipPolicy, TransferRequest,
+    TransferTableNameCase,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

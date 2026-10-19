@@ -13300,7 +13300,8 @@ where
         && postgres_identity_target(source_db_type, target_db_type)
         && columns.iter().any(|column| column.is_primary_key && column_is_auto_increment(column));
     if pg_compat_transfer || syncs_postgres_identity {
-        for statement in generate_postgres_sequence_sync_sql(&target_ddl_columns, &target_table, &request.target_schema) {
+        for statement in generate_postgres_sequence_sync_sql(&target_ddl_columns, &target_table, &request.target_schema)
+        {
             execute_on_pool(state, target_pool_key, &statement)
                 .await
                 .map_err(|e| format!("Failed to sync PostgreSQL sequence for {target_table}: {e}"))?;
@@ -17004,16 +17005,8 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         request.target_column_name_case = TransferColumnNameCase::Upper;
         let target_columns = request.target_columns(&columns);
         for target in [DatabaseType::Oracle, DatabaseType::OceanbaseOracle] {
-            let ddl = generate_create_table_ddl(
-                &target_columns,
-                "T",
-                "",
-                "APP",
-                &target,
-                &DatabaseType::Mysql,
-                None,
-                None,
-            );
+            let ddl =
+                generate_create_table_ddl(&target_columns, "T", "", "APP", &target, &DatabaseType::Mysql, None, None);
             assert!(ddl.contains("\"UPDATEDTIME\" TIMESTAMP"), "{ddl}");
             assert!(ddl.contains("\"UPDATEDBY\" VARCHAR(300"), "{ddl}");
             assert!(ddl.contains("PRIMARY KEY (\"ID\")"), "{ddl}");

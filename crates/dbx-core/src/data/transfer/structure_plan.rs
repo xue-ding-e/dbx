@@ -435,7 +435,13 @@ async fn plan_table_structure(
         table_comment.as_deref(),
         request.quote_target_column_names,
     );
-    operations.extend(comment_operations(&target_columns, table, target_table, target_db_type, table_comment.as_deref()));
+    operations.extend(comment_operations(
+        &target_columns,
+        table,
+        target_table,
+        target_db_type,
+        table_comment.as_deref(),
+    ));
     statements.extend(comment_statements);
 
     for sequence in &owned_sequences.owned_sequences {

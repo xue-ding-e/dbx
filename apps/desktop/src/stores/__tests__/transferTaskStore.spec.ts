@@ -122,10 +122,7 @@ describe("transferTaskStore", () => {
     vi.mocked(api.loadTransferTaskLibrary).mockResolvedValue({
       version: 1,
       folders: [],
-      tasks: [
-        saved,
-        { id: "legacy", name: "legacy", config: legacyConfig, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
-      ],
+      tasks: [saved, { id: "legacy", name: "legacy", config: legacyConfig, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }],
     } as unknown as TransferTaskLibrary);
 
     setActivePinia(createPinia());

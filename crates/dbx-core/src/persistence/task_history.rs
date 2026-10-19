@@ -932,7 +932,7 @@ fn to_sqlite_count(value: u64) -> Option<i64> {
 mod tests {
     use super::*;
     use crate::data::transfer::{
-        TransferMode, TransferObjectSelection, TransferOwnershipPolicy, TransferColumnNameCase, TransferTableNameCase,
+        TransferColumnNameCase, TransferMode, TransferObjectSelection, TransferOwnershipPolicy, TransferTableNameCase,
     };
 
     #[tokio::test]
