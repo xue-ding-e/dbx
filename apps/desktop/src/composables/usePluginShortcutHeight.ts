@@ -25,7 +25,7 @@ export function usePluginShortcutHeight(options: { section: Ref<HTMLElement | nu
     // The endpoint row may sit between the connection tree and this section.
     // Resolve the flexible tree wrapper explicitly so its height is not
     // mistaken for the available space when the shortcut list is refreshed.
-    const tree = (section.parentElement?.querySelector<HTMLElement>("[data-sidebar-connection-tree]") ?? section.previousElementSibling) as HTMLElement | null;
+    const tree = (section.parentElement?.querySelector<HTMLElement>(":scope > [data-sidebar-connection-tree]") ?? section.previousElementSibling) as HTMLElement | null;
     const divider = section.querySelector<HTMLElement>("[data-shortcut-resize]");
     const header = section.querySelector<HTMLElement>("[data-shortcut-header]");
     available.value = (tree?.offsetHeight ?? 0) + section.offsetHeight - (divider?.offsetHeight ?? 0) - (header?.offsetHeight ?? 0);
