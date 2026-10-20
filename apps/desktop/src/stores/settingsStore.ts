@@ -2366,6 +2366,13 @@ export const useSettingsStore = defineStore("settings", () => {
   // the user turned the default on in Settings > AI.
   const defaultAutoRouting = ref(false);
   const restoreLastConversation = ref(false);
+  // Whether to include query result data previews in AI context (#12757).
+  // Defaults to false to prevent leaking sensitive row data to AI.
+  const includeQueryResult = ref(false);
+  const excludeQueryResult = computed({
+    get: () => !includeQueryResult.value,
+    set: (val: boolean) => setIncludeQueryResult(!val),
+  });
   // Per-db_type prompt template defaults (explicit opt-in) and last-used
   // fallback; both resolved when an AI panel mounts or its namespace changes.
   const aiDefaultTemplatesByDbType = ref<Record<string, string[]>>({});
@@ -2619,6 +2626,13 @@ export const useSettingsStore = defineStore("settings", () => {
     defaultAiMode.value = savedSelection?.defaultMode ?? "ask";
     defaultAutoRouting.value = savedSelection?.defaultAutoRouting ?? false;
     restoreLastConversation.value = savedSelection?.restoreLastConversation ?? false;
+    if (savedSelection?.includeQueryResult !== undefined) {
+      includeQueryResult.value = Boolean(savedSelection.includeQueryResult);
+    } else if (savedSelection?.excludeQueryResult !== undefined) {
+      includeQueryResult.value = !savedSelection.excludeQueryResult;
+    } else {
+      includeQueryResult.value = false;
+    }
     aiDefaultTemplatesByDbType.value = normalizeTemplateIdsByDbType(savedSelection?.defaultTemplatesByDbType);
     aiLastUsedTemplatesByDbType.value = normalizeTemplateIdsByDbType(savedSelection?.lastUsedTemplatesByDbType);
 
@@ -2768,6 +2782,16 @@ export const useSettingsStore = defineStore("settings", () => {
     persistAiChatSelection();
   }
 
+  function setIncludeQueryResult(value: boolean) {
+    if (value === includeQueryResult.value) return;
+    includeQueryResult.value = value;
+    persistAiChatSelection();
+  }
+
+  function setExcludeQueryResult(value: boolean) {
+    setIncludeQueryResult(!value);
+  }
+
   /** Empty id list clears the db_type entry so unsetting a default is expressible. */
   function setDefaultTemplatesForDbType(dbType: string, templateIds: string[]) {
     if (!dbType) return;
@@ -2830,6 +2854,7 @@ export const useSettingsStore = defineStore("settings", () => {
       defaultMode: defaultAiMode.value,
       defaultAutoRouting: defaultAutoRouting.value,
       restoreLastConversation: restoreLastConversation.value,
+      ...(includeQueryResult.value ? { includeQueryResult: true } : {}),
       // Match the backend's skip_serializing_if(empty): omit the per-db_type
       // records entirely while nothing is configured so the payload stays
       // identical to the pre-defaults format for users without template picks.
@@ -3362,6 +3387,10 @@ export const useSettingsStore = defineStore("settings", () => {
     setDefaultAutoRouting,
     restoreLastConversation,
     setRestoreLastConversation,
+    includeQueryResult,
+    excludeQueryResult,
+    setIncludeQueryResult,
+    setExcludeQueryResult,
     aiDefaultTemplatesByDbType,
     aiLastUsedTemplatesByDbType,
     setDefaultTemplatesForDbType,

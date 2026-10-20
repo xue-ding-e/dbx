@@ -340,6 +340,13 @@ pub struct AiChatSelectionState {
     /// Whether opening the AI panel should restore the most recently updated conversation.
     #[serde(default)]
     pub restore_last_conversation: bool,
+    /// Whether to include query result data previews in AI context (#12757).
+    /// Defaults to false to avoid sending sensitive row data to AI.
+    #[serde(default)]
+    pub include_query_result: bool,
+    /// Inverted alias for include_query_result (#12757).
+    #[serde(default)]
+    pub exclude_query_result: bool,
     /// Prompt template ids auto-applied when the AI panel opens, keyed by
     /// connection db_type. BTreeMap keeps serialized key order stable.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -359,6 +366,8 @@ impl Default for AiChatSelectionState {
             default_mode: None,
             default_auto_routing: false,
             restore_last_conversation: false,
+            include_query_result: false,
+            exclude_query_result: false,
             default_templates_by_db_type: BTreeMap::new(),
             last_used_templates_by_db_type: BTreeMap::new(),
         }
@@ -5393,6 +5402,8 @@ mod tests {
         // Same for the opt-in auto-routing flag: a blob written before it existed
         // must load as false (concrete action stays the default).
         assert!(!legacy.default_auto_routing);
+        assert!(!legacy.include_query_result);
+        assert!(!legacy.exclude_query_result);
 
         let agent: AiChatSelectionState = serde_json::from_str(r#"{"version":1,"defaultMode":"agent"}"#).unwrap();
         assert_eq!(agent.default_mode, Some(AiAssistantMode::Agent));
@@ -5404,6 +5415,8 @@ mod tests {
         let serialized = serde_json::to_value(agent).unwrap();
         assert_eq!(serialized["defaultMode"], serde_json::json!("agent"));
         assert_eq!(serialized["defaultAutoRouting"], serde_json::json!(false));
+        assert_eq!(serialized["includeQueryResult"], serde_json::json!(false));
+        assert_eq!(serialized["excludeQueryResult"], serde_json::json!(false));
     }
 
     struct CapturedJsonRequest {

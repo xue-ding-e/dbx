@@ -2861,4 +2861,32 @@ describe("settingsStore defaultAiMode lifecycle", () => {
 
     await vi.waitFor(() => expect(saveAiChatSelection).toHaveBeenLastCalledWith(expect.objectContaining({ defaultAutoRouting: true })));
   });
+
+  it("restores and persists the include/exclude query result preference (#12757)", async () => {
+    const saveAiChatSelection = vi.fn().mockResolvedValue(undefined);
+    vi.doMock("@/lib/backend/api", () => ({
+      loadAiConfigs: vi.fn().mockResolvedValue([]),
+      loadAiConfig: vi.fn().mockResolvedValue(null),
+      loadAiProviderConfigs: vi.fn().mockResolvedValue(null),
+      loadAiChatSelection: vi.fn().mockResolvedValue({ version: 1, effortPreferences: [], includeQueryResult: true }),
+      saveAiChatSelection,
+    }));
+
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    const store = useSettingsStore();
+    await store.initAiConfigs();
+
+    expect(store.includeQueryResult).toBe(true);
+    expect(store.excludeQueryResult).toBe(false);
+
+    store.setIncludeQueryResult(false);
+    expect(store.includeQueryResult).toBe(false);
+    expect(store.excludeQueryResult).toBe(true);
+
+    store.setExcludeQueryResult(false);
+    expect(store.includeQueryResult).toBe(true);
+    expect(store.excludeQueryResult).toBe(false);
+
+    await vi.waitFor(() => expect(saveAiChatSelection).toHaveBeenLastCalledWith(expect.objectContaining({ includeQueryResult: true })));
+  });
 });

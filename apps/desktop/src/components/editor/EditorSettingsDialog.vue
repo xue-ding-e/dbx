@@ -11415,6 +11415,22 @@ LIMIT 100;</pre>
                 </div>
               </div>
 
+              <!-- Send query results to AI (list mode, global) -->
+              <div v-if="aiConfigListMode === 'list'" class="space-y-3">
+                <Separator />
+                <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
+                  <div class="space-y-1">
+                    <Label for="ai-include-query-result">
+                      {{ t("ai.includeQueryResult") }}
+                    </Label>
+                    <p class="text-xs text-muted-foreground">
+                      {{ t("ai.includeQueryResultDescription") }}
+                    </p>
+                  </div>
+                  <Switch id="ai-include-query-result" :model-value="settingsStore.includeQueryResult" @update:model-value="(value) => settingsStore.setIncludeQueryResult(Boolean(value))" />
+                </div>
+              </div>
+
               <!-- AI SQL Apply Target (list mode, global) -->
               <div v-if="aiConfigListMode === 'list'" class="space-y-3">
                 <Separator />
