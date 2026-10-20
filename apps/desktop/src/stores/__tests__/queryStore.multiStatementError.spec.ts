@@ -231,6 +231,56 @@ describe("queryStore multi-statement errors", () => {
     expect(tab.result?.rows).toEqual([[2]]);
   });
 
+  it("clears a previous error result during re-execution so the loading state is displayed", async () => {
+    const pendingExecution = deferred<QueryResult[]>();
+    mocks.executeMulti.mockResolvedValueOnce([{ columns: ["Error"], rows: [["syntax error"]], affected_rows: 0, execution_time_ms: 0, execution_error: true }]).mockImplementationOnce(() => pendingExecution.promise);
+    const { useQueryStore } = await import("@/stores/queryStore");
+    const store = useQueryStore();
+    const tabId = store.createTab("mysql-1", "app", "Query", "query", "app");
+
+    await store.executeTabSql(tabId, "SELECT bad");
+    const tab = store.tabs.find((item) => item.id === tabId)!;
+    expect(tab.result?.execution_error).toBe(true);
+
+    const execution = store.executeTabSql(tabId, "SELECT 1 AS value");
+    await vi.waitFor(() => expect(mocks.executeMulti).toHaveBeenCalledTimes(2));
+
+    expect(tab.isExecuting).toBe(true);
+    expect(tab.result).toBeUndefined();
+
+    pendingExecution.resolve([{ columns: ["value"], rows: [[1]], affected_rows: 0, execution_time_ms: 1 }]);
+    await execution;
+
+    expect(tab.isExecuting).toBe(false);
+    expect(tab.result?.rows).toEqual([[1]]);
+    expect(tab.result?.execution_error).toBeUndefined();
+  });
+
+  it("clears a cancelled error result during re-execution so the loading state is displayed", async () => {
+    const pendingExecution = deferred<QueryResult[]>();
+    mocks.executeMulti.mockRejectedValueOnce(new Error("Query canceled")).mockImplementationOnce(() => pendingExecution.promise);
+    const { useQueryStore } = await import("@/stores/queryStore");
+    const store = useQueryStore();
+    const tabId = store.createTab("mysql-1", "app", "Query", "query", "app");
+
+    await store.executeTabSql(tabId, "SELECT sleep(10)");
+    const tab = store.tabs.find((item) => item.id === tabId)!;
+    expect(tab.result?.execution_error).toBe(true);
+    expect(tab.result?.rows[0]?.[0]).toContain("Query canceled");
+
+    const execution = store.executeTabSql(tabId, "SELECT 1 AS value");
+    await vi.waitFor(() => expect(mocks.executeMulti).toHaveBeenCalledTimes(2));
+
+    expect(tab.isExecuting).toBe(true);
+    expect(tab.result).toBeUndefined();
+
+    pendingExecution.resolve([{ columns: ["value"], rows: [[1]], affected_rows: 0, execution_time_ms: 1 }]);
+    await execution;
+
+    expect(tab.isExecuting).toBe(false);
+    expect(tab.result?.rows).toEqual([[1]]);
+  });
+
   it("opens the first error result from a mixed result batch", async () => {
     const structuredError = structuredTimeoutError();
     mocks.executeMulti.mockResolvedValue([

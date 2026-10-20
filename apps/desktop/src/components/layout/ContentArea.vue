@@ -2746,7 +2746,7 @@ defineExpose({
               <ElasticsearchJsonResponsePanel v-if="activeElasticsearchJsonResponse" ref="elasticsearchJsonResponsePanelRef" class="flex-1 min-h-0" :status="activeElasticsearchJsonResponse.status" :body="activeElasticsearchJsonResponse.body" />
               <ElasticsearchJsonResponsePanel v-else-if="showElasticsearchRawJson && activeElasticsearchRawBody" ref="elasticsearchJsonResponsePanelRef" class="flex-1 min-h-0" :status="200" :body="activeElasticsearchRawBody" can-show-table @show-table="showElasticsearchRawJson = false" />
               <DataGrid
-                v-else-if="activeTab.result && hasTabularResult"
+                v-else-if="activeTab.result && hasTabularResult && (!activeTab.isExecuting || !isQueryExecutionErrorResult(activeTab.result))"
                 ref="dataGridRef"
                 :key="activeResultGridInstanceKey"
                 :cache-key="activeResultGridCacheKey"
@@ -2902,7 +2902,7 @@ defineExpose({
                 </template>
               </DataGrid>
               <QueryLoadingState
-                v-else-if="!activeTab.result && activeTab.isExecuting"
+                v-else-if="(!activeTab.result || isQueryExecutionErrorResult(activeTab.result)) && activeTab.isExecuting"
                 class="flex-1 min-h-0"
                 :label-key="queryExecutionLabelKey(activeTab)"
                 :elapsed-seconds="queryRunningElapsedSeconds"
@@ -3286,7 +3286,7 @@ defineExpose({
           </Popover>
         </div>
         <DataGrid
-          v-if="activeTab.result"
+          v-if="activeTab.result && (!activeTab.isExecuting || !isQueryExecutionErrorResult(activeTab.result))"
           ref="dataGridRef"
           class="flex-1 min-h-0"
           :key="activeTab.id"
