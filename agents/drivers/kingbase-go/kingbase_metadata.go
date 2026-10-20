@@ -47,7 +47,9 @@ var kingbaseReleasePattern = regexp.MustCompile(`(?i)\bV0*([0-9]+)R`)
 
 func detectKingbaseV7(db *sql.DB) bool {
 	var version string
-	if err := db.QueryRow("SELECT version()").Scan(&version); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := db.QueryRowContext(ctx, "SELECT version()").Scan(&version); err != nil {
 		return false
 	}
 	match := kingbaseReleasePattern.FindStringSubmatch(version)
