@@ -2290,11 +2290,6 @@ fn transfer_column_names_match(
 /// column exists. Reusing the catalog's declared name keeps the statement on a
 /// column that really exists; an exact match still wins so case-sensitive
 /// targets that do have the source-cased column keep addressing it.
-#[cfg(test)]
-fn resolve_transfer_target_column_names(col_names: &[String], target_columns: &[db::ColumnInfo]) -> Vec<String> {
-    resolve_transfer_target_column_names_or(col_names, target_columns, col_names)
-}
-
 /// Maps source names to target names; a name the target does not declare
 /// falls back to the matching entry of `fallbacks` (the requested target column case).
 fn resolve_transfer_target_column_names_or(
@@ -17051,7 +17046,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
             resolve_transfer_target_column_names_or(&names, &target, &upper),
             vec!["ID".to_string(), "Name".to_string(), "EXTRA".to_string()]
         );
-        assert_eq!(resolve_transfer_target_column_names(&names, &target)[2], "extra");
+        assert_eq!(resolve_transfer_target_column_names_or(&names, &target, &names)[2], "extra");
     }
 
     #[test]
@@ -17433,7 +17428,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         let col_names = vec!["id".to_string(), "name".to_string()];
 
         assert_eq!(
-            resolve_transfer_target_column_names(&col_names, &target_columns),
+            resolve_transfer_target_column_names_or(&col_names, &target_columns, &col_names),
             vec!["ID".to_string(), "NAME".to_string()]
         );
     }
@@ -17446,7 +17441,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         let col_names = vec!["id".to_string(), "ID".to_string()];
 
         assert_eq!(
-            resolve_transfer_target_column_names(&col_names, &target_columns),
+            resolve_transfer_target_column_names_or(&col_names, &target_columns, &col_names),
             vec!["id".to_string(), "ID".to_string()]
         );
     }
@@ -17457,7 +17452,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         let col_names = vec!["id".to_string(), "missing".to_string()];
 
         assert_eq!(
-            resolve_transfer_target_column_names(&col_names, &target_columns),
+            resolve_transfer_target_column_names_or(&col_names, &target_columns, &col_names),
             vec!["ID".to_string(), "missing".to_string()]
         );
     }
