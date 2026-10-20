@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, nextTick, watch, provide, onMounted, onUnmounted, type Component, type ComponentPublicInstance, type CSSProperties } from "vue";
 import { useI18n } from "vue-i18n";
+import { translateBackendError } from "@/i18n/backend-errors";
 import { Search, X, ListOrdered, ArrowDownAZ, ArrowUpZA, Server, Database, FolderTree, Table2, Eye, RotateCcw, Loader2, Unplug } from "@lucide/vue";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useQueryStore } from "@/stores/queryStore";
@@ -32,7 +33,7 @@ import { needsSidebarObjectGroupDiscovery } from "@/lib/sidebar/sidebarSearchDis
 import { isSidebarSearchPrunedDatabaseNode, resolveSidebarSearchDatabaseScope } from "@/lib/sidebar/sidebarSearchDatabaseScope";
 import { createSidebarSearchExpansionState } from "@/lib/sidebar/sidebarSearchExpansionState";
 import { createSidebarSearchLoadingTracker } from "@/lib/sidebar/sidebarSearchLoadingTracker";
-import { isCancelSearchShortcut, isCopySidebarSelectionShortcut, isDisconnectSidebarConnectionShortcut, isEditSidebarConnectionShortcut, isEditSidebarTableStructureShortcut, isPasteSidebarSelectionShortcut, isViewTableDdlShortcut } from "@/lib/editor/keyboardShortcuts";
+import { isCancelSearchShortcut, isCopySidebarSelectionShortcut, isDisconnectSidebarConnectionShortcut, isEditSidebarConnectionShortcut, isEditSidebarTableStructureShortcut, isPasteSidebarSelectionShortcut, isRefreshDataShortcut, isViewTableDdlShortcut } from "@/lib/editor/keyboardShortcuts";
 import { sidebarNodeSupportsDdlView } from "@/lib/sidebar/sidebarTreeDdlShortcut";
 import { hasTreeNodeDatabaseContext } from "@/lib/sidebar/treeNodeContext";
 import { objectSourceTargetForTreeNode } from "@/lib/sidebar/treeNodeClick";
@@ -2227,6 +2228,25 @@ function openSidebarTableStructureForSelection(): boolean {
   return sidebarTreeRuntimeHostRef.value?.openStructureEditorForSelection?.(node) ?? false;
 }
 
+function requestSelectedSidebarRefresh(): boolean {
+  const selectedNodeId = store.selectedTreeNodeId;
+  const node = selectedNodeId ? flatTreeIndex.value.nodeById.get(selectedNodeId) : null;
+  if (node && sidebarTreeRuntimeHostRef.value?.refreshNode?.(node)) {
+    return true;
+  }
+  void refreshAllSidebarTree();
+  return true;
+}
+
+async function refreshAllSidebarTree() {
+  try {
+    await store.reloadFromDisk();
+    await store.refreshAllTree();
+  } catch (e: any) {
+    toast(t("connection.connectFailed", { message: translateBackendError(t, e) }), 5000);
+  }
+}
+
 function openSidebarElasticsearchIndexMetadata(node: TreeNode, kind: ElasticsearchIndexMetadataKind) {
   if (!node.connectionId) return;
   beginSidebarAction();
@@ -2577,6 +2597,13 @@ function onWindowKeydown(event: KeyboardEvent) {
       }
       return;
     }
+    if (sidebarShortcutTargetAllowsAppShortcut(event.target) && isRefreshDataShortcut(event, settingsStore.editorSettings.shortcuts)) {
+      if (requestSelectedSidebarRefresh()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
   }
 
   if (!pointerInsideTree.value || isEditableSidebarTypeSearchTarget(event.target) || isEditableSidebarTypeSearchTarget(document.activeElement)) return;
@@ -2603,7 +2630,9 @@ function sidebarShortcutTargetIsActive(target: EventTarget | null): boolean {
 }
 
 function sidebarShortcutTargetAllowsAppShortcut(target: EventTarget | null): boolean {
+  if (sidebarDialogOpen()) return false;
   if (!(target instanceof HTMLElement)) return true;
+  if (target.closest('[role="dialog"], [role="alertdialog"]')) return false;
   return !(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable || !!target.closest("[contenteditable='true'], [role='textbox']"));
 }
 
@@ -2753,6 +2782,7 @@ defineExpose({
   disconnectAllActiveConnections,
   focusSelectedNode,
   openTableStructureForSelection: openSidebarTableStructureForSelection,
+  refreshSidebar: requestSelectedSidebarRefresh,
 });
 </script>
 

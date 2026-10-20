@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import LightDropdown from "@/components/ui/LightDropdown.vue";
 import LightTooltip from "@/components/ui/LightTooltip.vue";
+import { formatShortcut } from "@/lib/editor/shortcutRegistry";
 import PluginShortcutBar from "@/components/plugins/PluginShortcutBar.vue";
 import { useSettingsStore } from "@/stores/settingsStore";
 import ConnectionTree from "@/components/sidebar/ConnectionTree.vue";
@@ -220,11 +221,17 @@ function openTableStructureForSelection(): boolean {
   return connectionTreeRef.value?.openTableStructureForSelection?.() ?? false;
 }
 
+const refreshShortcutLabel = computed(() => formatShortcut(settingsStore.editorSettings.shortcuts.refreshData));
+
+function refreshSidebar(): boolean {
+  return connectionTreeRef.value?.refreshSidebar?.() ?? false;
+}
+
 async function focusSelectedNode() {
   await connectionTreeRef.value?.focusSelectedNode?.();
 }
 
-defineExpose({ focusSearch, locateTabInSidebar, disconnectAllActiveConnections, focusSelectedNode, openTableStructureForSelection });
+defineExpose({ focusSearch, locateTabInSidebar, disconnectAllActiveConnections, focusSelectedNode, openTableStructureForSelection, refreshSidebar, refreshTree });
 </script>
 
 <template>
@@ -311,7 +318,7 @@ defineExpose({ focusSearch, locateTabInSidebar, disconnectAllActiveConnections, 
               </Button>
             </LightTooltip>
             <LightTooltip :text="t('contextMenu.refreshChildren')" side="bottom" :delay="0" :close-delay="0" nowrap>
-              <Button variant="ghost" size="icon" class="h-5 w-5" @click="refreshTree">
+              <Button variant="ghost" size="icon" class="h-5 w-5" :aria-keyshortcuts="refreshShortcutLabel || undefined" @click="refreshTree">
                 <RefreshCw class="h-3 w-3" />
               </Button>
             </LightTooltip>

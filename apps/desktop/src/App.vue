@@ -4638,6 +4638,13 @@ async function handleKeydown(e: KeyboardEvent) {
     return;
   }
   if (isRefreshDataShortcut(e, shortcuts)) {
+    const target = e.target instanceof Element ? e.target : null;
+    const sidebarFocused = isSidebarFocusedTarget(target, lastFocusedSidebarSurface.value);
+    if (sidebarFocused && appSidebarRef.value?.refreshSidebar?.()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     contentAreaRef.value?.refreshData();
