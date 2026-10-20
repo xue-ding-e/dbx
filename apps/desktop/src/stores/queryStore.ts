@@ -5988,13 +5988,26 @@ export const useQueryStore = defineStore("query", () => {
     tab.nacosConfigEditorViewport = next;
   }
 
-  function renameTab(id: string, title: string) {
+  async function renameTab(id: string, title: string) {
     const trimmed = title.trim();
     if (!trimmed) return false;
     const tab = tabs.value.find((t) => t.id === id);
     if (!tab || tab.mode !== "query") return false;
+    const previousTitle = tab.title;
     tab.title = trimmed;
     tab.customTitle = true;
+    if (tab.savedSqlId) {
+      try {
+        const saved = await useSavedSqlStore().renameFile(tab.savedSqlId, trimmed);
+        if (saved) {
+          tab.title = saved.name;
+        }
+      } catch (error) {
+        tab.title = previousTitle;
+        useToast().toast(i18n.global.t("savedSql.renameFailed", { message: savedSqlErrorMessage(error, i18n.global.t) }), 5000);
+        return false;
+      }
+    }
     return true;
   }
 
