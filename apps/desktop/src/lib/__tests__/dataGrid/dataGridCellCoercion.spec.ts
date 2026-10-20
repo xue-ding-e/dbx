@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { coerceDataGridCellValue, dataGridCellDisplayText } from "@/lib/dataGrid/dataGridCellCoercion";
+import { coerceDataGridCellValue, dataGridCellDisplayText, dataGridCellEditorText } from "@/lib/dataGrid/dataGridCellCoercion";
 
 describe("dataGridCellDisplayText", () => {
+  it("keeps precision-sensitive decimal text through editor display and unchanged commit coercion", () => {
+    const value = "9007199254740993.123456789012";
+    expect(dataGridCellEditorText({ value, databaseType: "oceanbase-oracle", columnInfo: { data_type: "NUMBER(38,12)" } })).toBe(value);
+    expect(
+      coerceDataGridCellValue({
+        value,
+        oldValue: value,
+        databaseType: "oceanbase-oracle",
+        columnInfo: { data_type: "NUMBER(38,12)" },
+      }),
+    ).toBe(value);
+  });
+
   it("formats Oracle DATE values without RFC3339 separators", () => {
     expect(
       dataGridCellDisplayText({
