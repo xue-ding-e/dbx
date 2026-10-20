@@ -64,8 +64,11 @@ aggregation stalled silently for three weeks (2026-09-28 → 2026-10-20) while
 raw AE data kept flowing. Now every invocation processes at most `chunk` keys
 (tuning halves on failure, creeps up on success, 8–400), persists its cursor in
 `agg:state`, and completes the summary write + watermark advance only when the
-pass finishes. Crons: `30 0 * * *` opens the day's window, `*/10 * * * *`
-resumes any in-flight pass. AE row order is normalized with a JS sort because
+pass finishes. Crons: `30 0 * * *` opens the day's window, `0 * * * *`
+resumes any in-flight pass (a normal window finishes in a few ticks ≈ hours;
+the hourly cadence keeps daily KV writes under the free-plan 1000/day alert
+line — freshness is a decorative concern here, raise the frequency only if
+display latency starts to matter). AE row order is normalized with a JS sort because
 the offset cursor must index identically across invocations. Required
 subrequests per invocation: `chunk`-bounded (~2·chunk + 6) — never the whole
 backlog. After deploying schema-affecting changes, or to backfill from scratch,
