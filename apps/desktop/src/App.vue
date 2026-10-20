@@ -90,7 +90,17 @@ import { parseRecentConnectionIds, rankRecentConnections, RECENT_CONNECTION_IDS_
 import { resolveDefaultDatabase } from "@/lib/database/defaultDatabase";
 import { normalizeSqliteNamespace } from "@/lib/database/sqliteNamespace";
 import { findTreeNodeById, resolveNewQueryTarget, resolveNewQueryInitialSql, type NewQueryContextSource } from "@/lib/sql/newQueryContext";
-import { isSqlObjectNavigationRoutineType, normalizeOracleNavigationTarget, sqlObjectNavigationSourceKind, sqlObjectNavigationSourceName, sqlObjectNavigationSourceSchema, sqlObjectNavigationTableType, type SqlObjectNavigationTarget } from "@/lib/sql/sqlNavigation";
+import {
+  isSqlObjectNavigationRoutineType,
+  normalizeOracleNavigationTarget,
+  sqlObjectNavigationContextTarget,
+  sqlObjectNavigationSourceKind,
+  sqlObjectNavigationSourceName,
+  sqlObjectNavigationSourceSchema,
+  type SqlObjectNavigationContext,
+  type SqlObjectNavigationTarget,
+} from "@/lib/sql/sqlNavigation";
+import { isObjectDependencySection, type ObjectDependencyTarget } from "@/lib/database/objectDependencyDetails";
 import { buildEditableObjectSource, buildExecutableObjectSourceStatements, executeObjectSourceSave } from "@/lib/table/objectSourceEditor";
 import { assertSourceIdentity, beginSourceSave } from "@/lib/table/objectSourceIdentity";
 import { loadEditableObjectSourceForEditor } from "@/lib/table/objectSourceLoad";
@@ -522,6 +532,7 @@ const queryEditorDdlTarget = ref<{ connectionId: string; database: string; catal
 const queryEditorObjectSourceTarget = ref<{
   connectionId: string;
   database: string;
+  catalog?: string;
   schema?: string;
   name: string;
   objectType: ObjectSourceKind;
@@ -2655,7 +2666,7 @@ async function handleSaveTab(tabId: string) {
 
 async function openSaveSqlDialog(tabId?: string) {
   const tab = tabId ? queryStore.tabs.find((candidate) => candidate.id === tabId) : activeTab.value;
-  if (!tab || !canSaveSqlTab(tab)) return;
+  if (!tab || !canSaveSqlTab(tab) || isObjectDependencySection(tab)) return;
   saveSqlDialogTabId.value = tab.id;
   if (tab.objectSource) {
     await saveActiveObjectSource(tab);
@@ -3416,21 +3427,14 @@ async function openSavedSqlFromWelcome(fileId: string) {
   toast(t("welcome.fileOpened", { name: file.name }), 2000);
 }
 
-function tableTargetFromActiveTab(table: string | SqlObjectNavigationTarget) {
-  const tab = activeTab.value;
+function tableTargetFromActiveTab(table: string | SqlObjectNavigationTarget, context?: SqlObjectNavigationContext) {
+  const tab = context ?? activeTab.value;
   if (!tab) return null;
   const connectionId = tab.connectionId;
   const catalog = tab.tableMeta?.catalog || tab.catalog;
   if (typeof table !== "string") {
     // Structured targets already separate qualifiers; reparsing would corrupt quoted object names that contain dots.
-    return {
-      connectionId,
-      database: table.database || tab.database,
-      catalog,
-      schema: table.schema || tab.schema,
-      tableName: table.name,
-      tableType: table.type ? sqlObjectNavigationTableType(table) : undefined,
-    };
+    return sqlObjectNavigationContextTarget(table, tab);
   }
 
   let database = tab.database;
@@ -3455,13 +3459,13 @@ function tableTargetFromActiveTab(table: string | SqlObjectNavigationTarget) {
   return { connectionId, database, catalog, schema, tableName: rawTableName, tableType: undefined };
 }
 
-async function onClickTable(table: SqlObjectNavigationTarget) {
+async function onClickTable(table: SqlObjectNavigationTarget, context?: SqlObjectNavigationContext) {
   // Procedures/functions/packages open source (same as sidebar view-source), not table data/DDL.
   if (isSqlObjectNavigationRoutineType(table.type)) {
-    await onOpenObjectSource(table, false);
+    await onOpenObjectSource(table, false, context);
     return;
   }
-  const target = tableTargetFromActiveTab(table);
+  const target = tableTargetFromActiveTab(table, context);
   if (!target) return;
   const objectType = sqlObjectNavigationSourceKind(table);
   if (objectType) {
@@ -3505,13 +3509,17 @@ function onEditTableStructure(table: SqlObjectNavigationTarget) {
   queryStore.openTableStructure(target.connectionId, target.database, target.schema, target.tableName, undefined, undefined, target.catalog);
 }
 
-function onOpenObjectSource(table: SqlObjectNavigationTarget, initialEditing: boolean) {
-  const provisionalTarget = tableTargetFromActiveTab(table);
+function onOpenDependencyObject(context: ObjectDependencyTarget, target: SqlObjectNavigationTarget) {
+  return onClickTable(target, context);
+}
+
+function onOpenObjectSource(table: SqlObjectNavigationTarget, initialEditing: boolean, context?: SqlObjectNavigationContext) {
+  const provisionalTarget = tableTargetFromActiveTab(table, context);
   if (!provisionalTarget) return;
   const databaseType = effectiveDatabaseTypeForConnection(connectionStore.getConfig(provisionalTarget.connectionId));
   // Oracle-family: unquoted → UPPER; quoted mixed-case keeps written case for ALL_SOURCE lookup.
   const navigation = databaseType === "oracle" || databaseType === "dameng" || databaseType === "oceanbase-oracle" || databaseType === "yashandb" || databaseType === "oscar" ? normalizeOracleNavigationTarget(table) : table;
-  const target = tableTargetFromActiveTab(navigation);
+  const target = tableTargetFromActiveTab(navigation, context);
   const objectType = sqlObjectNavigationSourceKind(navigation);
   if (!target || !objectType) return;
   const sourceName = sqlObjectNavigationSourceName(navigation);
@@ -3537,6 +3545,7 @@ function onOpenObjectSource(table: SqlObjectNavigationTarget, initialEditing: bo
     queryEditorObjectSourceTarget.value = {
       connectionId: target.connectionId,
       database: target.database,
+      catalog: target.catalog,
       schema: sourceSchema,
       name: sourceName,
       objectType,
@@ -5290,6 +5299,7 @@ onUnmounted(() => {
             @collapse="setSidebarOpen(false)"
             @open-settings="(initialTab) => openSettings(initialTab ?? 'appearance')"
             @add-to-ai="addToAi"
+            @open-dependency-object="onOpenDependencyObject"
             @mousedown="rememberSidebarSearchSurface"
             @focusin="rememberSidebarSearchSurface"
           />
@@ -5491,6 +5501,7 @@ onUnmounted(() => {
                     @edit-table-structure="(_tabId: string, target: SqlObjectNavigationTarget) => onEditTableStructure(target)"
                     @view-table-ddl="(_tabId: string, target: SqlObjectNavigationTarget) => onViewTableDdl(target)"
                     @open-object-source="(_tabId: string, target: SqlObjectNavigationTarget, initialEditing: boolean) => onOpenObjectSource(target, initialEditing)"
+                    @open-dependency-object="onOpenDependencyObject"
                     @open-object-table="
                       (tabId: string, target: { tableName: string; schema?: string; tableType?: string; catalog?: string; comment?: string | null }) => {
                         const tab = queryStore.tabs.find((candidate) => candidate.id === tabId) ?? activeTab;
@@ -5903,6 +5914,7 @@ onUnmounted(() => {
         v-model:open="showQueryEditorObjectSourceDialog"
         :connection-id="queryEditorObjectSourceTarget.connectionId"
         :database="queryEditorObjectSourceTarget.database"
+        :catalog="queryEditorObjectSourceTarget.catalog"
         :schema="queryEditorObjectSourceTarget.schema"
         :name="queryEditorObjectSourceTarget.name"
         :signature="queryEditorObjectSourceTarget.signature"
@@ -5913,6 +5925,7 @@ onUnmounted(() => {
         :dialect="queryEditorObjectSourceDialect"
         :format-dialect="queryEditorObjectSourceFormatDialect"
         @saved="onQueryEditorObjectSourceSaved"
+        @open-object="onOpenDependencyObject"
       />
     </TooltipProvider>
     <div id="dbx-query-editor-tooltip-root" class="fixed left-0 top-0 z-[70] h-0 w-0 overflow-visible" :style="editorFontFamilyStyle" />

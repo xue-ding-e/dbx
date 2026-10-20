@@ -36,6 +36,7 @@ import type { SqlExecutionTargetContext } from "@/lib/database/sqlExecutionTarge
 import { MULTI_SOURCE_MAX_ROWS_PER_SOURCE } from "@/lib/query/multiSourceResult";
 import { translateBackendError } from "@/i18n/backend-errors";
 import type { SqlExecutionDeferredReason, SqlExecutionNotStartedReason, SqlExecutionOutcome } from "@/lib/sql/sqlExecutionOutcome";
+import { isObjectDependencySection } from "@/lib/database/objectDependencyDetails";
 
 const DANGER_RE = /^\s*(DROP|DELETE|TRUNCATE|ALTER|UPDATE|MERGE|REPLACE)\b/i;
 
@@ -290,6 +291,11 @@ export function useSqlExecution(deps: {
   }
 
   async function tryExecute(sqlOverride?: SqlExecutionOverride, options: SqlExecutionOptions = {}): Promise<SqlExecutionOutcome> {
+    const sourceTab = resolveExecutionTab(options.tabId);
+    if (sourceTab && isObjectDependencySection(sourceTab)) {
+      cancelEditorViewportRequest(options.editorViewportRequestId);
+      return notStarted("blocked", sourceTab.id);
+    }
     const context = captureExecutionContext(options.tabId);
     if (!context) {
       cancelEditorViewportRequest(options.editorViewportRequestId);
@@ -948,6 +954,8 @@ export function useSqlExecution(deps: {
   }
 
   async function tryExplain(sqlOverride?: SqlExecutionOverride, options: SqlExecutionOptions = {}) {
+    const sourceTab = resolveExecutionTab(options.tabId);
+    if (sourceTab && isObjectDependencySection(sourceTab)) return;
     const context = captureExecutionContext(options.tabId);
     if (!context) {
       return;

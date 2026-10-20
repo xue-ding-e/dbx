@@ -10,6 +10,22 @@ import { mongodbDatabaseDumpZhCN as mongoDump } from "./mongodbDatabaseDump";
 import { damengDumpZhCN as damengDump } from "./damengDump";
 
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "依赖对象",
+    dependents: "被依赖对象",
+    viewSql: "查看 SQL",
+    visibility: "仅显示 ALL_DEPENDENCIES 中当前账号可见的直接依赖。",
+    packageScope: "包规范与包体合并显示；不区分包内成员。",
+    partial: "结果已截断，列表可能不完整。",
+    notUpdated: "刷新失败，仍显示上次结果。",
+    empty: "未找到当前账号可见的直接依赖。",
+    dependencyType: "依赖类型",
+    sourceType: "来源类型",
+    link: "数据库链接",
+    remoteObject: "远程对象：可复制名称，暂不支持打开。",
+    unsupportedObject: "此对象类型暂不支持打开，可复制名称。",
+    navigateDiscardConfirm: "当前源码有未保存的修改。放弃修改并打开关联对象？",
+  },
   oracleSecurity: {
     directSqlNotice: "仅显示可见的直接授权，不代表会话有效权限，也不是完整重放脚本。继承及授予者见来源详情。",
     searchOwner: "搜索 owner/schema",

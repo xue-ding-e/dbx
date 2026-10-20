@@ -62,6 +62,22 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "Zależności",
+    dependents: "Obiekty zależne",
+    viewSql: "Pokaż SQL",
+    visibility: "Pokazuje bezpośrednie zależności widoczne dla bieżącego konta w ALL_DEPENDENCIES.",
+    packageScope: "Specyfikacja i treść pakietu są połączone; poszczególne elementy nie są rozróżniane.",
+    partial: "Wyniki zostały obcięte; lista może być niepełna.",
+    notUpdated: "Odświeżenie nie powiodło się. Pokazane są poprzednie wyniki.",
+    empty: "Nie znaleziono bezpośrednich zależności widocznych dla bieżącego konta.",
+    dependencyType: "Typ zależności",
+    sourceType: "Typ źródła",
+    link: "Łącze bazy danych",
+    remoteObject: "Obiekt zdalny: można skopiować nazwę, ale otwieranie nie jest jeszcze obsługiwane.",
+    unsupportedObject: "Otwieranie tego typu obiektu nie jest jeszcze obsługiwane. Można skopiować nazwę.",
+    navigateDiscardConfirm: "Kod źródłowy zawiera niezapisane zmiany. Odrzucić je i otworzyć powiązany obiekt?",
+  },
   modelGeneration: {
     title: "Generuj model",
     editTemplate: "Edytuj szablon",

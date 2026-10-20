@@ -2387,6 +2387,16 @@ export interface QueryTab {
   };
   /** Opened to view object source, including objects without editable source metadata. */
   sourceView?: boolean;
+  /** Stable object identity and local section, independent of pending source loading. */
+  objectDetails?: {
+    connectionId: string;
+    database: string;
+    schema: string;
+    catalog?: string;
+    name: string;
+    objectType: ObjectSourceKind;
+    section: "source" | "dependencies" | "dependents";
+  };
   ddlViewer?: {
     schema?: string;
     tableName: string;

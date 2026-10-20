@@ -7,6 +7,22 @@ import { meilisearchManagementRu } from "./meilisearchManagement";
 
 // Russian locale. Entries omitted here fall back to English at runtime.
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "Зависимости",
+    dependents: "Зависимые объекты",
+    viewSql: "Показать SQL",
+    visibility: "Показаны прямые зависимости, доступные текущей учётной записи в ALL_DEPENDENCIES.",
+    packageScope: "Спецификация и тело пакета объединены; отдельные элементы не различаются.",
+    partial: "Результаты усечены; список может быть неполным.",
+    notUpdated: "Не удалось обновить. Показаны предыдущие результаты.",
+    empty: "Прямые зависимости, доступные текущей учётной записи, не найдены.",
+    dependencyType: "Тип зависимости",
+    sourceType: "Тип источника",
+    link: "Связь с базой данных",
+    remoteObject: "Удалённый объект: можно скопировать имя, но открыть пока нельзя.",
+    unsupportedObject: "Открытие объектов этого типа пока не поддерживается. Можно скопировать имя.",
+    navigateDiscardConfirm: "В исходном коде есть несохранённые изменения. Отменить их и открыть связанный объект?",
+  },
   oracleSecurity: {
     directSqlNotice: "Только видимые прямые назначения, а не действующие права сеанса или полный скрипт для повторного выполнения. Наследование и выдавшие права указаны в подробностях источников.",
     searchOwner: "Поиск owner/schema",

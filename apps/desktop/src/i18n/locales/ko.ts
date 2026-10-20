@@ -64,6 +64,22 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "의존하는 객체",
+    dependents: "의존받는 객체",
+    viewSql: "SQL 보기",
+    visibility: "ALL_DEPENDENCIES에서 현재 계정에 보이는 직접 의존 관계를 표시합니다.",
+    packageScope: "패키지 명세와 본문을 합쳐 표시하며 개별 멤버는 구분하지 않습니다.",
+    partial: "결과가 잘려 목록이 불완전할 수 있습니다.",
+    notUpdated: "새로 고침에 실패했습니다. 이전 결과를 표시합니다.",
+    empty: "현재 계정에 보이는 직접 의존 관계가 없습니다.",
+    dependencyType: "의존 관계 유형",
+    sourceType: "원본 유형",
+    link: "데이터베이스 링크",
+    remoteObject: "원격 객체는 이름을 복사할 수 있지만 아직 열 수 없습니다.",
+    unsupportedObject: "이 객체 유형은 아직 열 수 없습니다. 이름을 복사할 수 있습니다.",
+    navigateDiscardConfirm: "소스에 저장하지 않은 변경 사항이 있습니다. 변경 사항을 버리고 관련 객체를 여시겠습니까?",
+  },
   oracleSecurity: {
     directSqlNotice: "조회 가능한 직접 부여만 표시하며 세션의 유효 권한이나 완전한 재실행 스크립트가 아닙니다. 상속과 부여자는 출처 상세 정보에 표시됩니다.",
     searchOwner: "owner/schema 검색",

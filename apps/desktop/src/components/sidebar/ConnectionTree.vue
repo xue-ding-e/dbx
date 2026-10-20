@@ -103,6 +103,8 @@ import { sidebarScrollbarGeometry as calculateSidebarScrollbarGeometry } from "@
 import { createSidebarLayoutMonitor, type SidebarExpandedConnectionInfo } from "@/lib/sidebar/sidebarLayoutMonitor";
 import { disconnectSidebarConnections } from "@/lib/sidebar/sidebarConnectionDisconnect";
 import { compileSearchRegex } from "@/lib/common/searchPattern";
+import type { ObjectDependencyTarget, ObjectDetailsSection } from "@/lib/database/objectDependencyDetails";
+import type { SqlObjectNavigationTarget } from "@/lib/sql/sqlNavigation";
 
 const { t, locale } = useI18n();
 const store = useConnectionStore();
@@ -136,6 +138,7 @@ const { presentMenu, SidebarMenuPreferencesDialog, sidebarMenuPreferencesOpen, s
 const emit = defineEmits<{
   "open-settings": [initialTab: string];
   "add-to-ai": [nodes: TreeNode | TreeNode[]];
+  "open-dependency-object": [context: ObjectDependencyTarget, target: SqlObjectNavigationTarget];
 }>();
 
 const sidebarContextMenuTarget = ref<SidebarActionTarget | null>(null);
@@ -153,7 +156,7 @@ const sidebarDdlTarget = ref<TreeNode | null>(null);
 const sidebarDdlOpen = ref(false);
 const sidebarElasticsearchIndexMetadataTarget = ref<{ node: TreeNode; kind: ElasticsearchIndexMetadataKind } | null>(null);
 const sidebarElasticsearchIndexMetadataOpen = ref(false);
-const sidebarObjectSourceTarget = ref<{ node: TreeNode; initialEditing: boolean } | null>(null);
+const sidebarObjectSourceTarget = ref<{ node: TreeNode; initialEditing: boolean; initialSection?: ObjectDetailsSection } | null>(null);
 const sidebarObjectSourceOpen = ref(false);
 const sidebarProcedureTarget = ref<TreeNode | null>(null);
 const sidebarProcedureOpen = ref(false);
@@ -2254,7 +2257,7 @@ function openSidebarElasticsearchIndexMetadata(node: TreeNode, kind: Elasticsear
   sidebarElasticsearchIndexMetadataOpen.value = true;
 }
 
-function openSidebarObjectSource(node: TreeNode, initialEditing: boolean) {
+function openSidebarObjectSource(node: TreeNode, initialEditing: boolean, initialSection?: ObjectDetailsSection) {
   if (!node.connectionId || !hasTreeNodeDatabaseContext(node) || !objectSourceTargetForTreeNode(node)) return;
   // TYPE/TYPE_BODY only have a source implementation on Xugu; PostgreSQL-family
   // connections list user-defined types without a CREATE TYPE getter this cycle.
@@ -2263,7 +2266,7 @@ function openSidebarObjectSource(node: TreeNode, initialEditing: boolean) {
   beginSidebarAction();
   // issue #9035：弹窗立即挂载。此前先 await ensureConnected 再开弹窗，这段时间
   // 界面上没有任何反馈；现在连接与取源都在弹窗自身的加载态之内完成。
-  sidebarObjectSourceTarget.value = { node: target, initialEditing };
+  sidebarObjectSourceTarget.value = { node: target, initialEditing, initialSection };
   sidebarObjectSourceOpen.value = true;
 }
 
@@ -3035,6 +3038,7 @@ defineExpose({
       v-model:open="sidebarObjectSourceOpen"
       :connection-id="sidebarObjectSourceTarget.node.connectionId!"
       :database="sidebarObjectSourceTarget.node.database!"
+      :catalog="sidebarObjectSourceTarget.node.catalog"
       :schema="sidebarObjectSourceResolvedTarget?.schema"
       :name="sidebarObjectSourceResolvedTarget!.name"
       :relation-name="sidebarObjectSourceTarget.node.tableName"
@@ -3044,6 +3048,8 @@ defineExpose({
       :dialect="sidebarObjectSourceDialect"
       :format-dialect="sidebarObjectSourceFormatDialect"
       :initial-editing="sidebarObjectSourceTarget.initialEditing"
+      :initial-section="sidebarObjectSourceTarget.initialSection"
+      @open-object="(context: ObjectDependencyTarget, target: SqlObjectNavigationTarget) => emit('open-dependency-object', context, target)"
       @saved="refreshSidebarActionTarget"
     />
 

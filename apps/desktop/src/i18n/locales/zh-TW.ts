@@ -66,6 +66,22 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "依賴物件",
+    dependents: "被依賴物件",
+    viewSql: "檢視 SQL",
+    visibility: "僅顯示 ALL_DEPENDENCIES 中目前帳號可見的直接依賴。",
+    packageScope: "套件規格與本體合併顯示；不區分套件內成員。",
+    partial: "結果已截斷，清單可能不完整。",
+    notUpdated: "重新整理失敗，仍顯示上次結果。",
+    empty: "找不到目前帳號可見的直接依賴。",
+    dependencyType: "依賴類型",
+    sourceType: "來源類型",
+    link: "資料庫連結",
+    remoteObject: "遠端物件：可複製名稱，尚不支援開啟。",
+    unsupportedObject: "尚不支援開啟此物件類型，可複製名稱。",
+    navigateDiscardConfirm: "原始碼有未儲存的變更。要捨棄變更並開啟相關物件嗎？",
+  },
   oracleSecurity: {
     directSqlNotice: "僅顯示可見的直接授權，不代表工作階段有效權限，也不是完整重播指令碼。繼承及授予者請見來源詳情。",
     searchOwner: "搜尋 owner/schema",

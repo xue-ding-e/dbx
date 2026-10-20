@@ -65,6 +65,22 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "依存先",
+    dependents: "依存元",
+    viewSql: "SQL を表示",
+    visibility: "ALL_DEPENDENCIES で現在のアカウントから参照できる直接の依存関係を表示します。",
+    packageScope: "パッケージ仕様部と本体をまとめて表示します。個々のメンバーは区別しません。",
+    partial: "結果が切り詰められたため、一覧が不完全な可能性があります。",
+    notUpdated: "更新に失敗しました。前回の結果を表示しています。",
+    empty: "現在のアカウントから参照できる直接の依存関係はありません。",
+    dependencyType: "依存関係の種類",
+    sourceType: "参照元の種類",
+    link: "データベースリンク",
+    remoteObject: "リモートオブジェクトは名前をコピーできますが、まだ開けません。",
+    unsupportedObject: "この種類のオブジェクトはまだ開けません。名前をコピーできます。",
+    navigateDiscardConfirm: "ソースに未保存の変更があります。破棄して関連オブジェクトを開きますか？",
+  },
   oracleSecurity: {
     directSqlNotice: "参照できる直接付与のみを表示します。セッションの有効な権限や完全な再実行スクリプトではありません。継承と付与者は付与元の詳細を参照してください。",
     searchOwner: "owner/schema を検索",

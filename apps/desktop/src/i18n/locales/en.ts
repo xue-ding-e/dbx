@@ -64,6 +64,22 @@ const consul = {
 };
 
 export default {
+  objectDependencies: {
+    dependencies: "Dependencies",
+    dependents: "Dependents",
+    viewSql: "View SQL",
+    visibility: "Shows direct dependencies visible to the current account in ALL_DEPENDENCIES.",
+    packageScope: "Package specification and body are combined; individual members are not distinguished.",
+    partial: "Results were truncated; the list may be incomplete.",
+    notUpdated: "Refresh failed. The previous results are still shown.",
+    empty: "No direct dependencies visible to the current account were found.",
+    dependencyType: "Dependency type",
+    sourceType: "Source type",
+    link: "Database link",
+    remoteObject: "Remote object: copy its name; opening is not supported yet.",
+    unsupportedObject: "Opening this object type is not supported yet. You can copy its name.",
+    navigateDiscardConfirm: "The source has unsaved changes. Discard them and open the related object?",
+  },
   oracleSecurity: {
     directSqlNotice: "Visible direct grants only, not effective session permissions or a complete replay script. Inheritance and grantors are in the source details.",
     searchOwner: "Search owner/schema",

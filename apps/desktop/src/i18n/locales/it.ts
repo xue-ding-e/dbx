@@ -64,6 +64,22 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectDependencies: {
+    dependencies: "Dipendenze",
+    dependents: "Oggetti dipendenti",
+    viewSql: "Mostra SQL",
+    visibility: "Mostra le dipendenze dirette visibili all'account corrente in ALL_DEPENDENCIES.",
+    packageScope: "Specifica e corpo del package sono combinati; i singoli membri non sono distinti.",
+    partial: "I risultati sono stati troncati; l'elenco potrebbe essere incompleto.",
+    notUpdated: "Aggiornamento non riuscito. Sono mostrati i risultati precedenti.",
+    empty: "Nessuna dipendenza diretta visibile all'account corrente.",
+    dependencyType: "Tipo di dipendenza",
+    sourceType: "Tipo di origine",
+    link: "Collegamento al database",
+    remoteObject: "Oggetto remoto: è possibile copiarne il nome, ma non ancora aprirlo.",
+    unsupportedObject: "L'apertura di questo tipo di oggetto non è ancora supportata. È possibile copiarne il nome.",
+    navigateDiscardConfirm: "Il codice contiene modifiche non salvate. Ignorarle e aprire l'oggetto correlato?",
+  },
   oracleSecurity: {
     directSqlNotice: "Solo concessioni dirette visibili, non privilegi effettivi della sessione né uno script completo da rieseguire. Eredità e concedenti sono nei dettagli delle origini.",
     searchOwner: "Cerca owner/schema",

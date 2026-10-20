@@ -117,6 +117,8 @@ import { isXuguTypeMemberContainer } from "@/lib/sidebar/xuguTypeMembers";
 import { isXuguSyntheticTreeNode } from "@/lib/sidebar/xuguPublicSynonyms";
 import { buildXuguSchedulerJobSql, type XuguSchedulerJobAction } from "@/lib/database/xuguSchedulerJobSql";
 import { canViewDatabaseObjectDependencies, databaseDependencyProviderFor } from "@/lib/database/databaseObjectDependencies";
+import { oracleTarget } from "@/lib/database/oracleObjectDependencies";
+import type { ObjectDetailsSection } from "@/lib/database/objectDependencyDetails";
 import { elasticsearchClearIndexPreview, isElasticsearchClearConfirmed, isElasticsearchIndexPattern } from "@/lib/sidebar/elasticsearchIndexActions";
 import { sidebarObjectTemplateForGroup } from "@/lib/sidebar/databaseObjectTemplates";
 import { buildTableDeleteTemplate, buildTableInsertTemplate, buildTableSelectTemplate, buildTableUpdateTemplate, insertTemplatePrimaryKeyConflicts } from "@/lib/table/tableSqlTemplates";
@@ -540,7 +542,7 @@ const emit = defineEmits<{
   "context-menu": [event: MouseEvent, node: TreeNode, items: ContextMenuItem[]];
   "open-ddl": [node: TreeNode];
   "open-elasticsearch-index-metadata": [node: TreeNode, kind: ElasticsearchIndexMetadataKind];
-  "open-object-source": [node: TreeNode, initialEditing: boolean];
+  "open-object-source": [node: TreeNode, initialEditing: boolean, initialSection?: ObjectDetailsSection];
   "open-procedure": [node: TreeNode];
   "open-settings": [initialTab: string];
   "open-data": [node: TreeNode, requireSelection: boolean, openMode: DataTabOpenMode, runner: (node: TreeNode, request: SidebarDataOpenRequest) => Promise<void>];
@@ -2966,8 +2968,9 @@ async function refreshDropTableChildObjectPreviewSql() {
   dropTableChildObjectPreviewSql.value = options ? await buildDropTableChildObjectSql(options).catch(() => "") : "";
 }
 
-function openObjectSourceDialog(initialEditing: boolean, viewPackageBody = false) {
-  const node = activeNode.value;
+function openObjectSourceDialog(initialEditing: boolean, viewPackageBody = false, dependencyNode?: TreeNode) {
+  const node = dependencyNode || activeNode.value;
+  const initialSection = dependencyNode ? "dependencies" : undefined;
   if (!node.connectionId || !node.database) return;
   if (viewPackageBody && (node.type !== "package" || node.xuguPackageBodyAvailable !== true || currentDatabaseType() !== "xugu")) return;
   const sourceNode: TreeNode = viewPackageBody ? { ...node, type: "package-body" } : node;
@@ -2990,11 +2993,12 @@ function openObjectSourceDialog(initialEditing: boolean, viewPackageBody = false
       schema,
       catalog: node.catalog,
       initialEditing,
+      initialSection,
       request: { name: sourceTarget.name, objectType: sourceTarget.objectType, signature: sourceNode.signature },
     });
     return;
   }
-  emit("open-object-source", sourceNode, initialEditing);
+  emit("open-object-source", sourceNode, initialEditing, initialSection);
 }
 
 function openProcedureExecution() {
@@ -3007,13 +3011,20 @@ async function openDatabaseObjectDependencies() {
   const node = activeNode.value;
   const provider = databaseDependencyProviderFor(currentDatabaseType());
   if (!provider || !node.connectionId || !node.database || !provider.supports(node)) return;
+  if (currentDatabaseType() === "oracle" || currentDatabaseType() === "oceanbase-oracle") {
+    const target = oracleTarget(node);
+    if (!target) return;
+    openObjectSourceDialog(false, false, { ...node, type: target.type.toLowerCase() as "procedure" | "function" | "package", schema: target.schema, objectName: target.name, label: target.name, parentType: undefined, parentName: undefined, parentSchema: undefined });
+    return;
+  }
   const sql = provider.buildQuery(node);
   if (!sql) return;
 
   try {
     await connectionStore.ensureConnected(node.connectionId);
     connectionStore.activeConnectionId = node.connectionId;
-    const objectName = node.objectName || node.label;
+    const target = provider.targetLabel?.(node);
+    const objectName = target ? `${target.packageScope ? `${t("common.package")} ` : ""}${target.name}` : node.objectName || node.label;
     const tabId = queryStore.createTab(node.connectionId, node.database, `${t("contextMenu.viewDependencies")} - ${objectName}`, "query", node.schema, undefined, node.catalog, { forceNew: true });
     queryStore.updateSql(tabId, sql);
     await queryStore.executeTabSql(tabId, sql);
@@ -7682,7 +7693,7 @@ function buildObjectSidebarMenu(context: SidebarMenuFactoryContext): boolean {
     if (!isPackageMember) {
       items.push({ label: t("diff.title"), action: openSchemaDiffForRoutine, icon: ArrowRightLeft });
     }
-    if (!isPackageMember && canViewDatabaseObjectDependencies(currentDatabaseType(), node)) {
+    if (canViewDatabaseObjectDependencies(currentDatabaseType(), node)) {
       items.push({ label: t("contextMenu.viewDependencies"), action: openDatabaseObjectDependencies, icon: Network });
     }
     items.push(copyNameMenuItem());
