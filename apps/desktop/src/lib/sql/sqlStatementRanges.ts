@@ -284,7 +284,46 @@ const DATABASE_SOFT_STATEMENT_KEYWORDS: Partial<Record<DatabaseType, readonly st
 };
 
 const WITH_MAIN_STATEMENT_KEYWORDS = new Set(["SELECT", "INSERT", "UPDATE", "DELETE", "MERGE"]);
-const EXPLAIN_STATEMENT_KEYWORDS = new Set(["SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP"]);
+const EXPLAIN_STATEMENT_KEYWORDS = new Set(["SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP", "VALUES", "EXECUTE"]);
+const EXPLAIN_OPTION_KEYWORDS = new Set([
+  "ANALYZE",
+  "ANALYSE",
+  "VERBOSE",
+  "COSTS",
+  "BUFFERS",
+  "TIMING",
+  "SUMMARY",
+  "FORMAT",
+  "SETTINGS",
+  "GENERIC_PLAN",
+  "WAL",
+  "MEMORY",
+  "SERIALIZE",
+  "TEXT",
+  "XML",
+  "JSON",
+  "YAML",
+  "TREE",
+  "TRADITIONAL",
+  "EXTENDED",
+  "PARTITIONS",
+  "QUERY",
+  "PLAN",
+  "FOR",
+  "SET",
+  "STATEMENT_ID",
+  "INTO",
+  "AST",
+  "SYNTAX",
+  "PIPELINE",
+  "ESTIMATE",
+  "TABLE",
+  "OVERRIDE",
+  "TRUE",
+  "FALSE",
+  "ON",
+  "OFF",
+]);
 const CREATE_BODY_KEYWORDS = new Set(["SELECT", "WITH", "BEGIN", "DECLARE"]);
 const STARROCKS_CREATE_MATERIALIZED_VIEW_REFRESH_MODIFIERS = new Set(["ASYNC", "MANUAL", "SCHEDULE", "DEFERRED", "IMMEDIATE"]);
 const INSERT_BODY_KEYWORDS = new Set(["SELECT", "WITH"]);
@@ -824,10 +863,11 @@ function splitStatementRangeAtSoftStarts(sql: string, statement: RawStatement, d
 
   const boundaries: Array<{ hitFrom: number; from: number; keyword: string }> = [];
   let currentKeyword = softStatementKeywordAt(sql, statement.from, databaseType, parameterOptions);
-  let currentExplainTargetKeyword = explainLikeTargetKeywordAt(sql, statement.from, databaseType, parameterOptions);
+  let currentExplain = parseExplainLikePrefixAt(sql, statement.from, databaseType, parameterOptions);
+  let currentExplainTargetKeyword = currentExplain.targetKeyword;
   let currentBodyKeyword = currentExplainTargetKeyword ?? currentKeyword;
   let consumedWithMainStatement = false;
-  let consumedExplainStatement = false;
+  let consumedExplainStatement = currentExplainTargetKeyword !== null || (currentKeyword === "EXPLAIN" && !currentExplain.isPendingPrefix);
 
   boundaries.push({ hitFrom: statement.hitFrom, from: statement.from, keyword: currentKeyword ?? "" });
 
@@ -897,10 +937,11 @@ function splitStatementRangeAtSoftStarts(sql: string, statement: RawStatement, d
 
     boundaries.push(lineStart);
     currentKeyword = lineStart.keyword;
-    currentExplainTargetKeyword = explainLikeTargetKeywordAt(sql, lineStart.from, databaseType, parameterOptions);
+    currentExplain = parseExplainLikePrefixAt(sql, lineStart.from, databaseType, parameterOptions);
+    currentExplainTargetKeyword = currentExplain.targetKeyword;
     currentBodyKeyword = currentExplainTargetKeyword ?? currentKeyword;
     consumedWithMainStatement = false;
-    consumedExplainStatement = false;
+    consumedExplainStatement = currentExplainTargetKeyword !== null || (currentKeyword === "EXPLAIN" && !currentExplain.isPendingPrefix);
   }
 
   if (boundaries.length <= 1) return [statement];
@@ -1588,25 +1629,103 @@ function explainOptionsParenAt(sql: string, pos: number): number | null {
   return sql[i] === "(" ? i : null;
 }
 
-function explainLikeTargetKeywordAt(sql: string, pos: number, databaseType?: DatabaseType, parameterOptions?: SqlParameterOptions): string | null {
+function parseExplainLikePrefixAt(sql: string, pos: number, databaseType?: DatabaseType, parameterOptions?: SqlParameterOptions): { targetKeyword: string | null; isPendingPrefix: boolean } {
   const prefixMatch = /^[A-Za-z_][\w$]*/.exec(sql.slice(pos));
   const prefix = prefixMatch?.[0]?.toUpperCase();
-  if (!isExplainLikeKeyword(prefix ?? null)) return null;
+  if (!isExplainLikeKeyword(prefix ?? null)) {
+    return { targetKeyword: null, isPendingPrefix: false };
+  }
 
   let i = pos + (prefixMatch?.[0].length ?? 0);
-  while (i < sql.length && isSqlWhitespace(sql[i])) i += 1;
-  // Parenthesized EXPLAIN options (e.g. Postgres `EXPLAIN (ANALYZE, BUFFERS) ...`)
-  // sit between the keyword and its target statement. DESC/DESCRIBE take no
-  // options — a paren there is a subquery (ClickHouse `DESCRIBE (SELECT ...)`).
-  if (prefix === "EXPLAIN" && sql[i] === "(") {
-    const optionsEnd = skipBalancedParens(sql, i, databaseType, parameterOptions);
-    if (optionsEnd === null) return null;
-    i = optionsEnd;
-    while (i < sql.length && isSqlWhitespace(sql[i])) i += 1;
+
+  const skipInlineWhitespaceAndComments = (): boolean => {
+    while (i < sql.length) {
+      if (sql[i] === " " || sql[i] === "\t") {
+        i += 1;
+        continue;
+      }
+      if (startsBlockComment(sql, i)) {
+        const commentEnd = sql.indexOf("*/", i + 2);
+        if (commentEnd === -1) return false;
+        i = commentEnd + 2;
+        continue;
+      }
+      break;
+    }
+    return true;
+  };
+
+  if (!skipInlineWhitespaceAndComments()) {
+    return { targetKeyword: null, isPendingPrefix: false };
   }
-  const targetMatch = /^[A-Za-z_][\w$]*/.exec(sql.slice(i));
-  const targetKeyword = targetMatch?.[0]?.toUpperCase();
-  return targetKeyword && EXPLAIN_STATEMENT_KEYWORDS.has(targetKeyword) ? targetKeyword : null;
+
+  // DESC and DESCRIBE take no options; the very next token is either the target
+  // statement (e.g. `DESC UPDATE ...`) or a table/subquery (e.g. `DESC users`).
+  if (prefix !== "EXPLAIN") {
+    const targetMatch = /^[A-Za-z_][\w$]*/.exec(sql.slice(i));
+    const targetKeyword = targetMatch?.[0]?.toUpperCase();
+    return {
+      targetKeyword: targetKeyword && EXPLAIN_STATEMENT_KEYWORDS.has(targetKeyword) ? targetKeyword : null,
+      isPendingPrefix: false,
+    };
+  }
+
+  // Scan EXPLAIN options and possible inline target statement keyword on the current line
+  while (i < sql.length) {
+    if (sql[i] === "\n" || sql[i] === "\r" || sql[i] === ";") break;
+    if (startsLineComment(sql, i, databaseType, parameterOptions)) break;
+
+    if (sql[i] === "(") {
+      const optionsEnd = skipBalancedParens(sql, i, databaseType, parameterOptions);
+      if (optionsEnd === null) return { targetKeyword: null, isPendingPrefix: true };
+      i = optionsEnd;
+      if (!skipInlineWhitespaceAndComments()) return { targetKeyword: null, isPendingPrefix: false };
+      continue;
+    }
+
+    if (sql[i] === "'" || sql[i] === '"') {
+      const quote = sql[i];
+      i += 1;
+      while (i < sql.length && sql[i] !== quote && sql[i] !== "\n") i += 1;
+      if (i < sql.length && sql[i] === quote) i += 1;
+      if (!skipInlineWhitespaceAndComments()) return { targetKeyword: null, isPendingPrefix: false };
+      continue;
+    }
+
+    if (sql[i] === "=" || sql[i] === ",") {
+      i += 1;
+      if (!skipInlineWhitespaceAndComments()) return { targetKeyword: null, isPendingPrefix: false };
+      continue;
+    }
+
+    const digitMatch = /^\d+/.exec(sql.slice(i));
+    if (digitMatch) {
+      i += digitMatch[0].length;
+      if (!skipInlineWhitespaceAndComments()) return { targetKeyword: null, isPendingPrefix: false };
+      continue;
+    }
+
+    const tokenMatch = /^[A-Za-z_][\w$]*/.exec(sql.slice(i));
+    if (!tokenMatch) {
+      i += 1;
+      continue;
+    }
+
+    const token = tokenMatch[0].toUpperCase();
+    if (EXPLAIN_STATEMENT_KEYWORDS.has(token)) {
+      return { targetKeyword: token, isPendingPrefix: false };
+    }
+
+    if (EXPLAIN_OPTION_KEYWORDS.has(token)) {
+      i += tokenMatch[0].length;
+      if (!skipInlineWhitespaceAndComments()) return { targetKeyword: null, isPendingPrefix: false };
+      continue;
+    }
+
+    return { targetKeyword: null, isPendingPrefix: false };
+  }
+
+  return { targetKeyword: null, isPendingPrefix: true };
 }
 
 function skipBalancedParens(sql: string, pos: number, databaseType?: DatabaseType, parameterOptions?: SqlParameterOptions): number | null {
