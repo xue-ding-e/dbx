@@ -244,6 +244,8 @@ export function sqlSnippetDatabaseTypeForConnection(connection?: JdbcDialectConn
   // ASE uses T-SQL snippets, but mapping it globally to SQL Server would also
   // enable incompatible SQL Server metadata and pagination behavior.
   if (isJdbcAseProfile(connection)) return "sqlserver";
+  const kingbaseType = kingbaseSqlDatabaseType(connection);
+  if (kingbaseType) return kingbaseType;
   return effectiveDatabaseTypeForConnection(connection);
 }
 
@@ -388,14 +390,17 @@ export function connectionTableSqlSchema(connection: JdbcDialectConnection | und
 
 /** Maps a database type to the corresponding CodeMirror SQL dialect name used by QueryEditor and DdlViewDialog. */
 export function codeMirrorSqlDialect(dbType: DatabaseType | undefined): "mysql" | "postgres" | "sqlserver" {
-  if (dbType === "postgres" || dbType === "gaussdb" || dbType === "kwdb" || dbType === "opengauss") return "postgres";
+  if (dbType === "postgres" || dbType === "gaussdb" || dbType === "kwdb" || dbType === "opengauss" || dbType === "kingbase") return "postgres";
   if (dbType === "sqlserver") return "sqlserver";
   return "mysql";
 }
 
 export function codeMirrorSqlDialectForConnection(connection?: JdbcDialectConnection): CodeMirrorSqlDialectName {
   if (isJdbcAseProfile(connection)) return "sqlserver";
+  const kingbaseType = kingbaseSqlDatabaseType(connection);
+  if (kingbaseType) return kingbaseType;
   const databaseType = effectiveDatabaseTypeForConnection(connection);
+  if (databaseType === "kingbase") return "postgres";
   if (databaseType === "clickhouse") return "clickhouse";
   return codeMirrorSqlDialect(databaseType);
 }
