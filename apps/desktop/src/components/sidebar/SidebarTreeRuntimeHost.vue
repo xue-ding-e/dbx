@@ -6899,6 +6899,14 @@ function buildConnectionSidebarMenu(context: SidebarMenuFactoryContext): boolean
   return false;
 }
 
+function openCreateTableVGroupDialog(node: TreeNode) {
+  tableVGroupDialogScope.value = node;
+  tableVGroupDialogParentGroupId.value = null;
+  tableVGroupDialogTableNames.value = [];
+  tableVGroupName.value = "";
+  showTableVGroupDialog.value = true;
+}
+
 function buildDatabaseSidebarMenu(context: SidebarMenuFactoryContext): boolean {
   const { node, items } = context;
   appendTableVGroupContainerItems(node, items);
@@ -6999,6 +7007,14 @@ function buildDatabaseSidebarMenu(context: SidebarMenuFactoryContext): boolean {
     }
     if (canCreateTable.value) {
       items.push({ sidebarActionId: "contextMenu.createTable", label: t("contextMenu.createTable"), action: createTable, icon: Plus });
+    }
+    if (canCreateTable.value && isTableVGroupContainerNode(node) && !node.children?.some(isGroupLabel)) {
+      items.push({
+        sidebarActionId: "contextMenu.createGroup",
+        label: t("connectionGroup.createGroup"),
+        action: () => openCreateTableVGroupDialog(node),
+        icon: FolderPlus,
+      });
     }
     if (canOpenTableImport.value) {
       items.push({ sidebarActionId: "contextMenu.importData", label: t("contextMenu.importData"), action: openTableImport, icon: Download });
@@ -7131,6 +7147,16 @@ function buildSpecialSidebarMenu(context: SidebarMenuFactoryContext): boolean {
   if (currentDatabaseType() === "hbase" && node.type === "group-tables") {
     if (canCreateTable.value) {
       items.push({ label: t("contextMenu.createTable"), action: createTable, icon: Plus });
+    }
+    if (isTableVGroupContainerNode(node)) {
+      items.push({
+        sidebarActionId: "contextMenu.createGroup",
+        label: t("connectionGroup.createGroup"),
+        action: () => openCreateTableVGroupDialog(node),
+        icon: FolderPlus,
+      });
+    }
+    if (canCreateTable.value || isTableVGroupContainerNode(node)) {
       items.push({ label: "", separator: true });
     }
     items.push({ label: t("contextMenu.copyName"), action: copyName, icon: Copy, shortcut: shortcutCopyName.value });
@@ -7785,16 +7811,11 @@ function buildObjectGroupSidebarMenu(context: SidebarMenuFactoryContext): boolea
     const hasMongoCreateIndexAction = node.type === "group-indexes" && canCreateMongoIndex.value;
     const hasMongoDropAllIndexesAction = node.type === "group-indexes" && canDropAllMongoIndexes.value;
     const canCreateGroupView = node.type === "group-views" && !!node.connectionId && !!node.database && !["neo4j", "nebula"].includes(currentDatabaseType() || "");
-    const hasGroupAction = (node.type === "group-tables" && canCreateTable.value) || canCreateGroupView || !!objectTemplate || hasMongoCreateIndexAction || hasMongoDropAllIndexesAction;
+    const canCreateTableGroup = isTableVGroupContainerNode(node);
+    const hasGroupAction = (node.type === "group-tables" && canCreateTable.value) || canCreateTableGroup || canCreateGroupView || !!objectTemplate || hasMongoCreateIndexAction || hasMongoDropAllIndexesAction;
     const canLoadAllObjectGroup = node.type === "group-tables" || node.type === "group-dolt-system-tables" || node.type === "group-views" || node.type === "group-materialized-views";
     if (node.type === "group-tables" && canCreateTable.value) {
       items.push({ label: t("contextMenu.createTable"), action: createTable, icon: Plus });
-      if (canOpenTableImport.value) {
-        items.push({ label: t("contextMenu.importData"), action: openTableImport, icon: Upload });
-      }
-      if (canPasteTreeClipboardToCurrentNode() || canTransferTreeClipboardToCurrentNode()) {
-        items.push({ label: t("contextMenu.pasteTable"), action: openPasteTableDialog, icon: Clipboard });
-      }
     }
     if (canCreateGroupView) {
       items.push({ label: t("contextMenu.createView"), action: createView, icon: Plus });
@@ -7804,6 +7825,22 @@ function buildObjectGroupSidebarMenu(context: SidebarMenuFactoryContext): boolea
     }
     if (objectTemplate) {
       items.push({ label: t(objectTemplate.titleKey), action: createSidebarObjectTemplate, icon: Plus });
+    }
+    if (canCreateTableGroup) {
+      items.push({
+        sidebarActionId: "contextMenu.createGroup",
+        label: t("connectionGroup.createGroup"),
+        action: () => openCreateTableVGroupDialog(node),
+        icon: FolderPlus,
+      });
+    }
+    if (node.type === "group-tables" && canCreateTable.value) {
+      if (canOpenTableImport.value) {
+        items.push({ label: t("contextMenu.importData"), action: openTableImport, icon: Upload });
+      }
+      if (canPasteTreeClipboardToCurrentNode() || canTransferTreeClipboardToCurrentNode()) {
+        items.push({ label: t("contextMenu.pasteTable"), action: openPasteTableDialog, icon: Clipboard });
+      }
     }
     if (hasMongoCreateIndexAction) {
       items.push({ label: t("contextMenu.createMongoIndex"), action: openCreateMongoIndexDialog, icon: Plus });
