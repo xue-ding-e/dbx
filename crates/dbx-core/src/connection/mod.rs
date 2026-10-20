@@ -3732,8 +3732,69 @@ impl AppState {
         config: &ConnectionConfig,
     ) -> Result<ConnectionEndpoint, String> {
         let transport_layers = self.resolved_transport_layers(config).await?;
+        let transport_summary = transport_layers
+            .iter()
+            .map(|layer| match layer {
+                TransportLayerConfig::Ssh(_) => "ssh".to_string(),
+                TransportLayerConfig::Proxy(_) => "proxy".to_string(),
+                TransportLayerConfig::HttpTunnel(http) => {
+                    format!("http_tunnel:{:?}:{}", http.protocol, redact_transport_url(&http.url))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        log::info!(
+            "[transport] connection_id={} db_type={:?} layer_count={} layers=[{}] target={}:{}",
+            connection_id,
+            config.db_type,
+            transport_layers.len(),
+            transport_summary,
+            config.host,
+            config.port
+        );
+        let navicat_layer = transport_layers.iter().enumerate().find_map(|(index, layer)| match layer {
+            TransportLayerConfig::HttpTunnel(http)
+                if http.protocol == crate::models::connection::HttpTunnelProtocol::NavicatMysql =>
+            {
+                Some(index)
+            }
+            _ => None,
+        });
+        if let Some(index) = navicat_layer {
+            if config.db_type != DatabaseType::Mysql {
+                return Err("Navicat HTTP tunnel protocol is only supported for MySQL connections.".to_string());
+            }
+            if index != 0 || transport_layers.len() != 1 {
+                return Err("Navicat MySQL HTTP tunnel must be the only transport layer.".to_string());
+            }
+            if config.ssl
+                || !config.ca_cert_path.is_empty()
+                || !config.client_cert_path.is_empty()
+                || !config.client_key_path.is_empty()
+            {
+                return Err("Navicat MySQL HTTP tunnel does not support MySQL TLS settings. Disable MySQL SSL or remove the TLS certificate paths.".to_string());
+            }
+        }
         if transport_layers.is_empty() || db::sqlite_worker::sqlite_remote_worker_requested(config) {
             return Ok(ConnectionEndpoint::direct(config.host.clone(), config.port));
+        }
+        if let Some(TransportLayerConfig::HttpTunnel(http)) = transport_layers.first() {
+            if http.protocol == crate::models::connection::HttpTunnelProtocol::NavicatMysql {
+                let local_port = self
+                    .http_tunnels
+                    .start_navicat_mysql_tunnel(
+                        connection_id,
+                        &http.url,
+                        http.connect_timeout_secs,
+                        &config.host,
+                        config.port,
+                        &config.username,
+                        &config.password,
+                        config.database.as_deref(),
+                    )
+                    .await?;
+                return Ok(ConnectionEndpoint::direct("127.0.0.1".to_string(), local_port));
+            }
         }
         if config.db_type == DatabaseType::ClickHouse
             || config.db_type == DatabaseType::CloudflareD1
@@ -6406,6 +6467,18 @@ impl AppState {
     }
 }
 
+fn redact_transport_url(raw: &str) -> String {
+    reqwest::Url::parse(raw)
+        .map(|mut url| {
+            let _ = url.set_username("");
+            let _ = url.set_password(None);
+            url.set_query(None);
+            url.set_fragment(None);
+            url.to_string()
+        })
+        .unwrap_or_else(|_| "<invalid-url>".to_string())
+}
+
 fn gaussdb_identifier_quote_from_query_result(result: &db::QueryResult) -> Option<String> {
     let compatibility_mode = result.rows.first()?.first()?.as_str()?;
     db::postgres::gaussdb_identifier_quote_for_compatibility_mode(compatibility_mode).map(str::to_string)
@@ -7603,12 +7676,12 @@ mod tests {
         gaussdb_identifier_quote_from_query_result, gaussdb_m_jdbc_config_for_endpoint, gaussdb_uses_m_jdbc_driver,
         kafka_single_loopback_bootstrap_endpoint, keepalive_failure_proves_pool_dead, metadata_connection_config,
         metadata_pool_database, mysql_metadata_fallback_url, mysql_pool_setup_queries, oceanbase_mysql_setup_queries,
-        prestosql_jdbc_config_for_endpoint, redacted_connection_url_for_endpoint, redis_sentinel_transport_id,
-        redis_sentinel_transport_prefix, report_connection_liveness_lost, sqlserver_legacy_agent_config,
-        sqlserver_legacy_driver_error, sqlserver_uses_legacy_driver, task_client_session_id,
-        transport_layers_through_last_ssh, upsert_connection_url_param, uses_bare_mysql_pool, uses_tcp_probe,
-        validate_connection_url_params, validate_h2_database_path, AppState, MysqlMode, PoolKind, TxnConnection,
-        GAUSSDB_M_JDBC_DRIVER_CLASS, GAUSSDB_M_JDBC_DRIVER_PROFILE, PRESTOSQL_JDBC_DRIVER_CLASS,
+        prestosql_jdbc_config_for_endpoint, redact_transport_url, redacted_connection_url_for_endpoint,
+        redis_sentinel_transport_id, redis_sentinel_transport_prefix, report_connection_liveness_lost,
+        sqlserver_legacy_agent_config, sqlserver_legacy_driver_error, sqlserver_uses_legacy_driver,
+        task_client_session_id, transport_layers_through_last_ssh, upsert_connection_url_param, uses_bare_mysql_pool,
+        uses_tcp_probe, validate_connection_url_params, validate_h2_database_path, AppState, MysqlMode, PoolKind,
+        TxnConnection, GAUSSDB_M_JDBC_DRIVER_CLASS, GAUSSDB_M_JDBC_DRIVER_PROFILE, PRESTOSQL_JDBC_DRIVER_CLASS,
     };
     use crate::agent_connection::{
         agent_connect_params, mongo_legacy_error_with_auth_hint, mongo_uses_legacy_driver,
@@ -7627,6 +7700,15 @@ mod tests {
     use crate::schema;
     use std::sync::Arc;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn transport_url_redaction_removes_credentials_query_and_fragment() {
+        assert_eq!(
+            redact_transport_url("https://alice:secret@example.test/tunnel.php?token=secret#fragment"),
+            "https://example.test/tunnel.php"
+        );
+        assert_eq!(redact_transport_url("https://alice:secret@%/"), "<invalid-url>");
+    }
 
     pub(super) fn mysql_config(database: Option<&str>) -> ConnectionConfig {
         ConnectionConfig {
@@ -11890,6 +11972,7 @@ for line in sys.stdin:
             enabled: true,
             url: String::new(),
             token: String::new(),
+            protocol: crate::models::connection::HttpTunnelProtocol::DbxTcp,
             connect_timeout_secs: 10,
             profile_id: profile_id.to_string(),
         }
