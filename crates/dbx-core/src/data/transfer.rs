@@ -8557,12 +8557,21 @@ fn should_prepare_fresh_agent_transfer_session(db_type: Option<DatabaseType>, er
     if !db_type.is_some_and(|db_type| crate::database_capabilities::is_agent_type(&db_type)) {
         return false;
     }
+    let xugu_local_timeout = db_type == Some(DatabaseType::Xugu)
+        && error.trim_start().to_ascii_lowercase().starts_with("agent rpc call timed out ");
+    if xugu_local_timeout {
+        return true;
+    }
     matches!(
         crate::db::agent_driver::try_agent_error_from_legacy(error),
         Some(crate::db::agent_driver::AgentCallError::Structured { context, .. })
             if context.session_disposition
                 == crate::db::agent_driver::AgentSessionDisposition::Quarantine
     )
+}
+
+fn should_reconnect_missing_xugu_transfer_metadata_pool(db_type: Option<DatabaseType>, pool_missing: bool) -> bool {
+    pool_missing && db_type == Some(DatabaseType::Xugu)
 }
 
 /// Whether a discarded transfer pool has to be replaced before the next statement runs.
@@ -8953,13 +8962,24 @@ fn effective_transfer_database_type(config: &ConnectionConfig) -> DatabaseType {
 pub async fn get_columns_for_transfer(
     state: &AppState,
     pool_key: &str,
-    _connection_id: &str,
+    connection_id: &str,
     database: &str,
     schema: &str,
     table: &str,
     catalog: Option<&str>,
 ) -> Result<Vec<db::ColumnInfo>, String> {
-    let pool_handle = state.pool_handle(pool_key).await;
+    let mut pool_handle = state.pool_handle(pool_key).await;
+    if pool_handle.is_none() {
+        let db_type = get_db_type(state, connection_id).await.ok();
+        if should_reconnect_missing_xugu_transfer_metadata_pool(db_type, true) {
+            // A timed-out Xugu Agent operation can invalidate its session and, when
+            // the shared Agent runtime is replaced, detach sibling source/target
+            // sessions too. Recreate only the missing Xugu transfer pool before
+            // asking the Agent for the next table's columns.
+            ensure_transfer_statement_pool(state, pool_key).await?;
+            pool_handle = state.pool_handle(pool_key).await;
+        }
+    }
 
     #[cfg(feature = "duckdb-sidecar")]
     if let Some(PoolKind::DuckDbWorker(client)) = pool_handle.as_ref() {
@@ -22750,7 +22770,7 @@ SELECT 1 FROM dual"#
     }
 
     #[test]
-    fn fresh_transfer_session_preparation_is_scoped_to_structured_agent_quarantine() {
+    fn fresh_transfer_session_preparation_is_scoped_to_agent_quarantine_and_xugu_timeout() {
         let quarantine = "Agent RPC error (-1): lost\nDBX_AGENT_ERROR_DATA:{\"contractVersion\":1,\"category\":\"connection\",\"retryable\":false,\"sessionDisposition\":\"quarantine\",\"stage\":\"execute\",\"operationOutcome\":\"unknown\"}";
         let keep = "Agent RPC error (-1): syntax error\nDBX_AGENT_ERROR_DATA:{\"contractVersion\":1,\"category\":\"sql\",\"retryable\":false,\"sessionDisposition\":\"keep\",\"stage\":\"execute\",\"operationOutcome\":\"unknown\"}";
         let replace_runtime = "Agent RPC error (-1): exhausted\nDBX_AGENT_ERROR_DATA:{\"contractVersion\":1,\"category\":\"resource\",\"retryable\":false,\"sessionDisposition\":\"replace_runtime\",\"stage\":\"execute\",\"operationOutcome\":\"unknown\"}";
@@ -22764,6 +22784,36 @@ SELECT 1 FROM dual"#
             Some(DatabaseType::OceanbaseOracle),
             "Agent RPC error (-1): legacy connection error"
         ));
+        assert!(should_prepare_fresh_agent_transfer_session(
+            Some(DatabaseType::Xugu),
+            "Agent RPC call timed out at execute"
+        ));
+        assert_eq!(
+            transfer_pool_error_action(
+                TransferExecutionSafety::WriteNoReplay,
+                Some(DatabaseType::Xugu),
+                "Agent RPC call timed out at execute"
+            ),
+            PoolErrorAction::Discard,
+            "a local Xugu RPC timeout must discard the uncertain session without replaying the write"
+        );
+        assert!(!should_prepare_fresh_agent_transfer_session(
+            Some(DatabaseType::OceanbaseOracle),
+            "Agent RPC call timed out at execute"
+        ));
+        assert!(!should_prepare_fresh_agent_transfer_session(
+            Some(DatabaseType::Xugu),
+            "Agent RPC error (-1): SQL execution failed"
+        ));
+    }
+
+    #[test]
+    fn transfer_metadata_pool_recovery_is_scoped_to_missing_xugu_pools() {
+        assert!(should_reconnect_missing_xugu_transfer_metadata_pool(Some(DatabaseType::Xugu), true));
+        assert!(!should_reconnect_missing_xugu_transfer_metadata_pool(Some(DatabaseType::Xugu), false));
+        assert!(!should_reconnect_missing_xugu_transfer_metadata_pool(Some(DatabaseType::Postgres), true));
+        assert!(!should_reconnect_missing_xugu_transfer_metadata_pool(Some(DatabaseType::Oracle), true));
+        assert!(!should_reconnect_missing_xugu_transfer_metadata_pool(None, true));
     }
 
     #[test]
