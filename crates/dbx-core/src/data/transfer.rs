@@ -4166,7 +4166,7 @@ fn format_oracle_temporal_sql_literal(
     let normalized_column_type = column_type?.trim().to_ascii_lowercase();
     let parts = oracle_export_date_parts(value)?;
     match kind {
-        "date" => Some(format_oracle_date_sql_literal_parts(&parts)),
+        "date" => Some(format_oracle_date_sql_literal_parts(&parts, db_type)),
         "datetime"
             if (normalized_column_type.contains("with time zone")
                 || normalized_column_type.contains("with local time zone"))
@@ -4196,8 +4196,11 @@ struct OracleExportDateParts<'a> {
     zone: Option<&'a str>,
 }
 
-fn format_oracle_date_sql_literal_parts(parts: &OracleExportDateParts<'_>) -> String {
-    if oracle_export_date_parts_are_midnight(parts) {
+fn format_oracle_date_sql_literal_parts(parts: &OracleExportDateParts<'_>, db_type: &DatabaseType) -> String {
+    // Oracle accepts the ANSI `DATE 'YYYY-MM-DD'` literal for midnight values.
+    // OceanBase's Oracle mode resolves that spelling through NLS_DATE_FORMAT, so the
+    // same value can raise ORA-01858; use the explicit mask there (#12841).
+    if *db_type == DatabaseType::Oracle && oracle_export_date_parts_are_midnight(parts) {
         format!("DATE '{}'", parts.date)
     } else {
         format!("TO_DATE('{} {}', 'YYYY-MM-DD HH24:MI:SS')", parts.date, parts.time)
@@ -21339,6 +21342,11 @@ PARTITION p_old VALUES LESS THAN (TO_DAYS('2026-01-01')))";
             "DATE '2022-08-25'"
         );
         assert_eq!(
+            escape_value_typed(&json!("2022-08-25T00:00:00Z"), &DatabaseType::OceanbaseOracle, Some("DATE")),
+            "TO_DATE('2022-08-25 00:00:00', 'YYYY-MM-DD HH24:MI:SS')",
+            "OceanBase Oracle mode must not use the ANSI DATE literal (#12841)"
+        );
+        assert_eq!(
             escape_value_typed(
                 &json!("2022-08-25T09:58:43.123456+08:00"),
                 &DatabaseType::Oracle,
@@ -21346,6 +21354,24 @@ PARTITION p_old VALUES LESS THAN (TO_DAYS('2026-01-01')))";
             ),
             "TO_TIMESTAMP_TZ('2022-08-25 09:58:43.123456 +08:00', 'YYYY-MM-DD HH24:MI:SS.FF TZH:TZM')"
         );
+    }
+
+    #[test]
+    fn oceanbase_oracle_insert_uses_explicit_to_date_for_midnight_dates() {
+        // #12841: OceanBase's Oracle mode resolves `DATE '...'` through NLS_DATE_FORMAT,
+        // so midnight DATE values raised ORA-01858 during transfer; use TO_DATE instead.
+        let sql = generate_insert_typed(
+            &[String::from("id"), String::from("ordertime")],
+            &[Some(String::from("NUMBER")), Some(String::from("DATE"))],
+            &[vec![json!(1), json!("2026-10-20T00:00:00Z")]],
+            "appointments",
+            "APP",
+            &DatabaseType::OceanbaseOracle,
+            None,
+        );
+
+        assert!(sql.contains("TO_DATE('2026-10-20 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"), "{sql}");
+        assert!(!sql.contains("DATE '2026-10-20'"), "{sql}");
     }
 
     #[test]
@@ -21954,7 +21980,14 @@ SELECT 1 FROM dual"#
             assert!(sql.contains("ON (t.\"ID\" = s.\"ID\" AND t.\"Kind\" = s.\"Kind\")"));
             assert!(sql.contains("WHEN MATCHED THEN UPDATE SET t.\"Name\" = s.\"Name\", t.\"CREATED\" = s.\"CREATED\", t.\"UPDATED\" = s.\"UPDATED\", t.\"OPTIONAL\" = s.\"OPTIONAL\""));
             assert!(sql.contains("'O''Brien' AS \"Name\""));
-            assert!(sql.contains("DATE '2026-10-09' AS \"CREATED\""));
+            // OceanBase's Oracle mode resolves ANSI date literals through
+            // NLS_DATE_FORMAT, so midnight values use an explicit TO_DATE (#12841).
+            let created_literal = if matches!(database_type, DatabaseType::OceanbaseOracle) {
+                "TO_DATE('2026-10-09 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AS \"CREATED\""
+            } else {
+                "DATE '2026-10-09' AS \"CREATED\""
+            };
+            assert!(sql.contains(created_literal), "{database_type:?}: {sql}");
             assert!(sql.contains("TO_DATE('2026-10-09 12:34:56', 'YYYY-MM-DD HH24:MI:SS') AS \"UPDATED\""));
             assert!(sql.contains("NULL AS \"OPTIONAL\""));
             assert_eq!(sql.matches("FROM dual").count(), 2);
