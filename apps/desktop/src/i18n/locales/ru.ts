@@ -1427,6 +1427,7 @@ export default withEnglishFallback({
     mqttConnected: "Подключено",
     mqttDisconnected: "Отключено",
     mqttRefresh: "Обновить",
+    mqttRefreshInterval: "Интервал обновления",
     mqttClearMessages: "Очистить сообщения",
     mqttCopyPayload: "Скопировать Payload",
     mqttCopyTopic: "Скопировать Topic",

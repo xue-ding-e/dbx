@@ -1341,6 +1341,7 @@ export default withEnglishFallback({
     mqttConnected: "Połączono",
     mqttDisconnected: "Rozłączono",
     mqttRefresh: "Odśwież",
+    mqttRefreshInterval: "Interwał odświeżania",
     mqttClearMessages: "Wyczyść wiadomości",
     mqttCollapsePayload: "Zwiń zawartość",
     mqttExpandPayload: "Rozwiń zawartość",

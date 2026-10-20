@@ -1021,6 +1021,7 @@ export default withEnglishFallback({
     mqttConnected: "Bağlandı",
     mqttDisconnected: "Bağlantı kesildi",
     mqttRefresh: "Yenile",
+    mqttRefreshInterval: "Yenileme Aralığı",
     mqttClearMessages: "Mesajları temizle",
     mqttCopyPayload: "Payload'i kopyala",
     mqttCopyTopic: "Topic'i kopyala",

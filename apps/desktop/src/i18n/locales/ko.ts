@@ -1742,6 +1742,7 @@ export default withEnglishFallback({
     objectCacheRefreshFailed: "개체 캐시 새로 고침 실패: {message}",
     mqttMaxPacketSize: "최대 패킷 크기(바이트)",
     mqttMessageDirectionFilterLabel: "메시지 방향으로 필터링",
+    mqttRefreshInterval: "새로고침 간격",
     mqttDirectionFilterAll: "전체",
     mqttDirectionFilterReceived: "수신됨",
     mqttDirectionFilterSent: "발신됨",

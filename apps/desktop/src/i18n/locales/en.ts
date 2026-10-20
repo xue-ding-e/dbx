@@ -1672,6 +1672,7 @@ export default {
     mqttConnected: "Connected",
     mqttDisconnected: "Disconnected",
     mqttRefresh: "Refresh",
+    mqttRefreshInterval: "Refresh Interval",
     mqttClearMessages: "Clear messages",
     mqttCopyPayload: "Copy Payload",
     mqttCopyTopic: "Copy Topic",

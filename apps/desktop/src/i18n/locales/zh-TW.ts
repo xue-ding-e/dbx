@@ -1735,6 +1735,7 @@ export default withEnglishFallback({
     mqttConnected: "已連線",
     mqttDisconnected: "已斷線",
     mqttRefresh: "重新整理",
+    mqttRefreshInterval: "重新整理間隔",
     mqttClearMessages: "清除訊息",
     mqttCopyPayload: "複製 Payload",
     mqttCopyTopic: "複製 Topic",

@@ -1724,6 +1724,7 @@ export default withEnglishFallback({
     mqttConnected: "接続済み",
     mqttDisconnected: "切断済み",
     mqttRefresh: "更新",
+    mqttRefreshInterval: "更新間隔",
     mqttClearMessages: "メッセージを消去",
     mqttCopyPayload: "Payload をコピー",
     mqttCopyTopic: "Topic をコピー",

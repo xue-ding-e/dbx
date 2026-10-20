@@ -1626,6 +1626,7 @@ export default withEnglishFallback({
     mqttConnected: "เชื่อมต่อแล้ว",
     mqttDisconnected: "ตัดการเชื่อมต่อแล้ว",
     mqttRefresh: "รีเฟรช",
+    mqttRefreshInterval: "ช่วงเวลาการรีเฟรช",
     mqttClearMessages: "ล้างข้อความ",
     mqttCollapsePayload: "ยุบ Payload",
     mqttExpandPayload: "ขยาย Payload",

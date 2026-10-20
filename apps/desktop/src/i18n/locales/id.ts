@@ -1277,6 +1277,7 @@ export default withEnglishFallback({
     mqttConnected: "Terhubung",
     mqttDisconnected: "Terputus",
     mqttRefresh: "Segarkan",
+    mqttRefreshInterval: "Interval Penyegaran",
     mqttClearMessages: "Bersihkan pesan",
     mqttCopyPayload: "Salin Payload",
     mqttCopyTopic: "Salin Topic",
