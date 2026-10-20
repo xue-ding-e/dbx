@@ -170,8 +170,8 @@ import {
   Trash2,
 } from "@lucide/vue";
 import { buildDraftVisibleDatabasesConnectionId, connectionCanChooseVisibleDatabases, initialVisibleDatabaseSelection, visibleObjectFiltersNeedReset } from "@/lib/connection/connectionVisibleDatabases";
-import { resolveVisibleDatabaseSaveAction } from "@/components/sidebar/visibleDatabasesDialogState";
-import { canSaveVisibleDatabaseSelection, connectionUsesVisibleSchemaFilter, filterDatabaseNamesForVisiblePicker, filterSchemaNamesForVisiblePicker, buildDraftVisibleSchemasConnectionId, normalizeVisibleSchemaSelection } from "@/lib/database/visibleDatabases";
+import { resolveVisibleDatabaseSaveAction, visibleDatabasePatternsWithoutMatchAll } from "@/components/sidebar/visibleDatabasesDialogState";
+import { MATCH_ALL_VISIBLE_DATABASE_PATTERN, canSaveVisibleDatabaseSelection, connectionUsesVisibleSchemaFilter, filterDatabaseNamesForVisiblePicker, filterSchemaNamesForVisiblePicker, buildDraftVisibleSchemasConnectionId, normalizeVisibleSchemaSelection } from "@/lib/database/visibleDatabases";
 import { isSchemaAware, isSingleDatabase, supportsDataDictionary, supportsTransaction } from "@/lib/database/databaseFeatureSupport";
 import { normalizeConnectionScope, normalizeConnectionTimeouts } from "@/lib/connection/connectionSubmitNormalization";
 import { databaseConnectionFormKind, databaseManifestEntry } from "@/lib/database/databaseDriverManifest";
@@ -3195,6 +3195,9 @@ watch(
         production_databases: config.production_databases || [],
         production_badge_scope: sidebarProductionBadgeScope(config),
         visible_databases: config.visible_databases,
+        // 通配符筛选由侧栏弹窗维护；编辑连接时也要带上，否则保存会把它清掉，
+        // “显示全部（含系统库）”的 `%` 也会在下次打开编辑器时丢失。
+        visible_database_patterns: config.visible_database_patterns,
         visible_schemas: config.visible_schemas,
         save_password: config.save_password !== false,
       };
@@ -6102,8 +6105,13 @@ function showAllVisibleDatabases() {
   if (visibleFilterUsesSchemas.value) {
     handleDraftSchemasShowAll();
     form.value.visible_databases = undefined;
+    // schema 模式下的兜底通配符同样会重新隐藏对象；"显示全部"要一并清掉。
+    form.value.visible_database_patterns = undefined;
   } else {
     form.value.visible_databases = undefined;
+    // 未筛选时系统库默认隐藏。用户展开系统库后点“显示全部”，说明全选范围包含系统库：
+    // 用全匹配通配符记住这一意图，既不冻结当前库名，之后新建的库也仍然自动可见。
+    form.value.visible_database_patterns = visibleDatabaseShowSystem.value && visibleDatabaseHasSystemObjects.value ? [MATCH_ALL_VISIBLE_DATABASE_PATTERN] : undefined;
   }
   visibleDatabaseSelection.value = new Set();
   visibleDatabaseNames.value = [];
@@ -6127,12 +6135,14 @@ function saveVisibleDatabaseSelection() {
       defaultVisibleNames: defaultListedVisibleDatabaseNames.value,
       configured: form.value.visible_databases,
       configuredPatterns: form.value.visible_database_patterns,
-      patterns: form.value.visible_database_patterns ?? [],
+      patterns: visibleDatabasePatternsWithoutMatchAll(form.value.visible_database_patterns),
     });
     if (action.type === "clear") {
       form.value.visible_databases = undefined;
+      form.value.visible_database_patterns = undefined;
     } else if (action.type === "set") {
       form.value.visible_databases = action.databaseNames;
+      form.value.visible_database_patterns = action.patterns.length > 0 ? action.patterns : undefined;
     }
   }
   showVisibleDatabasesDialog.value = false;
