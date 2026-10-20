@@ -136,6 +136,7 @@ import { pluginFieldIsRequired, pluginFieldIsVisible } from "@/lib/plugins/plugi
 import { detectMqUiAuthKind, isMqAuthKindAllowedForSystem, type MqUiAuthKind } from "@/lib/connection/mqAuth";
 import { driverInstallProgressChannel, driverInstallProgressPercent, isDriverInstallProgressForOperation, requestAgentInstallCancellation, resolveAgentInstallOutcome, type DriverInstallProgress } from "@/lib/connection/driverInstallProgressUi";
 import { requiresSqlServerLegacyCompatibilityComponent, setSqlServerLegacyCompatibilityConfig, sqlServerUsesLegacyCompatibility, SQLSERVER_LEGACY_COMPATIBILITY_DRIVER_KEY } from "@/lib/connection/sqlServerLegacyCompatibility";
+import { parseSqlServerHostPort } from "@/lib/sqlserver/sqlServerHostPort";
 import { normalizeNacosConsoleUrl, normalizeNacosEndpoint, normalizeNacosMetricsUrl, parseNacosManagedNamespaces } from "@/lib/nacos/nacosAdmin";
 import { loadReadableNacosNamespaces, nacosNamespaceIdentity, normalizeNacosNamespaceSelection } from "@/lib/nacos/nacosNamespaceVisibility";
 import {
@@ -805,6 +806,34 @@ function setSqlServerPortExplicit(config: Pick<ConnectionConfig, "db_type"> & { 
 
 function markSqlServerPortExplicit() {
   setSqlServerPortExplicit(form.value, true);
+}
+
+function handleHostBlur() {
+  if (form.value.db_type === "sqlserver") {
+    const parsed = parseSqlServerHostPort(form.value.host, form.value.port);
+    form.value.host = parsed.host;
+    if (parsed.portExplicit && parsed.port !== undefined) {
+      form.value.port = parsed.port;
+      markSqlServerPortExplicit();
+      resetTestState();
+    }
+  }
+}
+
+function handleHostPaste(event: ClipboardEvent) {
+  if (form.value.db_type === "sqlserver") {
+    const text = event.clipboardData?.getData("text") || "";
+    if (text.includes(",") || text.toLowerCase().startsWith("tcp:") || text.includes(":")) {
+      const parsed = parseSqlServerHostPort(text, form.value.port);
+      if (parsed.portExplicit) {
+        event.preventDefault();
+        form.value.host = parsed.host;
+        form.value.port = parsed.port!;
+        markSqlServerPortExplicit();
+        resetTestState();
+      }
+    }
+  }
 }
 
 const keepaliveEnabled = computed({
@@ -3144,8 +3173,8 @@ watch(
         driver_label: config.driver_label || oceanbasePatch?.driver_label || driverProfiles[profile]?.label || config.db_type,
         ...savedMysqlTlsFormFields(config),
         agent_java_options: config.agent_java_options || [],
-        host: config.db_type === "h2" && h2FilePathFromJdbcUrl(config.connection_string) ? h2FilePathFromJdbcUrl(config.connection_string) : config.host,
-        port: profile === "tdengine" && (config.port === 0 || config.port === 6030) ? 6041 : config.port,
+        host: config.db_type === "sqlserver" ? parseSqlServerHostPort(config.host, config.port).host : config.db_type === "h2" && h2FilePathFromJdbcUrl(config.connection_string) ? h2FilePathFromJdbcUrl(config.connection_string) : config.host,
+        port: config.db_type === "sqlserver" ? (parseSqlServerHostPort(config.host, config.port).port ?? config.port) : profile === "tdengine" && (config.port === 0 || config.port === 6030) ? 6041 : config.port,
         username: config.username,
         password: config.password,
         // Show the index the backend actually connects with; legacy dirty values
@@ -3201,6 +3230,9 @@ watch(
         visible_schemas: config.visible_schemas,
         save_password: config.save_password !== false,
       };
+      if (config.db_type === "sqlserver" && parseSqlServerHostPort(config.host, config.port).portExplicit) {
+        markSqlServerPortExplicit();
+      }
       redisKeyTemplatesText.value = redisKeyTemplatesToTextarea(form.value.redis_key_templates);
       oracleTnsAdminPath.value = parseOracleTnsConnectionString(config.connection_string)?.tnsAdmin || "";
       productionProtectionEnabled.value = !!config.is_production || (config.production_databases?.length ?? 0) > 0;
@@ -5173,6 +5205,14 @@ function connectionConfigForSubmit(id: string, generatedName = "", validatePlugi
     config.password = config.password.trim();
     config.database = undefined;
   } else if (config.db_type === "sqlserver") {
+    const parsed = parseSqlServerHostPort(config.host, config.port);
+    config.host = parsed.host;
+    if (parsed.portExplicit && parsed.port !== undefined) {
+      config.port = parsed.port;
+      setSqlServerPortExplicit(config, true);
+      form.value.host = parsed.host;
+      form.value.port = parsed.port;
+    }
     if (!connectionUpdateExternalConfigPreserved(config)) config.external_config = sqlServerPortExplicitFromConfig(config) ? { portExplicit: true } : undefined;
   } else if (supportsGaussdbIdentifierQuoteStyle(config)) {
     const style = gaussdbIdentifierQuoteStyle(config);
@@ -6372,6 +6412,14 @@ function applyConnectionDraftToForm(draft: ConnectionDeepLinkDraft) {
     selectedType.value = "gbase";
   }
   customDriverName.value = isCustomCompatibleProfile() ? draft.driverLabel : "";
+  if (form.value.db_type === "sqlserver") {
+    const parsed = parseSqlServerHostPort(form.value.host, form.value.port);
+    form.value.host = parsed.host;
+    if (parsed.portExplicit && parsed.port !== undefined) {
+      form.value.port = parsed.port;
+      markSqlServerPortExplicit();
+    }
+  }
   mongoUseUrl.value = !!draft.useMongoUrl;
   if (draft.name?.trim()) {
     form.value.name = draft.name.trim();
@@ -9286,7 +9334,7 @@ function openExternalUrl(url: string) {
                     </div>
                     <div v-else-if="form.db_type !== 'oracle' || form.oracle_connection_type !== 'tns'" class="grid grid-cols-4 items-center gap-4">
                       <Label :class="connectionLabelClass">{{ form.db_type === "elasticsearch" && elasticsearchConnectionMode === "kibana" ? t("connection.elasticsearchKibanaHost") : t("connection.host") }}</Label>
-                      <Input v-model="form.host" class="col-span-2" />
+                      <Input v-model="form.host" class="col-span-2" @blur="handleHostBlur" @paste="handleHostPaste" />
                       <Input v-model.number="form.port" type="number" class="col-span-1" @input="markSqlServerPortExplicit" />
                     </div>
 
