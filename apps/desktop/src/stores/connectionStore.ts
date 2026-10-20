@@ -33,10 +33,12 @@ import type {
 } from "@/types/database";
 import {
   inheritNaturalTreeNodeOrder,
+  isPinnedKeyPresent,
   migrateLegacyPinnedTreeNodeOrder,
   normalizePinnedTreeNodeOrder,
   orderItemsByPinnedTreeNodeOrder,
   pinnedTreeNodeIdentityMatches,
+  pinnedTreeNodeOrderKeyMatchesNode,
   removePinnedTreeNodesFromOrder,
   reorderPinnedTreeNodeOrder,
   replacePinnedTreeNodeInOrder,
@@ -1899,10 +1901,10 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   function isTreeNodePinned(node: TreeNode | string): boolean {
-    if (typeof node !== "string") return pinnedTreeNodeIds.value.has(treeNodePinKey(node)) || pinnedTreeNodeIds.value.has(node.id);
+    if (typeof node !== "string") return isPinnedKeyPresent(node, pinnedTreeNodeIds.value);
     if (pinnedTreeNodeIds.value.has(node)) return true;
     const loadedNode = findLoadedTreeNodeById(treeNodes.value, node);
-    return !!loadedNode && pinnedTreeNodeIds.value.has(treeNodePinKey(loadedNode));
+    return !!loadedNode && isPinnedKeyPresent(loadedNode, pinnedTreeNodeIds.value);
   }
 
   function isFixedPriorityTreeNode(node: TreeNode): boolean {
@@ -3900,12 +3902,12 @@ export const useConnectionStore = defineStore("connection", () => {
 
   function toggleTreeNodePin(node: TreeNode) {
     const pinKey = treeNodePinKey(node);
-    const wasPinned = pinnedTreeNodeIds.value.has(pinKey) || pinnedTreeNodeIds.value.has(node.id);
+    const wasPinned = isPinnedKeyPresent(node, pinnedTreeNodeIds.value);
     // Remove the legacy bare id as part of every toggle so old ambiguous pins
     // cannot continue matching objects in a different database. Newly pinned
     // nodes append to the persisted order, placing them last in their sibling
     // pin section until the user explicitly reorders them.
-    const next = pinnedTreeNodeOrder.value.filter((id) => id !== node.id && id !== pinKey);
+    const next = pinnedTreeNodeOrder.value.filter((id) => !pinnedTreeNodeOrderKeyMatchesNode(id, node));
     if (!wasPinned) next.push(pinKey);
     setPinnedTreeNodeOrder(next);
     persistPinnedTreeNodeIds();
