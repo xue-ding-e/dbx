@@ -552,6 +552,41 @@ describe("settingsTransfer", () => {
     expect(result.value.editorSettings.sqlFormatter?.commaPosition).toBe("after");
   });
 
+  it("imports a pre-custom-rules application backup without dropping existing settings", () => {
+    const current = DEFAULT_EDITOR_SETTINGS.sqlFormatter;
+    const oldKeys = [
+      "layoutStyle",
+      "keywordCase",
+      "dataTypeCase",
+      "functionCase",
+      "identifierCase",
+      "indentStyle",
+      "useTabs",
+      "tabWidth",
+      "logicalOperatorNewline",
+      "commaPosition",
+      "fromClauseLayout",
+      "expressionWidth",
+      "linesBetweenQueries",
+      "preserveEmptyLines",
+      "denseOperators",
+      "newlineBeforeSemicolon",
+      "paramTypes",
+    ];
+    const legacy = Object.fromEntries(Object.entries(current).filter(([key]) => oldKeys.includes(key)));
+    const result = parseSettingsTransferFile(fileWith({ sqlFormatter: legacy }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.editorSettings.sqlFormatter).toMatchObject({ ...legacy, customRulesEnabled: false, selectListLayout: "vertical" });
+  });
+
+  it("preserves custom rules and a 76-column width in application backups", () => {
+    const sqlFormatter = { ...DEFAULT_EDITOR_SETTINGS.sqlFormatter, customRulesEnabled: true, selectListLayout: "wrap", updateListLayout: "vertical", expressionWidth: 76 };
+    const result = parseSettingsTransferFile(fileWith({ sqlFormatter }));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.editorSettings.sqlFormatter).toEqual(sqlFormatter);
+  });
+
   it("rejects malformed sql variable syntax overrides", () => {
     const result = parseSettingsTransferFile(fileWith({ sqlVariableSyntaxOverrides: { mysql: { positional: "yes" } } }));
     expect(result.ok).toBe(false);
