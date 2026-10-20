@@ -1885,6 +1885,7 @@ export default withEnglishFallback({
     discardAllChanges: "全部捨棄",
     saveAllChanges: "全部儲存",
     selectConnection: "選擇連線",
+    selectConnectionRequired: "請先選擇連線",
     searchConnection: "搜尋連線……",
     selectCatalog: "選擇 Catalog",
     searchCatalog: "搜尋 Catalog……",

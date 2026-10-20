@@ -2126,6 +2126,7 @@ export default {
     discardAllChanges: "Discard all",
     saveAllChanges: "Save all",
     selectConnection: "Select connection",
+    selectConnectionRequired: "Select a connection first",
     searchConnection: "Search connections...",
     selectCatalog: "Select catalog",
     searchCatalog: "Search catalogs...",

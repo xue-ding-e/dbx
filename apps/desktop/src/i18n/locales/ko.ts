@@ -1812,6 +1812,7 @@ export default withEnglishFallback({
     selectConnection: "연결 선택",
     searchConnection: "연결 검색...",
     selectDatabase: "데이터베이스 선택",
+    selectConnectionRequired: "먼저 연결을 선택하세요",
     selectDatabaseRequired: "먼저 데이터베이스를 선택하세요",
     searchDatabase: "데이터베이스 검색...",
     selectSchema: "스키마 선택",

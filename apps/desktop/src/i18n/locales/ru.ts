@@ -1892,6 +1892,7 @@ export default withEnglishFallback({
     selectCatalog: "Выбрать каталог",
     searchCatalog: "Поиск каталогов...",
     selectDatabase: "Выбрать базу данных",
+    selectConnectionRequired: "Сначала выберите подключение",
     selectDatabaseRequired: "Сначала выберите базу данных",
     searchDatabase: "Поиск баз данных...",
     selectSchema: "Выбрать схему",

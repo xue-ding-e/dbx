@@ -168,6 +168,7 @@ export function useSqlExecution(deps: {
   resolveExecutableSql?: (snapshot?: SqlExecutionSnapshot, tab?: QueryTab) => Promise<string>;
   activeOutputView: Ref<"result" | "graph" | "summary" | "explain" | "chart" | "messages" | "profile">;
   blockDangerousRedisCommands?: Ref<boolean>;
+  onMissingConnection?: (tabId?: string) => void;
   onMissingDatabase?: (tabId?: string) => void;
   requestDangerConfirmation?: (request: SqlExecutionDangerRequest) => Promise<boolean>;
   onExecutionStarted?: (editorViewportRequestId: number) => void;
@@ -234,7 +235,11 @@ export function useSqlExecution(deps: {
 
   function resolveExecutionConnection(tabId: string | undefined): ConnectionConfig | undefined {
     const tab = resolveExecutionTab(tabId);
-    return (tab ? connectionStore.getConfig(tab.connectionId) : undefined) ?? deps.activeConnection.value;
+    if (tab) {
+      if (!tab.connectionId) return undefined;
+      return connectionStore.getConfig(tab.connectionId) ?? (tab.connectionId === deps.activeConnection.value?.id ? deps.activeConnection.value : undefined);
+    }
+    return deps.activeConnection.value;
   }
 
   function captureExecutionContext(tabId?: string): SqlExecutionContext | undefined {
@@ -316,6 +321,11 @@ export function useSqlExecution(deps: {
     if (tab.isExecuting) {
       cancelEditorViewportRequest(editorViewportRequestId);
       return notStarted("busy", context.tabId);
+    }
+    if (requiresConnectionSelection(tab, context.connection)) {
+      deps.onMissingConnection?.(context.tabId);
+      cancelEditorViewportRequest(editorViewportRequestId);
+      return notStarted("no-connection", context.tabId);
     }
     if (requiresDatabaseSelection(tab, context.connection, sql)) {
       deps.onMissingDatabase?.(context.tabId);
@@ -485,8 +495,13 @@ export function useSqlExecution(deps: {
       cancelEditorViewportRequest(options.editorViewportRequestId);
       return notStarted("no-tab", executionTabId);
     }
-    const executionConnection = connectionStore.getConfig(tab.connectionId) ?? deps.activeConnection.value;
+    const executionConnection = tab.connectionId ? (connectionStore.getConfig(tab.connectionId) ?? (tab.connectionId === deps.activeConnection.value?.id ? deps.activeConnection.value : undefined)) : undefined;
     const executionDatabaseType = executionConnection?.db_type;
+    if (requiresConnectionSelection(tab, executionConnection)) {
+      deps.onMissingConnection?.(executionTabId);
+      cancelEditorViewportRequest(options.editorViewportRequestId);
+      return notStarted("no-connection", executionTabId);
+    }
     if (requiresDatabaseSelection(tab, executionConnection, sql)) {
       deps.onMissingDatabase?.(executionTabId);
       cancelEditorViewportRequest(options.editorViewportRequestId);
@@ -626,6 +641,10 @@ export function useSqlExecution(deps: {
     if (!sql.trim()) return finish({ status: "failed", errorMessage: t("explain.emptySql") });
     if (!(await ensureReadOnlyWriteAccess({ connection, sql, source: t("production.sourceMultiDbSql") }))) {
       return finish({ status: "skipped", errorMessage: t("dangerDialog.cancel") });
+    }
+    if (requiresConnectionSelection(executionTab, connection)) {
+      deps.onMissingConnection?.(executionTab.id);
+      return finish({ status: "failed", errorMessage: t("editor.selectConnectionRequired") });
     }
     if (requiresDatabaseSelection(executionTab, connection, sql)) {
       return finish({ status: "failed", errorMessage: t("editor.selectDatabaseRequired") });
@@ -961,6 +980,14 @@ export function useSqlExecution(deps: {
       return;
     }
     const { sql, sourceOffset } = await resolvedExecutableSql(sqlOverride, context);
+    const tab = resolveExecutionTab(context.tabId);
+    if (!tab) {
+      return;
+    }
+    if (requiresConnectionSelection(tab, context.connection)) {
+      deps.onMissingConnection?.(context.tabId);
+      return;
+    }
     if (!sql.trim()) {
       toast(t("explain.emptySql"));
       return;
@@ -1107,6 +1134,11 @@ export function supportsSqlTemplateParameters(connection: Pick<ConnectionConfig,
   if (connection.db_type === "meilisearch" || connection.db_type === "solr" || connection.db_type === "couchdb") return false;
   if (connection.db_type === "elasticsearch" || connection.db_type === "easysearch") return !isElasticsearchRestRequestText(sql);
   return connection.db_type !== "redis" && connection.db_type !== "mongodb" && connection.db_type !== "victoriametrics" && connection.db_type !== "salesforce";
+}
+
+export function requiresConnectionSelection(tab: QueryTab, connection: ConnectionConfig | undefined): boolean {
+  if (tab.mode !== "query") return false;
+  return !connection;
 }
 
 export function requiresDatabaseSelection(tab: QueryTab, connection: ConnectionConfig | undefined, _sql = ""): boolean {

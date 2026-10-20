@@ -1460,6 +1460,7 @@ export default withEnglishFallback({
     selectCatalog: "Katalog seç",
     searchCatalog: "Kataloglarda ara...",
     selectDatabase: "Veritabanı seç",
+    selectConnectionRequired: "Önce bir bağlantı seçin",
     selectDatabaseRequired: "Önce bir veritabanı seçin",
     searchDatabase: "Veritabanlarında ara...",
     selectSchema: "Şema seç",

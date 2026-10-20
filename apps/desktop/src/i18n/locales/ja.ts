@@ -2082,6 +2082,7 @@ export default withEnglishFallback({
       currentCommand: "Current command",
       allCommands: "All commands",
     },
+    selectConnectionRequired: "先に接続を選択してください",
     selectDatabaseRequired: "先にデータベースを選択してください",
     statementExecutionRunning: "{count} 件のステートメントを実行中",
     statementExecutionSucceeded: "{count} 件のステートメントが成功しました",

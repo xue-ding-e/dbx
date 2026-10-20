@@ -1979,6 +1979,7 @@ export default withEnglishFallback({
     selectCatalog: "Seleccionar catálogo",
     searchCatalog: "Buscar catálogos...",
     selectDatabase: "Seleccionar base de datos",
+    selectConnectionRequired: "Selecciona una conexión primero",
     selectDatabaseRequired: "Selecciona una base de datos primero",
     searchDatabase: "Buscar bases de datos...",
     selectSchema: "Seleccionar esquema",

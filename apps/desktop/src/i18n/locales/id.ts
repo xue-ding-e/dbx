@@ -1727,6 +1727,7 @@ export default withEnglishFallback({
     selectCatalog: "Pilih katalog",
     searchCatalog: "Cari katalog...",
     selectDatabase: "Pilih database",
+    selectConnectionRequired: "Pilih koneksi terlebih dahulu",
     selectDatabaseRequired: "Pilih database terlebih dahulu",
     searchDatabase: "Cari database...",
     selectSchema: "Pilih skema",

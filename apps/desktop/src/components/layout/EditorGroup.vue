@@ -217,6 +217,7 @@ const groupExecutableSql = computed(() => {
         :block-dangerous-redis-commands="toolbar.blockDangerousRedisCommands.value"
         :sql-keyword-case="settingsStore.editorSettings.sqlFormatter.keywordCase"
         :database-required-signal="toolbar.databaseRequiredSignalFor(activeTab.id)"
+        :connection-required-signal="toolbar.connectionRequiredSignalFor(activeTab.id)"
         :auto-commit="activeTab.autoCommit ?? true"
         :txn-session-id="activeTab.txnSessionId"
         :txn-auto-rolled-back="activeTab.txnAutoRolledBack"

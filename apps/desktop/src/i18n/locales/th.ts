@@ -2089,6 +2089,7 @@ export default withEnglishFallback({
     selectCatalog: "เลือก Catalog",
     searchCatalog: "ค้นหา Catalog...",
     selectDatabase: "เลือกฐานข้อมูล",
+    selectConnectionRequired: "เลือกการเชื่อมต่อก่อน",
     selectDatabaseRequired: "เลือกฐานข้อมูลก่อน",
     searchDatabase: "ค้นหาฐานข้อมูล...",
     selectSchema: "เลือก Schema",

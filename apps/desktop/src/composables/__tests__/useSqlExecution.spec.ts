@@ -1,7 +1,7 @@
 import { computed, nextTick, ref } from "vue";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isDangerousSql, requiresDatabaseSelection, snapshotResultForMerge, supportsSqlTemplateParameters, useSqlExecution } from "../useSqlExecution";
+import { isDangerousSql, requiresConnectionSelection, requiresDatabaseSelection, snapshotResultForMerge, supportsSqlTemplateParameters, useSqlExecution } from "../useSqlExecution";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useQueryStore } from "@/stores/queryStore";
@@ -127,6 +127,29 @@ describe("requiresDatabaseSelection", () => {
   });
 });
 
+describe("requiresConnectionSelection", () => {
+  beforeEach(() => {
+    installLocalStorage();
+    setActivePinia(createPinia());
+  });
+
+  it("requires a connection for a query tab without one", () => {
+    const tab = queryTab();
+    tab.connectionId = "";
+    expect(requiresConnectionSelection(tab, undefined)).toBe(true);
+  });
+
+  it("does not require a connection when one is resolved", () => {
+    expect(requiresConnectionSelection(queryTab(), connection("mysql"))).toBe(false);
+  });
+
+  it("never requires a connection for non-query tabs", () => {
+    const tab = queryTab();
+    tab.mode = "databases";
+    expect(requiresConnectionSelection(tab, undefined)).toBe(false);
+  });
+});
+
 describe("supportsSqlTemplateParameters", () => {
   it("disables SQL parameter prompts for Meilisearch input", () => {
     expect(supportsSqlTemplateParameters(connection("meilisearch"), "GET /indexes/:uid")).toBe(false);
@@ -179,6 +202,30 @@ describe("useSqlExecution", () => {
 
     expect(execution.showSqlParameterDialog.value).toBe(false);
     expect(executeCurrentSql).toHaveBeenCalledWith(sql, { tabId: "tab-1" });
+  });
+
+  it("prompts for a connection instead of executing when no connection is selected", async () => {
+    const sql = "SELECT 1";
+    const activeTab = ref<QueryTab | undefined>({ ...queryTab(), connectionId: "", sql });
+    const activeConnection = ref<ConnectionConfig | undefined>(undefined);
+    const activeOutputView = ref<"result" | "summary" | "explain" | "chart">("result");
+    const queryStore = useQueryStore();
+    const executeCurrentSql = vi.spyOn(queryStore, "executeCurrentSql").mockResolvedValue(undefined);
+    vi.spyOn(useHistoryStore(), "add").mockResolvedValue(undefined);
+    const onMissingConnection = vi.fn();
+
+    const execution = useSqlExecution({
+      activeTab: computed(() => activeTab.value),
+      activeConnection: computed(() => activeConnection.value),
+      executableSql: computed(() => sql),
+      activeOutputView,
+      onMissingConnection,
+    });
+
+    await execution.tryExecute();
+
+    expect(onMissingConnection).toHaveBeenCalledWith("tab-1");
+    expect(executeCurrentSql).not.toHaveBeenCalled();
   });
 
   it("invalidates object metadata after successful connection-level DDL", async () => {

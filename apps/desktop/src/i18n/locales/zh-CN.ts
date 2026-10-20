@@ -2059,6 +2059,7 @@ export default withEnglishFallback({
     discardAllChanges: "全部不保存",
     saveAllChanges: "全部保存",
     selectConnection: "选择连接",
+    selectConnectionRequired: "请先选择连接",
     searchConnection: "搜索连接...",
     selectCatalog: "选择 Catalog",
     searchCatalog: "搜索 Catalog...",
