@@ -3846,7 +3846,12 @@ const isH2FileMode = computed(() => form.value.db_type === "h2" && h2ConnectionM
 const isH2CustomDriver = computed(() => form.value.db_type === "h2" && form.value.driver_profile === "h2-custom");
 const usesLocalFilePathInput = computed(() => isLocalFileTypeDb(form.value.db_type) && (form.value.db_type !== "h2" || isH2FileMode.value));
 
-const connectionUrlPlaceholder = computed(() => getUrlPlaceholder(form.value.db_type, form.value.driver_profile));
+const connectionUrlPlaceholder = computed(() => {
+  if (form.value.db_type === "h2") {
+    return isH2FileMode.value ? getUrlPlaceholder("h2", "file") : getUrlPlaceholder("h2", form.value.driver_profile);
+  }
+  return getUrlPlaceholder(form.value.db_type, form.value.driver_profile);
+});
 const jdbcUsernamePlaceholder = computed(() => (form.value.driver_profile === "dremio" || isJdbcProductConnection.value ? "" : "sa"));
 const filePathPlaceholder = computed(() => {
   if (form.value.db_type === "duckdb") return "/path/to/database.duckdb or :memory:";
