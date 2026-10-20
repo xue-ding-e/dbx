@@ -4110,6 +4110,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "모든 일반 탭 닫기",
     closeAllFixedTabs: "모든 고정 탭 닫기",
     copyName: "이름 복사",
+    copyAdvancedInfo: "고급 정보 복사",
     name: "이름",
     fullPath: "전체 경로",
     copyFinalProxyPort: "최종 프록시 포트 복사",

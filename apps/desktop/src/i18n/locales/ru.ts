@@ -4273,6 +4273,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "Закрыть все обычные вкладки",
     closeAllFixedTabs: "Закрыть все закреплённые вкладки",
     copyName: "Копировать имя",
+    copyAdvancedInfo: "Копировать расширенную информацию",
     name: "Имя",
     fullPath: "Полный путь",
     copyFinalProxyPort: "Копировать итоговый порт прокси",

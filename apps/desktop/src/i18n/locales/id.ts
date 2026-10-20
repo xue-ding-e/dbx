@@ -3963,6 +3963,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "Tutup Semua Tab Reguler",
     closeAllFixedTabs: "Tutup Semua Tab Tetap",
     copyName: "Salin Nama",
+    copyAdvancedInfo: "Salin info lanjutan",
     name: "Nama",
     fullPath: "Path Lengkap",
     copyFinalProxyPort: "Salin Port Proxy Akhir",

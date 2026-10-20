@@ -125,6 +125,7 @@ import { buildXlsxHeaderOverrides, hasXlsxHeaderComments, xlsxHeaderUsesCommentR
 import { showSqlInsertModeDialog, type SqlInsertDialect, type SqlInsertMode } from "@/lib/export/sqlInsertMode";
 import { csvNullLiteralForMode } from "@/lib/export/csvNullMode";
 import { copyToClipboard, eventTargetAllowsAppClipboardShortcut } from "@/lib/common/clipboard";
+import { encodeSpreadsheetTsvCell } from "@/lib/common/spreadsheetTsv";
 import {
   defaultPasteTableMode,
   pasteTableModeCopiesData,
@@ -324,6 +325,10 @@ const tablePartitionStatusResolved = ref(false);
 // is also shown, mirroring DataGrid/TableStructureEditor.
 const tableConstraintsForTab = computed(() => constraintsForConstraintsTab(tableConstraints.value, tableMetadataCapabilities.value.foreignKeys));
 const tableInfoSearchQuery = ref("");
+const selectedTableInfoColumns = ref<string[]>([]);
+watch(tableInfoSearchQuery, () => {
+  selectedTableInfoColumns.value = [];
+});
 const tableInfoDdlPreRef = ref<HTMLPreElement | null>(null);
 const activeTableInfoLoading = computed(() => {
   if (tableInfoTab.value === "info") return tableOverviewLoading.value;
@@ -1253,6 +1258,64 @@ const tableInfoTabListStyle = computed(() => ({
 }));
 
 const filteredTableColumns = computed(() => filterObjectBrowserTableColumns(tableColumns.value, tableInfoSearchQuery.value));
+
+function toggleTableInfoColumnSelection(name: string, event: MouseEvent) {
+  const current = selectedTableInfoColumns.value;
+  const index = current.indexOf(name);
+  if (event.ctrlKey || event.metaKey) {
+    selectedTableInfoColumns.value = index < 0 ? [...current, name] : current.filter((column) => column !== name);
+  } else if (event.shiftKey && current.length > 0) {
+    const visibleNames = filteredTableColumns.value.map((column) => column.name);
+    const anchor = visibleNames.indexOf(current[current.length - 1]!);
+    const target = visibleNames.indexOf(name);
+    selectedTableInfoColumns.value = anchor < 0 || target < 0 ? [name] : visibleNames.slice(Math.min(anchor, target), Math.max(anchor, target) + 1);
+  } else {
+    selectedTableInfoColumns.value = [name];
+  }
+}
+
+function onTableInfoColumnContextMenu(name: string, event: MouseEvent, openMenu: (event: MouseEvent) => void) {
+  if (!selectedTableInfoColumns.value.includes(name)) selectedTableInfoColumns.value = [name];
+  openMenu(event);
+}
+
+function copyTableInfoColumnDetails() {
+  const ordered = filteredTableColumns.value.filter((column) => selectedTableInfoColumns.value.includes(column.name));
+  if (ordered.length === 0) return;
+  const headers = ["#", t("grid.columnName"), t("grid.columnType"), t("grid.tableInfoNullable"), t("structureEditor.defaultValue"), t("grid.columnComment")];
+  const rows = ordered.map((column) => [String(filteredTableColumns.value.findIndex((item) => item.name === column.name) + 1), column.name, gaussdbMColumnType(column.data_type), column.is_nullable ? "YES" : "NO", tableColumnDefaultDisplayValue(column.column_default), column.comment ?? ""]);
+  const text = [headers, ...rows].map((row) => row.map(encodeSpreadsheetTsvCell).join("\t")).join("\n");
+  void copyToClipboard(text)
+    .then(() => toast(t("contextMenu.copyAdvancedInfo"), 2000))
+    .catch((error) => toast(t("grid.copyFailed", { message: error?.message || String(error) }), 5000));
+}
+
+function tableInfoColumnContextMenuItems(): ContextMenuItem[] {
+  return [{ label: t("contextMenu.copyAdvancedInfo"), icon: Copy, shortcut: "Ctrl+Shift+C", action: copyTableInfoColumnDetails }];
+}
+
+function onTableInfoColumnsCopy(event: ClipboardEvent) {
+  if (selectedTableInfoColumns.value.length === 0 || !event.clipboardData) return;
+  const names = filteredTableColumns.value.filter((column) => selectedTableInfoColumns.value.includes(column.name)).map((column) => column.name);
+  if (names.length === 0) return;
+  event.clipboardData.setData("text/plain", names.join("\n"));
+  event.preventDefault();
+}
+
+function onTableInfoColumnsKeydown(event: KeyboardEvent) {
+  const target = event.target;
+  if (event.defaultPrevented || selectedTableInfoColumns.value.length === 0 || !(target instanceof Element) || (!target.closest("[data-table-info-column]") && target !== event.currentTarget) || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+  const key = event.key.toLowerCase();
+  if (key !== "c") return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (key === "c" && !event.shiftKey) {
+    const names = filteredTableColumns.value.filter((column) => selectedTableInfoColumns.value.includes(column.name)).map((column) => column.name);
+    if (names.length) void copyToClipboard(names.join("\n")).catch((error) => toast(t("grid.copyFailed", { message: error?.message || String(error) }), 5000));
+    return;
+  }
+  copyTableInfoColumnDetails();
+}
 const tableOverviewRows = computed(() => {
   const stats = tableOverviewStats.value;
   const rows = [
@@ -1317,6 +1380,7 @@ const filteredTableDdlContent = computed(() => {
 });
 
 async function openTableInfo(row: ObjectBrowserRow, initialTab?: TableInfoTab) {
+  selectedTableInfoColumns.value = [];
   selectedRowId.value = row.id;
   // Toggle off if clicking the same table
   if (sidePanelRow.value?.id === row.id && sidePanelMode.value === "table-info" && !initialTab) {
@@ -1371,6 +1435,7 @@ async function selectTableInfoTab(tab: TableInfoTab) {
   const nextTab = tableInfoTabs.value.some((item) => item.id === tab) ? tab : tableInfoTabs.value[0]?.id;
   if (!nextTab) return;
   tableInfoTab.value = nextTab;
+  selectedTableInfoColumns.value = [];
   tableInfoSearchQuery.value = "";
   if (nextTab === "info") await fetchTableOverview();
   else if (nextTab === "ddl") await fetchTableDdl();
@@ -1715,6 +1780,7 @@ function onSidePanelResizeEnd() {
 }
 
 function closeSidePanel() {
+  selectedTableInfoColumns.value = [];
   sidePanelRow.value = null;
   sourceRow.value = null;
   sidePanelMode.value = "source";
@@ -3425,7 +3491,8 @@ function openPasteTableDialog() {
 }
 
 function onObjectBrowserKeydown(event: KeyboardEvent) {
-  if (event.defaultPrevented || !supportsBatchTableActions.value) return;
+  if (event.defaultPrevented) return;
+  if (!supportsBatchTableActions.value) return;
   if (eventTargetAllowsAppClipboardShortcut(event, "c")) {
     if (selectedTableCount.value === 0) return;
     event.preventDefault();
@@ -5206,7 +5273,7 @@ function getObjectBrowserMenuItems(item: ObjectBrowserRow): ContextMenuItem[] {
               </div>
             </div>
           </div>
-          <div v-else-if="tableInfoTab === 'columns'" class="flex-1 min-h-0 overflow-auto">
+          <div v-else-if="tableInfoTab === 'columns'" data-table-info-columns class="flex-1 min-h-0 overflow-auto" tabindex="0" @keydown="onTableInfoColumnsKeydown" @copy="onTableInfoColumnsCopy">
             <div v-if="tableColumnsLoading" class="h-full flex items-center justify-center">
               <Loader2 class="w-4 h-4 animate-spin text-muted-foreground" />
             </div>
@@ -5224,23 +5291,33 @@ function getObjectBrowserMenuItems(item: ObjectBrowserRow): ContextMenuItem[] {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(column, index) in filteredTableColumns" :key="column.name" class="border-b hover:bg-gray-200 dark:hover:bg-gray-800/30" :title="column.name">
-                  <td class="px-3 py-2 text-muted-foreground w-8">{{ index + 1 }}</td>
-                  <td class="px-3 py-2 font-medium">
-                    <span class="inline-flex items-center gap-1.5">
-                      <KeyRound v-if="column.is_primary_key" class="h-3 w-3 text-amber-500" />
-                      {{ column.name }}
-                    </span>
-                    <div v-if="column.comment" class="mt-0.5 text-[11px] text-muted-foreground truncate">
-                      {{ column.comment }}
-                    </div>
-                  </td>
-                  <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">{{ gaussdbMColumnType(column.data_type) }}</td>
-                  <td class="px-3 py-2">{{ column.is_nullable ? "YES" : "NO" }}</td>
-                  <td data-table-info-column-default class="max-w-56 px-3 py-2 font-mono text-[11px]" :class="{ 'text-muted-foreground/70': column.column_default == null }" :title="column.column_default ?? undefined">
-                    <span class="block max-w-56 truncate">{{ tableColumnDefaultDisplayValue(column.column_default) }}</span>
-                  </td>
-                </tr>
+                <CustomContextMenu v-for="(column, index) in filteredTableColumns" :key="column.name" :items="tableInfoColumnContextMenuItems" v-slot="{ onContextMenu, isOpen }">
+                  <tr
+                    tabindex="0"
+                    :data-table-info-column="column.name"
+                    class="border-b cursor-default outline-none"
+                    :class="selectedTableInfoColumns.includes(column.name) || isOpen ? 'bg-primary/15' : 'hover:bg-gray-200 dark:hover:bg-gray-800/30'"
+                    :title="column.name"
+                    @click="toggleTableInfoColumnSelection(column.name, $event)"
+                    @contextmenu="onTableInfoColumnContextMenu(column.name, $event, onContextMenu)"
+                  >
+                    <td class="px-3 py-2 text-muted-foreground w-8">{{ index + 1 }}</td>
+                    <td class="px-3 py-2 font-medium">
+                      <span class="inline-flex items-center gap-1.5">
+                        <KeyRound v-if="column.is_primary_key" class="h-3 w-3 text-amber-500" />
+                        {{ column.name }}
+                      </span>
+                      <div v-if="column.comment" class="mt-0.5 text-[11px] text-muted-foreground truncate">
+                        {{ column.comment }}
+                      </div>
+                    </td>
+                    <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">{{ gaussdbMColumnType(column.data_type) }}</td>
+                    <td class="px-3 py-2">{{ column.is_nullable ? "YES" : "NO" }}</td>
+                    <td data-table-info-column-default class="max-w-56 px-3 py-2 font-mono text-[11px]" :class="{ 'text-muted-foreground/70': column.column_default == null }" :title="column.column_default ?? undefined">
+                      <span class="block max-w-56 truncate">{{ tableColumnDefaultDisplayValue(column.column_default) }}</span>
+                    </td>
+                  </tr>
+                </CustomContextMenu>
               </tbody>
             </table>
           </div>

@@ -4163,6 +4163,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "Chiudi Tutte le Schede Normali",
     closeAllFixedTabs: "Chiudi Tutte le Schede Fisse",
     copyName: "Copia Nome",
+    copyAdvancedInfo: "Copia informazioni avanzate",
     name: "Nome",
     fullPath: "Percorso completo",
     copyFinalProxyPort: "Copia porta proxy finale",

@@ -4031,6 +4031,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "Zamknij wszystkie zwykłe karty",
     closeAllFixedTabs: "Zamknij wszystkie przypięte karty",
     copyName: "Kopiuj nazwę",
+    copyAdvancedInfo: "Kopiuj informacje zaawansowane",
     name: "Nazwa",
     fullPath: "Pełna ścieżka",
     copyFinalProxyPort: "Kopiuj końcowy port proxy",

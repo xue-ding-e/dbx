@@ -4165,6 +4165,7 @@ export default withEnglishFallback({
     copyFinalProxyPort: "Copiar porta final do proxy",
     finalProxyPortCopied: "Porta final do proxy {port} copiada",
     copyName: "Copiar Nome",
+    copyAdvancedInfo: "Copiar informações avançadas",
     name: "Nome",
     fullPath: "Caminho completo",
     setDefaultDatabase: "Definir como Banco de Dados Padrão",

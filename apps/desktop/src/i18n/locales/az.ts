@@ -3643,6 +3643,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "Bütün adi vərəqləri bağla",
     closeAllFixedTabs: "Bütün sabit vərəqləri bağla",
     copyName: "Adı kopyala",
+    copyAdvancedInfo: "Təkmil məlumatı kopyala",
     name: "Ad",
     fullPath: "Tam yol",
     copyFinalProxyPort: "Son proksi portunu kopyala",

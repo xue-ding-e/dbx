@@ -3613,6 +3613,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "Tüm Normal Sekmeleri Kapat",
     closeAllFixedTabs: "Tüm Sabit Sekmeleri Kapat",
     copyName: "Adı Kopyala",
+    copyAdvancedInfo: "Gelişmiş bilgileri kopyala",
     name: "Ad",
     fullPath: "Tam Yol",
     copyFinalProxyPort: "Son Proxy Portunu Kopyala",

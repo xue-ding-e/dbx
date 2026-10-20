@@ -4491,6 +4491,7 @@ export default withEnglishFallback({
     closeAllRegularTabs: "关闭全部普通标签页",
     closeAllFixedTabs: "关闭全部固定标签页",
     copyName: "复制名称",
+    copyAdvancedInfo: "复制高级信息",
     name: "名称",
     fullPath: "完整路径",
     copyFinalProxyPort: "复制最终代理端口",

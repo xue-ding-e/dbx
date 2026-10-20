@@ -4562,6 +4562,7 @@ export default {
     closeAllRegularTabs: "Close All Regular Tabs",
     closeAllFixedTabs: "Close All Fixed Tabs",
     copyName: "Copy Name",
+    copyAdvancedInfo: "Copy Advanced Info",
     name: "Name",
     fullPath: "Full Path",
     copyFinalProxyPort: "Copy Final Proxy Port",
