@@ -2787,25 +2787,7 @@ func (s *server) getObjectSourceForRelation(schema, name, objectType, relationNa
 	source := ""
 	kind := strings.ToUpper(objectType)
 	if kind == "VIEW" {
-		if s.mode.mysqlCompat {
-			err = s.requireDBQueryRow("SELECT view_definition FROM information_schema.views WHERE table_schema = "+quoteLiteral(effective)+" AND table_name = "+quoteLiteral(name), &source)
-		} else {
-			catalog, prefix, function := "sys_catalog", "sys", "sys_get_viewdef"
-			if s.mode.postgresCatalog {
-				catalog, prefix, function = "pg_catalog", "pg", "pg_get_viewdef"
-			} else if s.usePgViewDefinition {
-				function = "pg_get_viewdef"
-			}
-			querySource := func(definitionFunction string) error {
-				query := fmt.Sprintf("SELECT %s(c.oid) FROM %s.%s_class c JOIN %s.%s_namespace n ON n.oid=c.relnamespace WHERE n.nspname=%s AND c.relname=%s LIMIT 1", definitionFunction, catalog, prefix, catalog, prefix, quoteLiteral(effective), quoteLiteral(name))
-				return s.requireDBQueryRow(query, &source)
-			}
-			err = querySource(function)
-			if err != nil && function == "sys_get_viewdef" && isUndefinedFunction(err, function) {
-				s.usePgViewDefinition = true
-				err = querySource("pg_get_viewdef")
-			}
-		}
+		source, err = s.getViewSource(effective, name)
 	} else if kind == "MATERIALIZED_VIEW" {
 		source, err = s.getMaterializedViewSource(effective, name)
 	} else if kind == "FUNCTION" || kind == "PROCEDURE" {
@@ -2861,6 +2843,60 @@ func (s *server) getObjectSourceForRelation(schema, name, objectType, relationNa
 		result["editable"] = false
 	}
 	return result, nil
+}
+
+func (s *server) getViewSource(schema, name string) (string, error) {
+	querySource := func(query string) (string, error) {
+		var source sql.NullString
+		if err := s.requireDBQueryRow(query, &source); err != nil {
+			return "", err
+		}
+		if !source.Valid || strings.TrimSpace(source.String) == "" {
+			return "", sql.ErrNoRows
+		}
+		return source.String, nil
+	}
+	if s.mode.mysqlCompat {
+		// information_schema can expose a view while hiding its definition from
+		// a non-owner with SELECT privileges. Try the catalogs as the same user.
+		source, err := querySource("SELECT view_definition FROM information_schema.views WHERE table_schema = " + quoteLiteral(schema) + " AND table_name = " + quoteLiteral(name))
+		if err == nil {
+			return source, nil
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return "", err
+		}
+	}
+
+	catalog, prefix, function := "sys_catalog", "sys", "sys_get_viewdef"
+	if s.mode.postgresCatalog {
+		catalog, prefix, function = "pg_catalog", "pg", "pg_get_viewdef"
+	} else if s.usePgViewDefinition {
+		function = "pg_get_viewdef"
+	}
+	queryCatalog := func(definitionFunction string) (string, error) {
+		query := fmt.Sprintf("SELECT %s(c.oid) FROM %s.%s_class c JOIN %s.%s_namespace n ON n.oid=c.relnamespace WHERE n.nspname=%s AND c.relname=%s AND c.relkind = 'v' LIMIT 1", definitionFunction, catalog, prefix, catalog, prefix, quoteLiteral(schema), quoteLiteral(name))
+		return querySource(query)
+	}
+	source, err := queryCatalog(function)
+	if err == nil {
+		return source, nil
+	}
+	if function == "sys_get_viewdef" {
+		if isUndefinedFunction(err, function) {
+			s.usePgViewDefinition = true
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return "", err
+		}
+		source, err = queryCatalog("pg_get_viewdef")
+		if err == nil {
+			return source, nil
+		}
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("view %q.%q does not exist or its source definition is unavailable to the current user", schema, name)
+	}
+	return "", err
 }
 
 func (s *server) getMaterializedViewSource(schema, name string) (string, error) {
