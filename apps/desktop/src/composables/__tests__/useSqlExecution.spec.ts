@@ -457,6 +457,43 @@ describe("useSqlExecution", () => {
     expect(executeCurrentSql).toHaveBeenCalledWith("select * from users where id = 42", { tabId: "tab-1" });
   });
 
+  it.each([
+    { sql: "UPDATE users SET name = 'Ada' WHERE id = 1", returnsRows: false },
+    { sql: "INSERT INTO users(id) VALUES (1) RETURNING id", returnsRows: true },
+  ])("shows a running write in summary and restores returned rows: $sql", async ({ sql, returnsRows }) => {
+    useSettingsStore().editorSettings.confirmDangerousSqlExecution = false;
+    const activeTab = ref<QueryTab | undefined>({ ...queryTab("app"), sql });
+    const activeConnection = ref<ConnectionConfig | undefined>(connection("postgres"));
+    const activeOutputView = ref<"result" | "summary" | "explain" | "chart">("result");
+    let finishExecution!: () => void;
+    const completion = new Promise<void>((resolve) => {
+      finishExecution = resolve;
+    });
+    const execute = vi.spyOn(useQueryStore(), "executeCurrentSql").mockImplementation(async () => {
+      await completion;
+      activeTab.value!.result = {
+        columns: returnsRows ? ["id"] : [],
+        rows: returnsRows ? [[1]] : [],
+        affected_rows: 1,
+        execution_time_ms: 1,
+      };
+    });
+    vi.spyOn(useHistoryStore(), "add").mockResolvedValue(undefined);
+    const execution = useSqlExecution({
+      activeTab: computed(() => activeTab.value),
+      activeConnection: computed(() => activeConnection.value),
+      executableSql: computed(() => sql),
+      activeOutputView,
+    });
+
+    const pending = execution.tryExecute();
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+    expect(activeOutputView.value).toBe("summary");
+    finishExecution();
+    await pending;
+    expect(activeOutputView.value).toBe(returnsRows ? "result" : "summary");
+  });
+
   it("opens the result table for a multi-statement batch by default", async () => {
     const sql = "SELECT 1;\nSELECT 2;";
     const activeTab = ref<QueryTab | undefined>({ ...queryTab("app"), sql });
