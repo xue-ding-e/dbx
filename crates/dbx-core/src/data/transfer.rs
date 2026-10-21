@@ -4899,7 +4899,14 @@ fn generate_create_table_ddl_with_column_quoting(
                     // sources must pass the same target type gate: Doris/StarRocks accept
                     // only BIGINT auto-increment columns, so an `INT AUTO_INCREMENT` from a
                     // MySQL source must stay a plain column there too (#12691 review).
+                    // MySQL also requires the auto-increment column to be a key, and the
+                    // generated DDL only recreates the primary key: a source column with
+                    // `extra = auto_increment` but no PK (a UNIQUE-key auto-increment is
+                    // legal MySQL) must stay a plain column instead of producing DDL MySQL
+                    // rejects ("there can be only one auto column and it must be defined
+                    // as a key").
                     let mysql_auto_increment = mysql_auto_increment_type_ok
+                        && c.is_primary_key
                         && (mysql_identity_source
                             || mysql_extra_clauses.as_ref().is_some_and(|extra| extra.auto_increment));
                     if !skip_default && !mysql_auto_increment {
@@ -23850,6 +23857,50 @@ SELECT 1 FROM dual"#
         );
 
         assert!(!ddl.contains("AUTO_INCREMENT"), "ddl: {ddl}");
+    }
+
+    #[test]
+    fn transfer_create_table_keeps_non_key_auto_increment_sources_out_of_auto_increment() {
+        // A MySQL source may define AUTO_INCREMENT on a UNIQUE-key column without a
+        // primary key. The generated transfer DDL only recreates the primary key, so
+        // emitting AUTO_INCREMENT there would fail with "there can be only one auto
+        // column and it must be defined as a key"; keep it a plain column instead.
+        let non_key = vec![db::ColumnInfo {
+            is_primary_key: false,
+            is_nullable: false,
+            extra: Some("auto_increment".to_string()),
+            ..test_column("ticket", "int")
+        }];
+        let non_key_ddl = generate_create_table_ddl(
+            &non_key,
+            "users",
+            "source",
+            "shop",
+            &DatabaseType::Mysql,
+            &DatabaseType::Mysql,
+            None,
+            None,
+        );
+        assert!(!non_key_ddl.contains("AUTO_INCREMENT"), "ddl: {non_key_ddl}");
+
+        // A primary-key AUTO_INCREMENT column keeps the clause.
+        let primary_key = vec![db::ColumnInfo {
+            is_primary_key: true,
+            is_nullable: false,
+            extra: Some("auto_increment".to_string()),
+            ..test_column("id", "int")
+        }];
+        let primary_key_ddl = generate_create_table_ddl(
+            &primary_key,
+            "users",
+            "source",
+            "shop",
+            &DatabaseType::Mysql,
+            &DatabaseType::Mysql,
+            None,
+            None,
+        );
+        assert!(primary_key_ddl.contains("AUTO_INCREMENT"), "ddl: {primary_key_ddl}");
     }
 
     #[test]
