@@ -2121,7 +2121,10 @@ test("prioritizes UNIQUEIDENTIFIER above UNION and UPDATE and suppresses externa
   });
 
   // Should NOT suggest columns from other tables when defining column types
-  assert.equal(items.some((item) => item.label === "UpdateDate"), false);
+  assert.equal(
+    items.some((item) => item.label === "UpdateDate"),
+    false,
+  );
 
   // UNIQUEIDENTIFIER must rank above UNION and UPDATE
   const uniqueIdIdx = items.findIndex((item) => item.label === "UNIQUEIDENTIFIER");
@@ -4879,6 +4882,20 @@ test("Oracle mixed-case table completions preserve case and quotes under identif
   assert.equal(userItem?.apply, '"Users"', "should keep double quotes and original case for mixed-case Oracle table");
 });
 
+test.each(["oracle", "dameng", "db2"] as const)("folding dialect %s still applies identifierCase when quoting is disabled (#12938)", (databaseType) => {
+  const items = buildSqlCompletionItems("select * from u", "select * from u".length, {
+    tables: [{ name: "USERS", type: "table" as const }],
+    columnsByTable: new Map(),
+    databaseType,
+    identifierCase: "lower",
+    quoteIdentifiers: false,
+    autoAliasTables: false,
+  });
+  const userItem = items.find((item) => item.type === "table");
+  assert.equal(userItem?.label, "users", "folding dialects should keep the formatter case setting");
+  assert.equal(userItem?.apply, "users", "folding dialects should emit a safe bare identifier");
+});
+
 test("schema-qualified table completions follow identifierCase (#11400)", () => {
   const collidingTables = [
     { name: "ORDERS", schema: "SCOTT", type: "table" as const },
@@ -4899,9 +4916,7 @@ test("schema-qualified table completions follow identifierCase (#11400)", () => 
 });
 
 test("table completions with applyName follow identifierCase (#11400)", () => {
-  const tablesWithApplyName = [
-    { name: "DEPT_DICT", schema: "COMM", applyName: "COMM.DEPT_DICT", type: "table" as const },
-  ];
+  const tablesWithApplyName = [{ name: "DEPT_DICT", schema: "COMM", applyName: "COMM.DEPT_DICT", type: "table" as const }];
   const items = buildSqlCompletionItems("select * from d", "select * from d".length, {
     tables: tablesWithApplyName,
     columnsByTable: new Map(),
@@ -4952,7 +4967,10 @@ test("table and column completions can be searched by comments (#12033)", () => 
     databaseType: "mysql",
   });
   assert.ok(hanTableItems.some((item) => item.label === "t_user"));
-  assert.equal(hanTableItems.some((item) => item.label === "t_order"), false);
+  assert.equal(
+    hanTableItems.some((item) => item.label === "t_order"),
+    false,
+  );
 
   // Table matching by pinyin initials of comment
   const pinyinTableItems = buildSqlCompletionItems("select * from ddb", "select * from ddb".length, {
@@ -5016,4 +5034,3 @@ test("table and column completions can be searched by comments (#12033)", () => 
   assert.ok(userLogIndex >= 0 && historyIndex >= 0);
   assert.ok(userLogIndex < historyIndex, "Name match should rank ahead of comment match");
 });
-
