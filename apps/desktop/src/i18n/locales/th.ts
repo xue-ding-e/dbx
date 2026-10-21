@@ -3721,6 +3721,8 @@ export default withEnglishFallback({
     searchExtensions: "นามสกุลไฟล์",
     extensionsPlaceholder: "เช่น sql, txt, md",
     apply: "ใช้",
+    scope: "ขอบเขตการค้นหา",
+    scopeAll: "การเชื่อมต่อทั้งหมด",
   },
   explain: {
     copyRaw: "คัดลอก {format}",

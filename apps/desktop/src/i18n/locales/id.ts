@@ -3207,6 +3207,8 @@ export default withEnglishFallback({
     searchExtensions: "Ekstensi file",
     extensionsPlaceholder: "mis. sql, txt, md",
     apply: "Terapkan",
+    scope: "Ruang lingkup pencarian",
+    scopeAll: "Semua koneksi",
   },
   explain: {
     copyRaw: "Salin {format}",

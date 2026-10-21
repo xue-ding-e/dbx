@@ -2877,6 +2877,8 @@ export default withEnglishFallback({
     searchExtensions: "Fayl uzantıları",
     extensionsPlaceholder: "məs. sql, txt, md",
     apply: "Tətbiq et",
+    scope: "Axtarış əhatəsi",
+    scopeAll: "Bütün bağlantılar",
   },
   explain: {
     copyRaw: "{format} kopyala",
