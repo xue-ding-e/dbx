@@ -547,6 +547,8 @@ export default {
     sortByRecentlyUpdated: "Recently updated",
     sortByRecentlyListed: "Recently published",
     sortByUpdatesFirst: "Updates first",
+    sortByInstalls: "Installs",
+    installCount: "{count} installs",
     allRepositories: "All repositories",
     marketplaceGuideTitle: "Plugins are maintained by community developers",
     marketplaceGuideDescription: "For plugin issues or feature requests, please open an issue in the plugin's own repository (use the source repository link on the plugin card); the main DBX repository only handles issues with the app itself.",

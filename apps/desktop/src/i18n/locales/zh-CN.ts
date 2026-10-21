@@ -492,6 +492,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "最近更新",
     sortByRecentlyListed: "最近上架",
     sortByUpdatesFirst: "有更新优先",
+    sortByInstalls: "安装量",
+    installCount: "{count} 次安装",
     allRepositories: "全部仓库",
     marketplaceGuideTitle: "插件由社区开发者维护",
     marketplaceGuideDescription: "插件问题或功能建议请通过插件卡片上的源码仓库入口，前往对应插件仓库提交 Issue；DBX 主仓库仅受理应用本身的问题。",

@@ -507,6 +507,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "อัปเดตล่าสุด",
     sortByRecentlyListed: "เผยแพร่ล่าสุด",
     sortByUpdatesFirst: "อัปเดตก่อน",
+    sortByInstalls: "จำนวนการติดตั้ง",
+    installCount: "ติดตั้ง {count} ครั้ง",
     allRepositories: "Repository ทั้งหมด",
     marketplaceGuideTitle: "Plugin ดูแลโดยนักพัฒนาชุมชน",
     marketplaceGuideDescription: "สำหรับปัญหาหรือคำขอฟีเจอร์ของ Plugin โปรดเปิด issue ใน Repository ของ Plugin เอง (ใช้ลิงก์ Source repository บนการ์ด Plugin) Repository หลักของ DBX รับเฉพาะปัญหาที่ตัวแอปเอง",

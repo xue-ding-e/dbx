@@ -403,6 +403,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "Aggiornati di recente",
     sortByRecentlyListed: "Pubblicati di recente",
     sortByUpdatesFirst: "Prima gli aggiornamenti",
+    sortByInstalls: "Installazioni",
+    installCount: "{count} installazioni",
     allRepositories: "Tutti i repository",
     marketplaceGuideTitle: "I plugin sono mantenuti dagli sviluppatori della community",
     marketplaceGuideDescription: "Per problemi o suggerimenti su un plugin, apri una issue nel repository del plugin stesso (usa il link del repository sorgente sulla scheda); il repository principale di DBX gestisce solo i problemi dell'applicazione.",

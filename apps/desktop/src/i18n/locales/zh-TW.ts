@@ -405,6 +405,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "最近更新",
     sortByRecentlyListed: "最近上架",
     sortByUpdatesFirst: "有更新優先",
+    sortByInstalls: "安裝量",
+    installCount: "{count} 次安裝",
     allRepositories: "全部倉庫",
     marketplaceGuideTitle: "外掛由社群開發者維護",
     marketplaceGuideDescription: "外掛問題或功能建議請透過外掛卡片上的原始碼倉庫入口，前往對應外掛倉庫提交 Issue；DBX 主倉庫僅受理應用程式本身的問題。",

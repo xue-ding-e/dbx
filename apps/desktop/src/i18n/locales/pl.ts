@@ -270,6 +270,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "Ostatnio aktualizowane",
     sortByRecentlyListed: "Ostatnio opublikowane",
     sortByUpdatesFirst: "Najpierw aktualizacje",
+    sortByInstalls: "Instalacje",
+    installCount: "{count} instalacji",
     allRepositories: "Wszystkie repozytoria",
     marketplaceGuideTitle: "Wtyczki są rozwijane przez społeczność",
     marketplaceGuideDescription: "Błędy i propozycje zmian wtyczek zgłaszaj w repozytorium danej wtyczki (link na jej karcie). Główne repozytorium DBX służy do zgłoszeń dotyczących samej aplikacji.",

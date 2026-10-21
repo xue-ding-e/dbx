@@ -372,6 +372,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "Недавно обновлённые",
     sortByRecentlyListed: "Недавно опубликованные",
     sortByUpdatesFirst: "Сначала с обновлениями",
+    sortByInstalls: "По установкам",
+    installCount: "{count} установок",
     allRepositories: "Все репозитории",
     marketplaceGuideTitle: "Плагины поддерживаются сообществом разработчиков",
     marketplaceGuideDescription: "По вопросам о плагинах или для запроса функций создайте issue в собственном репозитории плагина (ссылка на исходный репозиторий есть на карточке плагина); основной репозиторий DBX принимает только вопросы о самом приложении.",

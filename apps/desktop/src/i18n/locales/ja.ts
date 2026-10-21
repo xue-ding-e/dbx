@@ -404,6 +404,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "最近の更新",
     sortByRecentlyListed: "最近の公開",
     sortByUpdatesFirst: "更新ありを優先",
+    sortByInstalls: "インストール数",
+    installCount: "{count} 回インストール",
     allRepositories: "すべてのリポジトリ",
     marketplaceGuideTitle: "プラグインはコミュニティ開発者がメンテナンスしています",
     marketplaceGuideDescription: "プラグインの問題や機能要望は、プラグインカードのソースリポジトリリンクから該当リポジトリに Issue を投稿してください。DBX メインリポジトリはアプリ本体の問題のみを受け付けています。",

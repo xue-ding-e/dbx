@@ -180,6 +180,8 @@ export default withEnglishFallback({
     sortByRecentlyUpdated: "Baru diperbarui",
     sortByRecentlyListed: "Baru dipublikasikan",
     sortByUpdatesFirst: "Pembaruan lebih dulu",
+    sortByInstalls: "Instalasi",
+    installCount: "{count} instalasi",
     allRepositories: "Semua repositori",
     marketplaceGuideTitle: "Plugin dikelola oleh pengembang komunitas",
     marketplaceGuideDescription: "Untuk masalah plugin atau permintaan fitur, silakan buka issue di repositori plugin itu sendiri (gunakan tautan repositori sumber pada kartu plugin); repositori utama DBX hanya menangani masalah aplikasinya sendiri.",
