@@ -6849,6 +6849,7 @@ export default withEnglishFallback({
     options: "Seçimlər",
     packageParts: "{count} SQL hissəsi",
     skipRelationalConstraints: "İdxal zamanı əlaqəli məhdudiyyətləri müvəqqəti söndür",
+    closeOnSuccess: "Tamamlandıqda dialoqu bağla",
     continueOnError: "Xəta olduqda davam et",
     runInBackground: "Arxa planda işlət",
     cancelling: "Ləğv edilir...",

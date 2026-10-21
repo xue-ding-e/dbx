@@ -7595,6 +7595,7 @@ export default withEnglishFallback({
     options: "Opcje",
     continueOnError: "Kontynuuj po błędzie",
     skipRelationalConstraints: "Tymczasowo wyłącz więzy integralności relacyjnej podczas importu",
+    closeOnSuccess: "Zamknij okno po zakończeniu",
     packageParts: "Części SQL: {count}",
     runInBackground: "Uruchom w tle",
     cancelling: "Anulowanie...",

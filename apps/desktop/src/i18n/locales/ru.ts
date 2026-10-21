@@ -8630,6 +8630,7 @@ export default withEnglishFallback({
     options: "Параметры",
     continueOnError: "Продолжать при ошибке",
     skipRelationalConstraints: "Временно отключить реляционные ограничения во время импорта",
+    closeOnSuccess: "Закрывать диалоговое окно после завершения",
     packageParts: "{count} частей SQL",
     runInBackground: "Выполнять в фоне",
     cancelling: "Отмена...",

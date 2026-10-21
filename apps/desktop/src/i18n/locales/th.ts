@@ -9027,6 +9027,7 @@ export default withEnglishFallback({
     options: "Options",
     continueOnError: "ดำเนินการต่อเมื่อเกิดข้อผิดพลาด",
     skipRelationalConstraints: "ปิดใช้ข้อจำกัดเชิงสัมพันธ์ชั่วคราวระหว่างการนำเข้า",
+    closeOnSuccess: "ปิดกล่องโต้ตอบเมื่อเสร็จสิ้น",
     packageParts: "ส่วน SQL จำนวน {count} ส่วน",
     runInBackground: "ทำงานเบื้องหลัง",
     cancelling: "กำลังยกเลิก…",

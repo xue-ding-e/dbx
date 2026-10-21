@@ -7192,6 +7192,7 @@ export default withEnglishFallback({
     options: "옵션",
     packageParts: "SQL 파트 {count}개",
     skipRelationalConstraints: "가져오기 중 관계형 제약 조건을 일시적으로 해제",
+    closeOnSuccess: "실행 완료 후 대화상자 닫기",
     continueOnError: "오류 시 계속",
     runInBackground: "백그라운드에서 실행",
     cancelling: "취소하는 중...",

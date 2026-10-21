@@ -8352,6 +8352,7 @@ export default withEnglishFallback({
     options: "选项",
     packageParts: "{count} 个 SQL 分片",
     skipRelationalConstraints: "导入期间临时禁用关系约束",
+    closeOnSuccess: "执行完成后关闭弹窗",
     continueOnError: "出错后继续",
     runInBackground: "后台运行",
     cancelling: "正在取消...",

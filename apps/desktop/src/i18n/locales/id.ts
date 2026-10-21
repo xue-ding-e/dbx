@@ -7539,6 +7539,7 @@ export default withEnglishFallback({
     options: "Opsi",
     continueOnError: "Lanjutkan jika terjadi galat",
     skipRelationalConstraints: "Nonaktifkan sementara batasan relasional selama impor",
+    closeOnSuccess: "Tutup dialog setelah selesai",
     packageParts: "{count} bagian SQL",
     runInBackground: "Jalankan di latar belakang",
     cancelling: "Membatalkan...",
