@@ -12629,8 +12629,7 @@ mod tests {
             return None;
         }
 
-        let port = portpicker::pick_unused_port().expect("pick unused postgres port");
-        let container = DockerPostgres { name: format!("dbx-postgres-enum-{}", uuid::Uuid::new_v4()), port };
+        let mut container = DockerPostgres { name: format!("dbx-postgres-enum-{}", uuid::Uuid::new_v4()), port: 0 };
 
         let status = Command::new("docker")
             .args(["run", "-d", "--rm", "--name", &container.name])
@@ -12643,13 +12642,29 @@ mod tests {
                 "-e",
                 "POSTGRES_DB=postgres",
                 "-p",
-                &format!("{port}:5432"),
+                "127.0.0.1::5432",
                 image,
             ])
             .args(postgres_args)
             .status()
             .expect("start docker postgres");
         assert!(status.success(), "docker run postgres container should succeed");
+
+        let binding = Command::new("docker")
+            .args([
+                "inspect",
+                "--format",
+                "{{(index (index .NetworkSettings.Ports \"5432/tcp\") 0).HostPort}}",
+                &container.name,
+            ])
+            .output()
+            .expect("inspect docker postgres port");
+        assert!(binding.status.success(), "docker inspect postgres port should succeed");
+        container.port = String::from_utf8(binding.stdout)
+            .expect("docker postgres port is UTF-8")
+            .trim()
+            .parse()
+            .expect("docker postgres port is a u16");
 
         let deadline = Instant::now() + Duration::from_secs(60);
         loop {
