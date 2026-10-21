@@ -950,6 +950,16 @@ function updateMapping(sourceColumn: string, value: any) {
   };
 }
 
+function isSourceColumnSkipped(sourceColumn: string | undefined): boolean {
+  if (!sourceColumn) return false;
+  if (targetMode.value === "create") {
+    const target = columnMapping.value[sourceColumn] ?? sourceColumn;
+    return !target || !target.trim();
+  }
+  const target = columnMapping.value[sourceColumn];
+  return !target || target === SKIP_VALUE || !target.trim();
+}
+
 function mapByPosition() {
   const currentPreview = preview.value;
   if (!currentPreview) return;
@@ -1825,15 +1835,29 @@ watch(rawProgressPercent, (percent) => {
                 <table class="min-w-full border-separate border-spacing-0 text-xs">
                   <thead class="sticky top-0 bg-background">
                     <tr>
-                      <th v-for="column in preview.columns" :key="column" class="border-b border-r px-2 py-1.5 text-left font-medium">
-                        <span class="block max-w-[140px] truncate">{{ column }}</span>
+                      <th v-for="column in preview.columns" :key="column" class="border-b border-r px-2 py-1.5 text-left font-medium transition-colors" :class="{ 'text-muted-foreground/60': isSourceColumnSkipped(column) }">
+                        <span
+                          class="block max-w-[140px] truncate"
+                          :class="{ 'line-through text-muted-foreground': isSourceColumnSkipped(column) }"
+                          :data-column-skipped="isSourceColumnSkipped(column) ? 'true' : undefined"
+                          :title="isSourceColumnSkipped(column) ? `${column} (${t('tableImport.skipColumn')})` : column"
+                          >{{ column }}</span
+                        >
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(row, rowIndex) in preview.rows" :key="rowIndex">
-                      <td v-for="(cell, colIndex) in row" :key="colIndex" class="max-w-[180px] border-b border-r px-2 py-1.5 font-mono" :class="{ 'text-muted-foreground': cell === null }">
-                        <span class="block truncate">{{ formatTableImportPreviewCell(cell) }}</span>
+                      <td
+                        v-for="(cell, colIndex) in row"
+                        :key="colIndex"
+                        class="max-w-[180px] border-b border-r px-2 py-1.5 font-mono transition-colors"
+                        :class="{
+                          'text-muted-foreground': cell === null,
+                          'text-muted-foreground/50 bg-muted/20': isSourceColumnSkipped(preview.columns[colIndex]),
+                        }"
+                      >
+                        <span class="block truncate" :class="{ 'line-through': isSourceColumnSkipped(preview.columns[colIndex]) }" :data-cell-skipped="isSourceColumnSkipped(preview.columns[colIndex]) ? 'true' : undefined">{{ formatTableImportPreviewCell(cell) }}</span>
                       </td>
                     </tr>
                   </tbody>
