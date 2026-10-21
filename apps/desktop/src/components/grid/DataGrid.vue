@@ -14723,9 +14723,8 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                     <span class="data-grid-topbar-action-label" :class="{ 'data-grid-topbar-action-label--compact': compactDataGridToolbarActions }">{{ t("grid.tableDataPreviewLoadPageShort") }}</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" class="max-w-sm">
-                  <p>{{ t("grid.tableDataPreviewNotice") }}</p>
-                  <p class="mt-1 opacity-80">{{ t("grid.tableDataPreviewLoadPageHint") }}</p>
+                <TooltipContent side="bottom" class="max-w-none">
+                  <p class="whitespace-nowrap">{{ t("grid.tableDataPreviewLoadPageShortTitle") }}</p>
                 </TooltipContent>
               </Tooltip>
               <slot v-if="hasResultToolbarActionsSlot" name="result-toolbar-actions" :compact="compactDataGridToolbarActions" />
@@ -14897,18 +14896,21 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
           <button type="button" class="font-medium underline underline-offset-2 decoration-dotted hover:text-amber-900 disabled:opacity-50 dark:hover:text-amber-100" :disabled="tableDataFullTextLoading" @click="loadCurrentPageFullText">
             {{ tableDataFullTextLoading ? t("grid.tableDataPreviewLoading") : t("grid.tableDataPreviewLoadPage") }}
           </button>
-          <button type="button" class="font-medium underline underline-offset-2 decoration-dotted hover:text-amber-900 dark:hover:text-amber-100" @click="hideTableDataPreviewNoticeForGood">
-            {{ t("grid.tableDataPreviewDontShowAgain") }}
-          </button>
-          <button
-            type="button"
-            class="ml-auto shrink-0 rounded p-0.5 text-amber-600/70 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-400/70 dark:hover:text-amber-200"
-            :title="t('grid.tableDataPreviewDismiss')"
-            :aria-label="t('grid.tableDataPreviewDismiss')"
-            @click="dismissTableDataPreviewNotice"
-          >
-            <X class="h-3.5 w-3.5" />
-          </button>
+          <div class="ml-auto flex shrink-0 items-center gap-1.5">
+            <button type="button" class="font-medium underline underline-offset-2 decoration-dotted hover:text-amber-900 dark:hover:text-amber-100" @click="hideTableDataPreviewNoticeForGood">
+              {{ t("grid.tableDataPreviewDontShowAgain") }}
+            </button>
+            <span class="h-3 w-px shrink-0 bg-amber-500/30 dark:bg-amber-400/30" aria-hidden="true" />
+            <button
+              type="button"
+              class="shrink-0 rounded p-0.5 text-amber-600/70 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-400/70 dark:hover:text-amber-200"
+              :title="t('grid.tableDataPreviewDismiss')"
+              :aria-label="t('grid.tableDataPreviewDismiss')"
+              @click="dismissTableDataPreviewNotice"
+            >
+              <X class="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <!-- Truncation warning banner -->
