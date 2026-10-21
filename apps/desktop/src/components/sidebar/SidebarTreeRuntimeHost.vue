@@ -978,6 +978,8 @@ async function toggle(requestId = beginNavigationRequest()) {
   // Keep the click path aligned with every object-group definition. In
   // particular, schema-level trigger/type groups have no tableName, so they
   // must use the generic object loader rather than the table-trigger loader.
+  // !node.tableName is generic: table-level structure groups (columns/indexes/fkeys/constraints/partitions/table triggers)
+  // stay off the schema-level object-group loader, not just triggers.
   const databaseObjectGroup = !!objectTypesForGroupNode(node.type) && !node.tableName;
   const needsConfiguredTablePageDrain = node.type === "group-tables" && connectionStore.getConfig(node.connectionId || "")?.sidebar_auto_load_all_tables === true && hasTableTreeLoadMore(node.children ?? []);
   if (databaseObjectGroup && connectionStore.canUseLoadedTreeNodeToggle(node) && !needsConfiguredTablePageDrain) {

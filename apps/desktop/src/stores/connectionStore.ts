@@ -8293,6 +8293,8 @@ export const useConnectionStore = defineStore("connection", () => {
         return;
       }
     }
+    // !node.tableName is generic: table-level structure groups (columns/indexes/fkeys/constraints/partitions/table triggers)
+    // stay off the schema-level object-group loader, not just triggers.
     if (objectTypesForGroupNode(node.type) && !node.tableName) {
       clearLoadedChildrenCache(node.id, { deletePersisted: false });
       await loadObjectGroupChildren(node, { force: true });
@@ -8369,6 +8371,8 @@ export const useConnectionStore = defineStore("connection", () => {
 
   async function refreshTreeNodeForTableNameFilter(node: TreeNode, scopeKey: string, revision: number) {
     invalidateMetadataCachesForNode(node);
+    // !node.tableName is generic: table-level structure groups (columns/indexes/fkeys/constraints/partitions/table triggers)
+    // stay off the schema-level object-group loader, not just triggers.
     if (objectTypesForGroupNode(node.type) && !node.tableName) {
       clearLoadedChildrenCache(node.id);
       await loadObjectGroupChildren(node, {
@@ -10360,6 +10364,8 @@ export const useConnectionStore = defineStore("connection", () => {
           if (node.children) await refreshNodes(node.children);
           continue;
         }
+        // !node.tableName is generic: table-level structure groups (columns/indexes/fkeys/constraints/partitions/table triggers)
+        // stay off the schema-level object-group loader, not just triggers.
         if (objectTypesForGroupNode(node.type) && !node.tableName) {
           if (node.connectionId && connectedIds.value.has(node.connectionId)) {
             clearLoadedChildrenCache(node.id);
