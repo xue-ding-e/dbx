@@ -322,7 +322,14 @@ export const SETTINGS_SEARCH_DEFINITIONS: readonly SettingsSearchDefinition[] = 
     targetId: "appearance",
     keywordKeys: ["settings.tabMaxWidthUnlimited", "settings.tabMaxWidthCompact", "settings.tabMaxWidthMedium", "settings.tabMaxWidthStandard", "settings.tabMaxWidthWide"],
   },
-  { id: "appearance-connection-tab-colors", category: "appearance", titleKey: "settings.colorizeConnectionTabs", descriptionKey: "settings.colorizeConnectionTabsDescription", targetId: "appearance" },
+  {
+    id: "appearance-connection-tab-colors",
+    category: "appearance",
+    titleKey: "settings.colorizeConnectionTabs",
+    descriptionKey: "settings.colorizeConnectionTabsDescription",
+    targetId: "appearance",
+    keywordKeys: ["settings.colorizeConnectionTabsScope", "settings.colorizeConnectionTabsScopeAll", "settings.colorizeConnectionTabsScopeActive"],
+  },
   { id: "appearance-icons", category: "appearance", titleKey: "settings.iconTheme", targetId: "appearance", visible: desktopOnly },
   {
     id: "appearance-web-logo-position",

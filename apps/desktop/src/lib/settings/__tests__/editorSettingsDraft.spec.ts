@@ -84,6 +84,12 @@ describe("EDITOR_SETTINGS_DRAFT_KEYS", () => {
     expect(draft.queryResultExportFileNameSource).toBe("tab-title");
   });
 
+  it("includes colorizeConnectionTabsScope (#12955)", () => {
+    expect(EDITOR_SETTINGS_DRAFT_KEYS).toContain("colorizeConnectionTabsScope");
+    const draft = editorSettingsDraftFromSettings(makeSettings({ colorizeConnectionTabsScope: "active" } as Partial<EditorSettings>));
+    expect(draft.colorizeConnectionTabsScope).toBe("active");
+  });
+
   it("includes continueOnErrorOnBatch", () => {
     expect(EDITOR_SETTINGS_DRAFT_KEYS).toContain("continueOnErrorOnBatch");
   });

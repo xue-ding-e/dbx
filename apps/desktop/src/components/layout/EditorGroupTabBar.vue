@@ -1330,6 +1330,7 @@ function tabColorStyle(tab: QueryTab): CSSProperties | undefined {
   if (isVerticalLayout.value) {
     if (settingsStore.editorSettings.tabGroupMode !== "none" || !settingsStore.editorSettings.colorizeConnectionTabs) return undefined;
     const active = isTabActive(tab);
+    if (settingsStore.editorSettings.colorizeConnectionTabsScope === "active" && !active) return undefined;
     const color = tabConnectionColor(tab.connectionId);
     return {
       "--app-tab-background": hexToRgba(color, active ? 0.24 : 0.09),
@@ -1343,6 +1344,7 @@ function tabColorStyle(tab: QueryTab): CSSProperties | undefined {
     } as CSSProperties;
   }
   if (!isTabActive(tab)) {
+    if (settingsStore.editorSettings.colorizeConnectionTabsScope === "active") return undefined;
     // Grouped horizontal tabs already show the group identity on the header
     // and rail (the connection color when grouping by connection), so keep
     // their washes quiet to make the active tab easy to spot (issue #12485).

@@ -124,6 +124,7 @@ const SETTINGS_TRANSFER_CATEGORY_KEYS: Record<SettingsTransferCategoryId, readon
     "tabPlacement",
     "tabGroupMode",
     "colorizeConnectionTabs",
+    "colorizeConnectionTabsScope",
     "tabSortMode",
     "tabMaxWidth",
     "tabGroupRows",

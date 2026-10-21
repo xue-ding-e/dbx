@@ -106,6 +106,7 @@ import {
   type TabGroupMode,
   type TabGroupRowMode,
   type TabPlacement,
+  type ConnectionTabColorScope,
   type TabSortMode,
   type WelcomePageMode,
   type UpdateDownloadSource,
@@ -798,6 +799,7 @@ const editWebLogoPosition = ref<WebLogoPosition>(settingsStore.editorSettings.we
 const editTabLayout = ref(settingsStore.editorSettings.tabLayout);
 const editTabPlacement = ref<TabPlacement>(settingsStore.editorSettings.tabPlacement);
 const editColorizeConnectionTabs = ref(settingsStore.editorSettings.colorizeConnectionTabs);
+const editColorizeConnectionTabsScope = ref<ConnectionTabColorScope>(settingsStore.editorSettings.colorizeConnectionTabsScope);
 const editTabGroupMode = ref<TabGroupMode>(settingsStore.editorSettings.tabGroupMode);
 const editTabSortMode = ref<TabSortMode>(settingsStore.editorSettings.tabSortMode);
 const editTabMaxWidth = ref<number>(settingsStore.editorSettings.tabMaxWidth);
@@ -1197,6 +1199,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     tabLayout: editTabLayout.value,
     tabPlacement: editTabPlacement.value,
     colorizeConnectionTabs: editColorizeConnectionTabs.value,
+    colorizeConnectionTabsScope: editColorizeConnectionTabsScope.value,
     tabGroupMode: editTabGroupMode.value,
     tabSortMode: editTabSortMode.value,
     tabMaxWidth: editTabMaxWidth.value,
@@ -1895,6 +1898,7 @@ function syncEditorSettingsDraftFromStore() {
   editTabLayout.value = settingsStore.editorSettings.tabLayout;
   editTabPlacement.value = settingsStore.editorSettings.tabPlacement;
   editColorizeConnectionTabs.value = settingsStore.editorSettings.colorizeConnectionTabs;
+  editColorizeConnectionTabsScope.value = settingsStore.editorSettings.colorizeConnectionTabsScope;
   editTabGroupMode.value = settingsStore.editorSettings.tabGroupMode;
   editTabSortMode.value = settingsStore.editorSettings.tabSortMode;
   editTabMaxWidth.value = settingsStore.editorSettings.tabMaxWidth;
@@ -2067,6 +2071,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   tabLayout: editTabLayout,
   tabPlacement: editTabPlacement,
   colorizeConnectionTabs: editColorizeConnectionTabs,
+  colorizeConnectionTabsScope: editColorizeConnectionTabsScope,
   tabGroupMode: editTabGroupMode,
   tabSortMode: editTabSortMode,
   tabMaxWidth: editTabMaxWidth,
@@ -2672,6 +2677,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editTabLayout.value = DEFAULT_EDITOR_SETTINGS.tabLayout;
     editTabPlacement.value = DEFAULT_EDITOR_SETTINGS.tabPlacement;
     editColorizeConnectionTabs.value = DEFAULT_EDITOR_SETTINGS.colorizeConnectionTabs;
+    editColorizeConnectionTabsScope.value = DEFAULT_EDITOR_SETTINGS.colorizeConnectionTabsScope;
     editTabGroupMode.value = DEFAULT_EDITOR_SETTINGS.tabGroupMode;
     editTabSortMode.value = DEFAULT_EDITOR_SETTINGS.tabSortMode;
     editTabMaxWidth.value = DEFAULT_EDITOR_SETTINGS.tabMaxWidth;
@@ -8600,12 +8606,32 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <div class="settings-item flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                <div class="space-y-1">
-                  <Label for="colorize-connection-tabs">{{ t("settings.colorizeConnectionTabs") }}</Label>
-                  <p class="text-xs text-muted-foreground">{{ t("settings.colorizeConnectionTabsDescription") }}</p>
+              <div class="settings-item rounded-md border bg-muted/20 px-3 py-2">
+                <div :class="editColorizeConnectionTabs ? 'grid gap-4 md:grid-cols-2' : ''">
+                  <div class="flex min-w-0 items-start justify-between gap-4">
+                    <div class="min-w-0 space-y-1">
+                      <Label for="colorize-connection-tabs">{{ t("settings.colorizeConnectionTabs") }}</Label>
+                      <p class="text-xs text-muted-foreground">{{ t("settings.colorizeConnectionTabsDescription") }}</p>
+                    </div>
+                    <Switch id="colorize-connection-tabs" v-model="editColorizeConnectionTabs" class="mt-0.5" />
+                  </div>
+
+                  <div v-if="editColorizeConnectionTabs" class="flex min-w-0 items-start justify-between gap-4 border-t pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+                    <div class="min-w-0 space-y-1">
+                      <Label for="colorize-connection-tabs-scope">{{ t("settings.colorizeConnectionTabsScope") }}</Label>
+                      <p class="text-xs text-muted-foreground">{{ t("settings.colorizeConnectionTabsScopeDescription") }}</p>
+                    </div>
+                    <Select v-model="editColorizeConnectionTabsScope">
+                      <SelectTrigger id="colorize-connection-tabs-scope" class="h-8 w-44 shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{{ t("settings.colorizeConnectionTabsScopeAll") }}</SelectItem>
+                        <SelectItem value="active">{{ t("settings.colorizeConnectionTabsScopeActive") }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Switch id="colorize-connection-tabs" v-model="editColorizeConnectionTabs" />
               </div>
 
               <div class="settings-appearance-group">
