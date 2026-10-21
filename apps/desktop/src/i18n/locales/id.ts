@@ -2726,6 +2726,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "Datetime Saat Ini",
     generateCurrentDatetimeMilliseconds: "Datetime Saat Ini (Milidetik)",
     generateCurrentDate: "Tanggal Saat Ini",
+    generateCurrentTimestampSeconds: "Timestamp Unix Saat Ini (Detik)",
+    generateCurrentTimestampMilliseconds: "Timestamp Unix Saat Ini (Milidetik)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "ID Increment",

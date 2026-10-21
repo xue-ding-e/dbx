@@ -10609,6 +10609,16 @@ function generateSelectionMenuItems(disabled: boolean): ContextMenuItem[] {
       disabled,
     },
     {
+      label: t("grid.generateCurrentTimestampSeconds"),
+      action: () => applyGeneratedSelectionValue("timestamp-seconds"),
+      disabled,
+    },
+    {
+      label: t("grid.generateCurrentTimestampMilliseconds"),
+      action: () => applyGeneratedSelectionValue("timestamp-ms"),
+      disabled,
+    },
+    {
       label: t("grid.generateUuidV4"),
       action: () => applyGeneratedSelectionValue("uuid"),
       disabled,
@@ -16503,12 +16513,14 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
                         {{ t("grid.generateValue") }}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" class="w-44">
+                    <DropdownMenuContent align="start" class="w-auto min-w-44 whitespace-nowrap">
                       <DropdownMenuItem @click="applyGeneratedDetailValue('empty')">{{ t("grid.generateEmptyString") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('null')">{{ t("grid.generateNull") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('datetime')">{{ t("grid.generateCurrentDatetime") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('datetime-ms')">{{ t("grid.generateCurrentDatetimeMilliseconds") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('date')">{{ t("grid.generateCurrentDate") }}</DropdownMenuItem>
+                      <DropdownMenuItem @click="applyGeneratedDetailValue('timestamp-seconds')">{{ t("grid.generateCurrentTimestampSeconds") }}</DropdownMenuItem>
+                      <DropdownMenuItem @click="applyGeneratedDetailValue('timestamp-ms')">{{ t("grid.generateCurrentTimestampMilliseconds") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('uuid')">{{ t("grid.generateUuidV4") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('uuid-v7')">{{ t("grid.generateUuidV7") }}</DropdownMenuItem>
                       <DropdownMenuItem @click="applyGeneratedDetailValue('snowflake')">{{ t("grid.generateSnowflakeId") }}</DropdownMenuItem>

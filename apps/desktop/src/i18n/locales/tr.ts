@@ -2411,6 +2411,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "Geçerli Tarih-Saat",
     generateCurrentDatetimeMilliseconds: "Geçerli Tarih-Saat (Milisaniye)",
     generateCurrentDate: "Geçerli Tarih",
+    generateCurrentTimestampSeconds: "Geçerli Unix Zaman Damgası (Saniye)",
+    generateCurrentTimestampMilliseconds: "Geçerli Unix Zaman Damgası (Milisaniye)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "Artan Kimlik",

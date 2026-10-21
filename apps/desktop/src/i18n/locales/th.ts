@@ -3189,6 +3189,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "DateTime ปัจจุบัน",
     generateCurrentDatetimeMilliseconds: "DateTime ปัจจุบัน (มิลลิวินาที)",
     generateCurrentDate: "วันที่ปัจจุบัน",
+    generateCurrentTimestampSeconds: "Timestamp Unix ปัจจุบัน (วินาที)",
+    generateCurrentTimestampMilliseconds: "Timestamp Unix ปัจจุบัน (มิลลิวินาที)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "เพิ่มค่า ID",

@@ -3248,6 +3248,8 @@ export default {
     generateCurrentDatetime: "Current Datetime",
     generateCurrentDatetimeMilliseconds: "Current Datetime (Milliseconds)",
     generateCurrentDate: "Current Date",
+    generateCurrentTimestampSeconds: "Current Unix Timestamp (Seconds)",
+    generateCurrentTimestampMilliseconds: "Current Unix Timestamp (Milliseconds)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "Increment ID",

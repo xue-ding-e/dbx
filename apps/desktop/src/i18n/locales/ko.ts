@@ -2866,6 +2866,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "현재 날짜/시간",
     generateCurrentDatetimeMilliseconds: "현재 날짜/시간(밀리초)",
     generateCurrentDate: "현재 날짜",
+    generateCurrentTimestampSeconds: "현재 Unix 타임스탬프(초)",
+    generateCurrentTimestampMilliseconds: "현재 Unix 타임스탬프(밀리초)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "증가 ID",

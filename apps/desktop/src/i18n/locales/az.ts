@@ -2419,6 +2419,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "Cari tarix və vaxt",
     generateCurrentDatetimeMilliseconds: "Cari tarix və vaxt (millisaniyə)",
     generateCurrentDate: "Cari tarix",
+    generateCurrentTimestampSeconds: "Cari Unix vaxt nişanı (saniyə)",
+    generateCurrentTimestampMilliseconds: "Cari Unix vaxt nişanı (millisaniyə)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "Artan ID",

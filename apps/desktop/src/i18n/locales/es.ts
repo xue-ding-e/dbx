@@ -2856,6 +2856,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "Fecha y hora actuales",
     generateCurrentDatetimeMilliseconds: "Fecha y hora actuales (milisegundos)",
     generateCurrentDate: "Fecha actual",
+    generateCurrentTimestampSeconds: "Marca de tiempo Unix actual (segundos)",
+    generateCurrentTimestampMilliseconds: "Marca de tiempo Unix actual (milisegundos)",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "ID incremental",

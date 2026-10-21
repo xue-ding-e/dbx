@@ -3180,6 +3180,8 @@ export default withEnglishFallback({
     generateCurrentDatetime: "当前日期时间",
     generateCurrentDatetimeMilliseconds: "当前日期时间（毫秒）",
     generateCurrentDate: "当前日期",
+    generateCurrentTimestampSeconds: "当前Unix时间戳（秒）",
+    generateCurrentTimestampMilliseconds: "当前Unix时间戳（毫秒）",
     generateUuidV4: "UUID v4",
     generateUuidV7: "UUID v7",
     generateIncrementId: "递增 ID",
