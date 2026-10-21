@@ -1,4 +1,4 @@
-import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "@/lib/backend/safeStorage";
+import { safeLocalStorageGet, safeLocalStorageKeys, safeLocalStorageRemove, safeLocalStorageSet } from "@/lib/backend/safeStorage";
 import type { ColumnWidthDensity } from "@/stores/settingsStore";
 
 export const DATA_GRID_COLUMN_WIDTH_STATE_LIMIT = 128;
@@ -46,7 +46,7 @@ function loadStorageIndex(): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : [];
+    return Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string" && key.length > 0) : [];
   } catch {
     return [];
   }
@@ -56,9 +56,54 @@ function saveStorageIndex(index: string[]) {
   safeLocalStorageSet(STORAGE_INDEX_KEY, JSON.stringify(index));
 }
 
+function getActualStorageKeys(): Set<string> {
+  const keys = safeLocalStorageKeys();
+  const actualKeys = new Set<string>();
+  for (const key of keys) {
+    if (key.startsWith(STORAGE_PREFIX)) {
+      actualKeys.add(key.slice(STORAGE_PREFIX.length));
+    }
+  }
+  return actualKeys;
+}
+
+function reconcileStorageIndex(activeKey?: string): string[] {
+  const currentIndex = loadStorageIndex();
+  const actualDataKeys = getActualStorageKeys();
+
+  if (currentIndex.length === 0 && actualDataKeys.size === 0) {
+    return activeKey ? [activeKey] : [];
+  }
+
+  const seen = new Set<string>();
+  const validIndex: string[] = [];
+
+  // 1. Keep indexed keys that actually have data in storage, preserving order (prunes orphan index entries)
+  for (const key of currentIndex) {
+    if (actualDataKeys.has(key) && !seen.has(key) && key !== activeKey) {
+      seen.add(key);
+      validIndex.push(key);
+    }
+  }
+
+  // 2. Adopt unindexed stored keys (recovers orphan data entries from concurrent multi-window writes)
+  for (const dataKey of actualDataKeys) {
+    if (!seen.has(dataKey) && dataKey !== activeKey) {
+      seen.add(dataKey);
+      validIndex.unshift(dataKey);
+    }
+  }
+
+  // 3. Place activeKey at the most-recent end
+  if (activeKey) {
+    validIndex.push(activeKey);
+  }
+
+  return validIndex;
+}
+
 function touchStorageKey(cacheKey: string) {
-  const index = loadStorageIndex().filter((key) => key !== cacheKey);
-  index.push(cacheKey);
+  const index = reconcileStorageIndex(cacheKey);
   while (index.length > DATA_GRID_COLUMN_WIDTH_STATE_LIMIT) {
     const oldest = index.shift();
     if (oldest) safeLocalStorageRemove(`${STORAGE_PREFIX}${oldest}`);
@@ -67,14 +112,20 @@ function touchStorageKey(cacheKey: string) {
 }
 
 function removeStorageKey(cacheKey: string) {
+  safeLocalStorageRemove(`${STORAGE_PREFIX}${cacheKey}`);
   const index = loadStorageIndex().filter((key) => key !== cacheKey);
   saveStorageIndex(index);
-  safeLocalStorageRemove(`${STORAGE_PREFIX}${cacheKey}`);
 }
 
 function loadPersistentDataGridColumnWidthState(cacheKey: string): DataGridColumnWidthState | undefined {
   const raw = safeLocalStorageGet(`${STORAGE_PREFIX}${cacheKey}`);
-  if (!raw) return undefined;
+  if (!raw) {
+    const index = loadStorageIndex();
+    if (index.includes(cacheKey)) {
+      saveStorageIndex(index.filter((key) => key !== cacheKey));
+    }
+    return undefined;
+  }
   try {
     const parsed = JSON.parse(raw) as Partial<StoredDataGridColumnWidthState>;
     if (parsed.version !== 1 || typeof parsed.structureSignature !== "string" || typeof parsed.measurementSignature !== "string" || !Array.isArray(parsed.widths) || !Array.isArray(parsed.userSizedColumnIndexes)) {
@@ -129,6 +180,12 @@ function removePersistentDataGridColumnWidthState(cacheKey: string) {
 }
 
 function clearPersistentDataGridColumnWidthStates() {
+  const allKeys = safeLocalStorageKeys();
+  for (const key of allKeys) {
+    if (key.startsWith(STORAGE_PREFIX)) {
+      safeLocalStorageRemove(key);
+    }
+  }
   const index = loadStorageIndex();
   for (const key of index) {
     safeLocalStorageRemove(`${STORAGE_PREFIX}${key}`);
@@ -273,4 +330,14 @@ export function clearDataGridColumnWidthStates() {
 
 export function dataGridColumnWidthStateCount(): number {
   return columnWidthStates.size;
+}
+
+export function reconcileDataGridColumnWidthStorageIndex(): string[] {
+  const index = reconcileStorageIndex();
+  while (index.length > DATA_GRID_COLUMN_WIDTH_STATE_LIMIT) {
+    const oldest = index.shift();
+    if (oldest) safeLocalStorageRemove(`${STORAGE_PREFIX}${oldest}`);
+  }
+  saveStorageIndex(index);
+  return index;
 }
