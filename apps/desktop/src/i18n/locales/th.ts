@@ -2994,6 +2994,8 @@ export default withEnglishFallback({
     columnVisibility: "คอลัมน์",
     autoFitColumnWidths: "ปรับคอลัมน์ให้พอดีกับเนื้อหา",
     autoFitColumnWidthsHint: "ปรับทุกคอลัมน์ที่มองเห็นให้พอดีกับสิ่งที่เซลล์แสดง คุณยังลากขอบคอลัมน์ได้ภายหลัง",
+    clearRememberedColumnWidths: "ล้างความกว้างคอลัมน์ที่จำไว้",
+    clearRememberedColumnWidthsHint: "ล้างการปรับด้วยตนเองและคืนค่าการคำนวณความกว้างคอลัมน์อัตโนมัติ",
     columnVisibilityHint: "ต้องมีคอลัมน์ที่มองเห็นอย่างน้อยหนึ่งคอลัมน์",
     columnReorderHint: "ลากเพื่อจัดลำดับคอลัมน์ใหม่",
     columnReorderSearchHint: "ล้างการค้นหาเพื่อจัดลำดับคอลัมน์ใหม่",

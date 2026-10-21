@@ -2221,6 +2221,8 @@ export default withEnglishFallback({
     columnVisibility: "Sütunlar",
     autoFitColumnWidths: "İçeriğe sığdır",
     autoFitColumnWidthsHint: "Görünen tüm sütunları hücre içeriğine göre ayarlar. Ardından sütun kenarını yine sürükleyebilirsiniz.",
+    clearRememberedColumnWidths: "Hatırlanan sütun genişliklerini temizle",
+    clearRememberedColumnWidthsHint: "Manuel ayarlamaları temizler ve otomatik sütun genişliği hesaplamasını geri yükler.",
     columnVisibilityHint: "En az bir sütun görünür kalır.",
     columnReorderHint: "Sütunları yeniden sıralamak için sürükleyin.",
     columnReorderSearchHint: "Sütunları yeniden sıralamak için aramayı temizleyin.",

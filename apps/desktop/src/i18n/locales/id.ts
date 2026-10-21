@@ -2529,6 +2529,8 @@ export default withEnglishFallback({
     columnVisibility: "Kolom",
     autoFitColumnWidths: "Sesuaikan kolom dengan konten",
     autoFitColumnWidthsHint: "Mengatur ukuran setiap kolom yang terlihat sesuai isi selnya. Anda masih bisa menyeret batas kolom setelahnya.",
+    clearRememberedColumnWidths: "Hapus lebar kolom tersimpan",
+    clearRememberedColumnWidthsHint: "Hapus penyesuaian manual dan pulihkan perhitungan lebar kolom otomatis.",
     columnVisibilityHint: "Minimal satu kolom tetap terlihat.",
     columnReorderHint: "Seret untuk mengurutkan ulang kolom.",
     columnReorderSearchHint: "Hapus pencarian untuk mengurutkan ulang kolom.",

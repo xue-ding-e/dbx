@@ -2609,6 +2609,8 @@ export default withEnglishFallback({
     columnVisibility: "Kolumny",
     autoFitColumnWidths: "Dopasuj szerokość kolumn do zawartości",
     autoFitColumnWidthsHint: "Dopasowuje szerokość każdej widocznej kolumny do jej zawartości. Nadal możesz przeciągać granice kolumn.",
+    clearRememberedColumnWidths: "Wyczyść zapamiętane szerokości kolumn",
+    clearRememberedColumnWidthsHint: "Usuwa ręczne dopasowania i przywraca automatyczne obliczanie szerokości kolumn.",
     columnVisibilityHint: "Co najmniej jedna kolumna musi pozostać widoczna.",
     columnReorderHint: "Przeciągnij, aby zmienić kolejność kolumn.",
     columnReorderSearchHint: "Wyczyść wyszukiwanie, aby zmienić kolejność kolumn.",

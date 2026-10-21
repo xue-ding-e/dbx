@@ -2797,6 +2797,8 @@ export default withEnglishFallback({
     columnVisibility: "Столбцы",
     autoFitColumnWidths: "Подогнать столбцы по содержимому",
     autoFitColumnWidthsHint: "Подбирает ширину каждого видимого столбца по его содержимому. После этого границу столбца всё ещё можно перетаскивать.",
+    clearRememberedColumnWidths: "Очистить сохраненную ширину столбцов",
+    clearRememberedColumnWidthsHint: "Сбросить ручные изменения и вернуть автоматический расчет ширины столбцов.",
     columnVisibilityHint: "Хотя бы один столбец останется видимым.",
     columnReorderHint: "Перетащите, чтобы изменить порядок столбцов.",
     columnReorderSearchHint: "Очистите поиск, чтобы изменить порядок столбцов.",

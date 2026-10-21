@@ -2229,6 +2229,8 @@ export default withEnglishFallback({
     columnVisibility: "Sütunlar",
     autoFitColumnWidths: "Məzmuna uyğunlaşdır",
     autoFitColumnWidthsHint: "Bütün görünən sütunları xana məzmununa uyğun ölçüləndirir. Sonra da sütun kənarını sürükləyə bilərsiniz.",
+    clearRememberedColumnWidths: "Yadda saxlanmış sütun enini təmizlə",
+    clearRememberedColumnWidthsHint: "Manual düzəlişləri təmizləyir və avtomatik sütun eni hesablamasını bərpa edir.",
     columnVisibilityHint: "Ən azı bir sütun görünən qalır.",
     columnReorderHint: "Sütunların sırasını dəyişmək üçün sürükləyin.",
     columnReorderSearchHint: "Sütunların sırasını dəyişmək üçün axtarışı təmizləyin.",

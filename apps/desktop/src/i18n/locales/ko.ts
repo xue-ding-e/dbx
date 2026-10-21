@@ -2674,6 +2674,8 @@ export default withEnglishFallback({
     columnVisibility: "컬럼",
     autoFitColumnWidths: "내용에 맞게 맞춤",
     autoFitColumnWidthsHint: "표시된 모든 열을 셀 내용에 맞게 조정합니다. 이후에도 열 경계를 드래그할 수 있습니다.",
+    clearRememberedColumnWidths: "기억된 열 너비 지우기",
+    clearRememberedColumnWidthsHint: "수동 조정을 지우고 열 너비 자동 계산으로 복원합니다.",
     columnVisibilityHint: "최소 한 개의 컬럼은 표시 상태를 유지합니다.",
     columnReorderHint: "드래그하여 컬럼 순서를 변경합니다.",
     columnReorderSearchHint: "컬럼 순서를 변경하려면 검색을 지우세요.",

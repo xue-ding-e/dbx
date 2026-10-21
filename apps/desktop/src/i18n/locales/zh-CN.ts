@@ -2981,6 +2981,8 @@ export default withEnglishFallback({
     columnVisibility: "字段筛选",
     autoFitColumnWidths: "自动适配列宽",
     autoFitColumnWidthsHint: "按单元格内容调整所有可见列的宽度；之后仍可拖拽列边界手动微调。",
+    clearRememberedColumnWidths: "清除记忆列宽",
+    clearRememberedColumnWidthsHint: "清除手动调整并恢复列宽自动计算。",
     columnVisibilityHint: "至少保留一列可见。",
     columnReorderHint: "拖动可调整字段顺序。",
     columnReorderSearchHint: "清除搜索后可调整字段顺序。",

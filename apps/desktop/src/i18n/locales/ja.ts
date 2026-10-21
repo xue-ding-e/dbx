@@ -2591,6 +2591,8 @@ export default withEnglishFallback({
     columnVisibility: "列",
     autoFitColumnWidths: "内容に合わせて調整",
     autoFitColumnWidthsHint: "表示中のすべての列をセルの内容に合わせて調整します。その後も列の境界をドラッグできます。",
+    clearRememberedColumnWidths: "記憶した列幅をクリア",
+    clearRememberedColumnWidthsHint: "手動で調整した幅をクリアし、自動計算に戻します。",
     columnVisibilityHint: "少なくとも1列は表示されます。",
     columnReorderHint: "ドラッグして列の順序を変更します。",
     columnReorderSearchHint: "列の順序を変更するには検索をクリアしてください。",

@@ -3049,6 +3049,8 @@ export default {
     columnVisibility: "Columns",
     autoFitColumnWidths: "Fit columns to content",
     autoFitColumnWidthsHint: "Sizes every visible column to what its cells show. You can still drag a column border afterwards.",
+    clearRememberedColumnWidths: "Clear remembered column widths",
+    clearRememberedColumnWidthsHint: "Clear manual adjustments and restore automatic column width calculation.",
     columnVisibilityHint: "At least one column stays visible.",
     columnReorderHint: "Drag to reorder columns.",
     columnReorderSearchHint: "Clear the search to reorder columns.",

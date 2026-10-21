@@ -2688,6 +2688,8 @@ export default withEnglishFallback({
     columnVisibility: "Columnas",
     autoFitColumnWidths: "Ajustar al contenido",
     autoFitColumnWidthsHint: "Ajusta cada columna visible al contenido de sus celdas. Después puedes arrastrar el borde de la columna.",
+    clearRememberedColumnWidths: "Borrar anchos de columna recordados",
+    clearRememberedColumnWidthsHint: "Borra los ajustes manuales y restaura el cálculo automático del ancho de columna.",
     columnVisibilityHint: "Al menos una columna permanece visible.",
     columnReorderHint: "Arrastra para reordenar las columnas.",
     columnReorderSearchHint: "Borra la búsqueda para reordenar las columnas.",
