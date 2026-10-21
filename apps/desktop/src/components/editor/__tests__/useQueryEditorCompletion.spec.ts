@@ -654,3 +654,59 @@ sf`,
     }
   }, 8000);
 });
+
+describe("quoted identifier completion results (issue #12008)", () => {
+  // The editor hands CodeMirror the replacement span including the opening
+  // quote; CodeMirror then filters labels against that raw span. Quote-prefixed
+  // spans match no identifier label, so the provider must take over filtering
+  // or the menu renders empty even though the candidates are correct.
+  it.each([
+    ["mysql", "SELECT * FROM `test_"],
+    ["postgres", 'SELECT * FROM "test_'],
+    ["sqlserver", "SELECT * FROM [test_"],
+  ] as const)(
+    "returns a self-filtering result for a quoted identifier in %s",
+    async (databaseType, sql) => {
+      vi.useRealTimers();
+      try {
+        // Production runs with semantic completion on; the legacy context path is
+        // a separate code path with its own coverage.
+        const { provide, store } = createHarness({ databaseType, dialect: databaseType, modelValue: sql }, undefined, true);
+        store.lookupLocalCompletionTables.mockReturnValue([{ name: "test_table" }, { name: "other_table" }]);
+        store.listCompletionTables.mockResolvedValue([{ name: "test_table" }, { name: "other_table" }]);
+
+        const result = await provide();
+
+        expect(result).not.toBeNull();
+        // The raw span CodeMirror would match on is quote-prefixed...
+        expect(sql.slice(result!.from)).toBe(sql.slice(sql.lastIndexOf("test_") - 1));
+        // ...so the provider disables CodeMirror's matcher and ranks the matches itself.
+        expect((result as { filter?: boolean }).filter).toBe(false);
+        expect(result!.validFor).toBeUndefined();
+        const labels = result!.options.map((option) => option.label);
+        expect(labels).toContain("test_table");
+        expect(labels).not.toContain("other_table");
+      } finally {
+        vi.useFakeTimers();
+      }
+    },
+    8000,
+  );
+
+  it("keeps CodeMirror's matcher enabled for a bare identifier prefix", async () => {
+    vi.useRealTimers();
+    try {
+      // INSERT has no independent table-alias candidates that need matcher bypass.
+      const { provide, store } = createHarness({ databaseType: "mysql", dialect: "mysql", modelValue: "INSERT INTO test_" }, undefined, true);
+      store.lookupLocalCompletionTables.mockReturnValue([{ name: "test_table" }]);
+      store.listCompletionTables.mockResolvedValue([{ name: "test_table" }]);
+
+      const result = await provide();
+
+      expect(result).not.toBeNull();
+      expect((result as { filter?: boolean }).filter).toBeUndefined();
+    } finally {
+      vi.useFakeTimers();
+    }
+  }, 8000);
+});
