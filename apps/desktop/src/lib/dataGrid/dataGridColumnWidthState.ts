@@ -10,6 +10,7 @@ interface DataGridColumnWidthState {
   measurementSignature: string;
   widthsByColumnIndex: Map<number, number>;
   userSizedColumnIndexes: Set<number>;
+  autoFittedColumnIndexes?: Set<number>;
 }
 
 interface StoredDataGridColumnWidthState {
@@ -18,6 +19,7 @@ interface StoredDataGridColumnWidthState {
   measurementSignature: string;
   widths: Array<[number, number]>;
   userSizedColumnIndexes: number[];
+  autoFittedColumnIndexes?: number[];
 }
 
 interface DataGridColumnWidthStateIdentity {
@@ -29,6 +31,7 @@ interface DataGridColumnWidthStateIdentity {
 export interface DataGridColumnWidthStateSnapshot {
   widths: Array<number | undefined>;
   userSizedColumnIndexes: Set<number>;
+  autoFittedColumnIndexes?: Set<number>;
 }
 
 const columnWidthStates = new Map<string, DataGridColumnWidthState>();
@@ -88,12 +91,19 @@ function loadPersistentDataGridColumnWidthState(cacheKey: string): DataGridColum
     for (const index of parsed.userSizedColumnIndexes) {
       if (typeof index === "number") userSizedColumnIndexes.add(index);
     }
+    const autoFittedColumnIndexes = new Set<number>();
+    if (Array.isArray(parsed.autoFittedColumnIndexes)) {
+      for (const index of parsed.autoFittedColumnIndexes) {
+        if (typeof index === "number") autoFittedColumnIndexes.add(index);
+      }
+    }
     touchStorageKey(cacheKey);
     return {
       structureSignature: parsed.structureSignature,
       measurementSignature: parsed.measurementSignature,
       widthsByColumnIndex,
       userSizedColumnIndexes,
+      autoFittedColumnIndexes,
     };
   } catch {
     removeStorageKey(cacheKey);
@@ -108,6 +118,7 @@ function savePersistentDataGridColumnWidthState(cacheKey: string, state: DataGri
     measurementSignature: state.measurementSignature,
     widths: Array.from(state.widthsByColumnIndex.entries()),
     userSizedColumnIndexes: Array.from(state.userSizedColumnIndexes),
+    ...(state.autoFittedColumnIndexes && state.autoFittedColumnIndexes.size > 0 ? { autoFittedColumnIndexes: Array.from(state.autoFittedColumnIndexes) } : {}),
   };
   safeLocalStorageSet(`${STORAGE_PREFIX}${cacheKey}`, JSON.stringify(payload));
   touchStorageKey(cacheKey);
@@ -144,35 +155,95 @@ export function loadDataGridColumnWidthState(identity: DataGridColumnWidthStateI
     }
   }
   if (!state) return undefined;
-  if (state.structureSignature !== identity.structureSignature || state.measurementSignature !== identity.measurementSignature) {
+  if (state.structureSignature !== identity.structureSignature) {
     columnWidthStates.delete(cacheKey);
     removePersistentDataGridColumnWidthState(cacheKey);
     return undefined;
+  }
+  if (state.measurementSignature !== identity.measurementSignature) {
+    if (state.userSizedColumnIndexes.size === 0) {
+      columnWidthStates.delete(cacheKey);
+      removePersistentDataGridColumnWidthState(cacheKey);
+      return undefined;
+    }
+    const userWidthsByColumnIndex = new Map<number, number>();
+    for (const columnIndex of state.userSizedColumnIndexes) {
+      const width = state.widthsByColumnIndex.get(columnIndex);
+      if (width !== undefined && Number.isFinite(width)) {
+        userWidthsByColumnIndex.set(columnIndex, width);
+      }
+    }
+    if (userWidthsByColumnIndex.size === 0) {
+      columnWidthStates.delete(cacheKey);
+      removePersistentDataGridColumnWidthState(cacheKey);
+      return undefined;
+    }
+    state.measurementSignature = identity.measurementSignature;
+    state.widthsByColumnIndex = userWidthsByColumnIndex;
+    state.autoFittedColumnIndexes?.clear();
+    touchColumnWidthState(cacheKey, state);
+    savePersistentDataGridColumnWidthState(cacheKey, state);
+    return {
+      widths: columnIndexes.map((columnIndex) => (state.userSizedColumnIndexes.has(columnIndex) ? state.widthsByColumnIndex.get(columnIndex) : undefined)),
+      userSizedColumnIndexes: new Set(state.userSizedColumnIndexes),
+      autoFittedColumnIndexes: new Set(),
+    };
   }
   touchColumnWidthState(cacheKey, state);
   return {
     widths: columnIndexes.map((columnIndex) => state.widthsByColumnIndex.get(columnIndex)),
     userSizedColumnIndexes: new Set(state.userSizedColumnIndexes),
+    autoFittedColumnIndexes: new Set(state.autoFittedColumnIndexes ?? []),
   };
 }
 
-export function saveDataGridColumnWidthState(identity: DataGridColumnWidthStateIdentity, columnIndexes: readonly number[], widths: readonly number[], userSizedColumnIndexes: ReadonlySet<number>) {
+export function saveDataGridColumnWidthState(identity: DataGridColumnWidthStateIdentity, columnIndexes: readonly number[], widths: readonly number[], userSizedColumnIndexes: ReadonlySet<number>, autoFittedColumnIndexes?: ReadonlySet<number>) {
   const cacheKey = identity.cacheKey?.trim();
   if (!cacheKey || columnIndexes.length !== widths.length) return;
   const existing = columnWidthStates.get(cacheKey) ?? loadPersistentDataGridColumnWidthState(cacheKey);
-  const widthsByColumnIndex = existing?.structureSignature === identity.structureSignature && existing.measurementSignature === identity.measurementSignature ? new Map(existing.widthsByColumnIndex) : new Map<number, number>();
-  const nextUserSizedColumnIndexes = existing?.structureSignature === identity.structureSignature && existing.measurementSignature === identity.measurementSignature ? new Set(existing.userSizedColumnIndexes) : new Set<number>();
+  const sameStructure = existing?.structureSignature === identity.structureSignature;
+  const sameMeasurement = existing?.measurementSignature === identity.measurementSignature;
+  const widthsByColumnIndex = new Map<number, number>();
+  const nextUserSizedColumnIndexes = new Set<number>();
+  const nextAutoFittedColumnIndexes = new Set<number>();
+
+  if (sameStructure && existing) {
+    for (const [columnIndex, width] of existing.widthsByColumnIndex) {
+      if (sameMeasurement || existing.userSizedColumnIndexes.has(columnIndex)) {
+        widthsByColumnIndex.set(columnIndex, width);
+      }
+    }
+    for (const columnIndex of existing.userSizedColumnIndexes) {
+      nextUserSizedColumnIndexes.add(columnIndex);
+    }
+    if (sameMeasurement && existing.autoFittedColumnIndexes) {
+      for (const columnIndex of existing.autoFittedColumnIndexes) {
+        nextAutoFittedColumnIndexes.add(columnIndex);
+      }
+    }
+  }
+
   columnIndexes.forEach((columnIndex, visibleIndex) => {
     const width = widths[visibleIndex];
     if (Number.isFinite(width)) widthsByColumnIndex.set(columnIndex, width);
-    if (userSizedColumnIndexes.has(columnIndex)) nextUserSizedColumnIndexes.add(columnIndex);
-    else nextUserSizedColumnIndexes.delete(columnIndex);
+    if (userSizedColumnIndexes.has(columnIndex)) {
+      nextUserSizedColumnIndexes.add(columnIndex);
+      nextAutoFittedColumnIndexes.delete(columnIndex);
+    } else {
+      nextUserSizedColumnIndexes.delete(columnIndex);
+    }
+    if (autoFittedColumnIndexes?.has(columnIndex)) {
+      nextAutoFittedColumnIndexes.add(columnIndex);
+    } else if (autoFittedColumnIndexes !== undefined) {
+      nextAutoFittedColumnIndexes.delete(columnIndex);
+    }
   });
   const nextState: DataGridColumnWidthState = {
     structureSignature: identity.structureSignature,
     measurementSignature: identity.measurementSignature,
     widthsByColumnIndex,
     userSizedColumnIndexes: nextUserSizedColumnIndexes,
+    autoFittedColumnIndexes: nextAutoFittedColumnIndexes,
   };
   touchColumnWidthState(cacheKey, nextState);
   if (nextUserSizedColumnIndexes.size > 0) {

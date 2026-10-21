@@ -65,12 +65,25 @@ describe("dataGridColumnWidthState", () => {
     expect(loaded).toBeUndefined();
   });
 
-  it("rejects persisted widths when measurement signature does not match", () => {
+  it("invalidates auto-calculated widths but retains user-sized widths across measurement changes", () => {
     const identity = { cacheKey: "result-font-change", structureSignature, measurementSignature };
     saveDataGridColumnWidthState(identity, [0, 1], [100, 200], new Set([1]));
 
     const differentMeasurement = createDataGridColumnMeasurementSignature("standard", true, [16, "Roboto"]);
     const loaded = loadDataGridColumnWidthState({ cacheKey: "result-font-change", structureSignature, measurementSignature: differentMeasurement }, [0, 1]);
+    expect(loaded).toEqual({
+      widths: [undefined, 200],
+      userSizedColumnIndexes: new Set([1]),
+      autoFittedColumnIndexes: new Set(),
+    });
+  });
+
+  it("completely invalidates cached widths when measurement changes and no columns are user-sized", () => {
+    const identity = { cacheKey: "result-font-change-auto-only", structureSignature, measurementSignature };
+    saveDataGridColumnWidthState(identity, [0, 1], [100, 200], new Set());
+
+    const differentMeasurement = createDataGridColumnMeasurementSignature("standard", true, [16, "Roboto"]);
+    const loaded = loadDataGridColumnWidthState({ cacheKey: "result-font-change-auto-only", structureSignature, measurementSignature: differentMeasurement }, [0, 1]);
     expect(loaded).toBeUndefined();
   });
 
