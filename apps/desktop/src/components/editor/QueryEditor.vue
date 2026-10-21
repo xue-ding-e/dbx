@@ -283,17 +283,18 @@ const liveFontSize = ref(settingsStore.editorSettings.fontSize);
 const gestureStartFontSize = ref(settingsStore.editorSettings.fontSize);
 const isGestureZooming = ref(false);
 
-const { pickerVisible, pickerCandidates, pickerActiveIndex, pickerAnchor, captureExecutionSnapshot, requestExecute, requestExecuteInNewResultTab, onPickerActiveIndexChange, onPickerConfirm, closePicker, sqlExecutionSnapshotFromView, sqlExecutionSnapshotForRange } = useQueryEditorExecution({
-  props,
-  view,
-  editorRef,
-  settingsStore,
-  executionViewportOwnership,
-  sqlStatementParameterOptions,
-  setPreviewRange,
-  emitExecutionRequest,
-  onExecute: (source) => emit("execute", source),
-});
+const { pickerVisible, pickerCandidates, pickerActiveIndex, pickerAnchor, captureExecutionSnapshot, requestExecute, requestExecuteAll, requestExecuteInNewResultTab, onPickerActiveIndexChange, onPickerConfirm, closePicker, sqlExecutionSnapshotFromView, sqlExecutionSnapshotForRange } =
+  useQueryEditorExecution({
+    props,
+    view,
+    editorRef,
+    settingsStore,
+    executionViewportOwnership,
+    sqlStatementParameterOptions,
+    setPreviewRange,
+    emitExecutionRequest,
+    onExecute: (source) => emit("execute", source),
+  });
 
 const searchPanelRef = ref<InstanceType<typeof EditorSearchPanel>>();
 const gotoLinePanelRef = ref<InstanceType<typeof EditorGotoLinePanel>>();
@@ -989,6 +990,12 @@ function executeFromContextMenu() {
   focusEditor();
 }
 
+function executeAllFromContextMenu() {
+  if (!canExecuteContextSql.value) return;
+  requestExecuteAll();
+  focusEditor();
+}
+
 function executeInNewResultTabFromContextMenu() {
   if (!canExecuteContextSql.value) return;
   requestExecuteInNewResultTab();
@@ -1261,6 +1268,7 @@ function navigateStatementFromView(currentView: EditorViewType, direction: State
 
 const contextMenuActions: QueryEditorContextMenuActions = {
   executeFromContextMenu,
+  executeAllFromContextMenu,
   executeInNewResultTabFromContextMenu,
   explainFromContextMenu,
   requestPreviewChanges,
@@ -1347,6 +1355,14 @@ function runKeymapExtension(codeMirrorKeymap: (typeof import("@codemirror/view")
     : createQueryEditorExecutionShortcutBindings(
         shortcuts.executeSql,
         () => requestExecute({ bypassPicker: true }),
+        (currentView) => shouldBlockExecutionShortcut(undefined, currentView),
+        () => !props.isExecuting,
+      );
+  const executeAllBindings = props.hideExecutionControls
+    ? []
+    : createQueryEditorExecutionShortcutBindings(
+        shortcuts.executeAllSql,
+        () => requestExecuteAll(),
         (currentView) => shouldBlockExecutionShortcut(undefined, currentView),
         () => !props.isExecuting,
       );
@@ -1439,6 +1455,7 @@ function runKeymapExtension(codeMirrorKeymap: (typeof import("@codemirror/view")
         ...binding(shortcuts.gotoLine, openGotoLine),
         ...replaceShortcutBindings,
         ...executeInNewResultTabBindings,
+        ...executeAllBindings,
         ...executeBindings,
         ...explainBindings,
         ...binding(shortcuts.saveSql, () => {
@@ -3044,6 +3061,7 @@ defineExpose({
   cancelGutterExecutionViewport,
   shouldBlockExecutionShortcut,
   requestExecute,
+  requestExecuteAll,
   requestExecuteInNewResultTab,
   requestPreviewChanges,
   captureExecutionSnapshot,

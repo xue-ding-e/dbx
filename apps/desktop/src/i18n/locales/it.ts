@@ -666,6 +666,7 @@ export default withEnglishFallback({
     alwaysOnTopOff: "Non mantenere in primo piano",
     blockDangerousRedisCommands: "Blocca comandi pericolosi",
     multiDbExecute: "Esecuzione multi-DB",
+    executeAllSql: "Esegui tutto il SQL",
   },
   multiDbExecute: {
     manualTransaction: "Transazione manuale",
@@ -9338,6 +9339,7 @@ export default withEnglishFallback({
     tabGroupRowsSingle: "Riga singola",
     tabGroupRowsTwoRow: "Due righe (gruppi su una riga dedicata)",
     tabGroupRowsDescription: "Si applica solo a una barra delle schede superiore o inferiore con raggruppamento attivo: i gruppi occupano una riga dedicata e le schede del gruppo selezionato compaiono nella riga successiva.",
+    shortcutExecuteAllSql: "Esegui tutto il SQL",
   },
   driverStore: {
     jreDirRemoveFailed: "Impossibile rimuovere la vecchia directory JRE: {path} (errore originale: {error})",

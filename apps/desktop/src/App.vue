@@ -140,6 +140,7 @@ import {
   isDisconnectAllActiveConnectionsShortcut,
   isEditTableStructureShortcut,
   isExecuteSqlInNewResultTabShortcut,
+  isExecuteAllSqlShortcut,
   isExecuteSqlShortcut,
   isDefaultQueryShortcutTarget,
   isFocusSearchShortcut,
@@ -1119,6 +1120,14 @@ function requestActiveEditorExecute(source?: "pointer" | "keyboard", tabId?: str
   void tryExecute(undefined, targetTabId ? { tabId: targetTabId } : undefined);
 }
 
+function requestActiveEditorExecuteAll(_source?: "pointer" | "keyboard", tabId?: string) {
+  pendingToolbarExecutionSnapshot.value = undefined;
+  const targetTabId = tabId ?? activeTab.value?.id;
+  if (contentAreaRef.value?.requestQueryEditorExecuteAll?.(targetTabId)) return;
+  const tab = targetTabId ? queryStore.tabs.find((t) => t.id === targetTabId) : activeTab.value;
+  void tryExecute(tab?.sql ?? undefined, targetTabId ? { tabId: targetTabId } : undefined);
+}
+
 function requestActiveEditorExecuteInNewResultTab(source?: "pointer" | "keyboard", tabId?: string) {
   const snapshot = pendingToolbarExecutionSnapshot.value;
   pendingToolbarExecutionSnapshot.value = undefined;
@@ -1179,6 +1188,7 @@ provide(EDITOR_TOOLBAR_ACTIONS, {
   connectionRequiredSignalFor: (tabId: string) => (connectionRequiredTabId.value === tabId ? connectionRequiredSignal.value : 0),
   captureExecutionSnapshot: captureActiveEditorExecutionSnapshot,
   toolbarExecute: requestActiveEditorExecute,
+  toolbarExecuteAll: requestActiveEditorExecuteAll,
   toolbarExecuteInNewResultTab: requestActiveEditorExecuteInNewResultTab,
   cancelExecution: (tabId: string) => cancelActiveExecution(tabId),
   explain: (tabId: string) => tryExplain(undefined, { tabId }),
@@ -4851,6 +4861,12 @@ async function handleKeydown(e: KeyboardEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (!e.repeat && !activeTab.value.isExecuting && !contentAreaRef.value?.shouldBlockQueryEditorExecutionShortcut?.(e)) requestActiveEditorExecuteInNewResultTab();
+    return;
+  }
+  if (activeTab.value?.mode === "query" && isExecuteAllSqlShortcut(e, shortcuts) && e.target instanceof Element && e.target.closest("[data-query-editor-root]")) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.repeat && !activeTab.value.isExecuting && !contentAreaRef.value?.shouldBlockQueryEditorExecutionShortcut?.(e)) requestActiveEditorExecuteAll();
     return;
   }
   if (activeTab.value?.mode === "query" && isExecuteSqlShortcut(e, shortcuts) && e.target instanceof Element && e.target.closest("[data-query-editor-root]")) {

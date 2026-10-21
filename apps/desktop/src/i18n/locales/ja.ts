@@ -667,6 +667,7 @@ export default withEnglishFallback({
     alwaysOnTopOff: "手前表示を解除",
     blockDangerousRedisCommands: "危険なコマンドをブロック",
     multiDbExecute: "複数DB実行",
+    executeAllSql: "すべての SQL を実行",
   },
   multiDbExecute: {
     manualTransaction: "手動トランザクション",
@@ -9375,6 +9376,7 @@ export default withEnglishFallback({
     tabGroupRowsSingle: "1行",
     tabGroupRowsTwoRow: "2行（グループを独立した行に表示）",
     tabGroupRowsDescription: "タブバーが上または下に配置されていて、グループ化が有効な場合にのみ適用されます。グループは専用の行に表示され、選択したグループのタブは次の行に表示されます。",
+    shortcutExecuteAllSql: "すべての SQL を実行",
   },
   driverStore: {
     jreDirRemoveFailed: "古い JRE ディレクトリを削除できませんでした: {path}（元のエラー: {error}）",

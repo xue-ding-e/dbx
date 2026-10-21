@@ -676,6 +676,7 @@ export default withEnglishFallback({
     alwaysOnTopOff: "No mantener encima",
     blockDangerousRedisCommands: "Bloquear comandos peligrosos",
     multiDbExecute: "Ejecución multi-base de datos",
+    executeAllSql: "Ejecutar todo el SQL",
   },
   multiDbExecute: {
     manualTransaction: "Transacción manual",
@@ -9589,6 +9590,7 @@ export default withEnglishFallback({
     tabGroupRowsSingle: "Una fila",
     tabGroupRowsTwoRow: "Dos filas (grupos en su propia fila)",
     tabGroupRowsDescription: "Solo se aplica a una barra de pestañas superior o inferior con la agrupación activada: los grupos ocupan su propia fila y las pestañas del grupo seleccionado aparecen en la fila siguiente.",
+    shortcutExecuteAllSql: "Ejecutar todo el SQL",
   },
   driverStore: {
     jreDirRemoveFailed: "No se pudo eliminar el directorio JRE antiguo: {path} (error original: {error})",

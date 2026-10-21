@@ -794,6 +794,7 @@ export default withEnglishFallback({
     alwaysOnTopOff: "ไม่ให้อยู่ด้านบน",
     blockDangerousRedisCommands: "บล็อกคำสั่งที่มีความเสี่ยง",
     multiDbExecute: "การเรียกใช้หลายฐานข้อมูล",
+    executeAllSql: "เรียกใช้ SQL ทั้งหมด",
   },
   multiDbExecute: {
     manualTransaction: "Transaction แบบ Manual",
@@ -11184,6 +11185,7 @@ export default withEnglishFallback({
     tabGroupRowsSingle: "แถวเดียว",
     tabGroupRowsTwoRow: "สองแถว (กลุ่มแสดงในแถวของตัวเอง)",
     tabGroupRowsDescription: "ใช้เฉพาะเมื่อแถบแท็บอยู่ด้านบนหรือด้านล่างและเปิดใช้งานการจัดกลุ่ม: กลุ่มจะแสดงในแถวของตัวเอง และแท็บของกลุ่มที่เลือกจะแสดงในแถวถัดไป",
+    shortcutExecuteAllSql: "เรียกใช้ SQL ทั้งหมด",
   },
   driverStore: {
     jreDirRemoveFailed: "ลบไดเรกทอรี JRE เก่าไม่สำเร็จ: {path} (ข้อผิดพลาดเดิม: {error})",

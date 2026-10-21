@@ -673,6 +673,7 @@ export default withEnglishFallback({
     blockDangerousRedisCommands: "위험한 명령 차단",
     saveSqlFile: "원본 파일에 저장",
     pluginCenter: "플러그인 센터",
+    executeAllSql: "모든 SQL 실행",
   },
   multiDbExecute: {
     manualTransaction: "수동 트랜잭션",
@@ -9278,6 +9279,7 @@ export default withEnglishFallback({
     tabGroupRowsSingle: "한 줄",
     tabGroupRowsTwoRow: "두 줄 (그룹을 별도 줄에 표시)",
     tabGroupRowsDescription: "탭 표시줄이 위쪽 또는 아래쪽에 있고 그룹화가 활성화된 경우에만 적용됩니다. 그룹은 별도의 줄에 표시되고 선택한 그룹의 탭은 다음 줄에 표시됩니다.",
+    shortcutExecuteAllSql: "모든 SQL 실행",
   },
   driverStore: {
     jreDirRemoveFailed: "이전 JRE 디렉터리 제거 실패: {path} (원래 오류: {error})",

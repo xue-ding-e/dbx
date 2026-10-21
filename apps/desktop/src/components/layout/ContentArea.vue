@@ -1836,6 +1836,10 @@ function requestQueryEditorExecute() {
   return queryEditorRef.value?.requestExecute();
 }
 
+function requestQueryEditorExecuteAll() {
+  return queryEditorRef.value?.requestExecuteAll();
+}
+
 function captureQueryEditorExecutionSnapshot() {
   if (!sourceSectionActive.value) return;
   return queryEditorRef.value?.captureExecutionSnapshot();
@@ -2006,6 +2010,7 @@ defineExpose({
   refreshQueryEditorCompletionCache,
   handleModRTarget,
   requestQueryEditorExecute,
+  requestQueryEditorExecuteAll,
   captureQueryEditorExecutionSnapshot,
   requestQueryEditorExecuteInNewResultTab,
   requestQueryEditorPreviewChanges,
