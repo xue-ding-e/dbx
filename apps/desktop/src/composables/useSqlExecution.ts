@@ -426,10 +426,12 @@ export function useSqlExecution(deps: {
   function prepareSqlParameterDialog(sql: string, sourceOffset?: number, options: SqlExecutionOptions = {}, continuation?: (sql: string, sourceOffset?: number) => Promise<void> | void): boolean {
     const connection = resolveExecutionConnection(options.tabId);
     const databaseType = effectiveDatabaseTypeForConnection(connection) ?? connection?.db_type;
-    const toggles = resolveSqlVariableSyntaxToggles(settingsStore.editorSettings.sqlVariableSyntaxOverrides, databaseType, settingsStore.editorSettings.sqlVariableSubstitutionEnabled);
+    const tab = resolveExecutionTab(options.tabId);
+    const compatibilityMode = databaseType === "opengauss" ? (tab ? connectionStore.databaseCompatibilityMode(tab.connectionId, tab.database) : undefined) : databaseType === "kingbase" ? connection?.database_info?.compatibilityMode : undefined;
+    const toggles = resolveSqlVariableSyntaxToggles(settingsStore.editorSettings.sqlVariableSyntaxOverrides, databaseType, settingsStore.editorSettings.sqlVariableSubstitutionEnabled, compatibilityMode);
     const enabledSyntaxes = enabledSqlParameterSyntaxes(toggles);
     const parameterDatabaseType = kingbaseSqlDatabaseType(connection) ?? databaseType;
-    const parameters = extractSqlParameterDescriptors(sql, { databaseType: parameterDatabaseType, enabledSyntaxes });
+    const parameters = extractSqlParameterDescriptors(sql, { databaseType: parameterDatabaseType, compatibilityMode, enabledSyntaxes });
     if (!parameters.length) {
       return false;
     }

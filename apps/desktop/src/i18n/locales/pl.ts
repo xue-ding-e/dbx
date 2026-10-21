@@ -9030,6 +9030,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "Pytaj o wartość do podstawienia dla symboli zastępczych w stylu MyBatis.",
     sqlVariableSyntax_sqlserver: "Symbol zastępczy w stylu SQL Server",
     sqlVariableSyntax_sqlserverDescription: "Pytaj o wartość dla symboli zastępczych w stylu SQL Server (może kolidować ze zmiennymi sesyjnymi).",
+    sqlVariableSyntax_substitution: "Zmienna podstawiania",
+    sqlVariableSyntax_substitutionDescription: "Pytaj o wartość dla zmiennych podstawiania w stylu Oracle (&name i &&name).",
     sqlVariableSyntax_atSet: "Rozwijanie zmiennych w linii",
     sqlVariableSyntax_atSetDescription: "Rozwijaj deklaracje zmiennych w kodzie i podstawiaj ich wartości przed uruchomieniem.",
     tableCompletionSchemaQualification: "Kwalifikacja schematu przy uzupełnianiu tabel",

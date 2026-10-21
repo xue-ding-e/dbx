@@ -9855,6 +9855,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "为 MyBatis 风格占位符提示输入替换值。",
     sqlVariableSyntax_sqlserver: "SQL Server 风格占位符",
     sqlVariableSyntax_sqlserverDescription: "为 SQL Server 风格占位符提示输入替换值（可能与会话变量冲突）。",
+    sqlVariableSyntax_substitution: "替换变量",
+    sqlVariableSyntax_substitutionDescription: "为 Oracle 风格替换变量（&name 与 &&name）提示输入替换值。",
     sqlVariableSyntax_atSet: "内联变量展开",
     sqlVariableSyntax_atSetDescription: "执行前展开内联变量声明并就地代入其值。",
     tableCompletionSchemaQualification: "SQL 表补全的模式限定",

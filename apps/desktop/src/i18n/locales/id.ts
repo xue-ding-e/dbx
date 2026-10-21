@@ -8992,6 +8992,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "Minta nilai untuk mensubstitusi placeholder bergaya MyBatis.",
     sqlVariableSyntax_sqlserver: "Placeholder bergaya SQL Server",
     sqlVariableSyntax_sqlserverDescription: "Minta nilai untuk mensubstitusi placeholder bergaya SQL Server (dapat bertabrakan dengan variabel sesi).",
+    sqlVariableSyntax_substitution: "Variabel substitusi",
+    sqlVariableSyntax_substitutionDescription: "Minta nilai untuk mensubstitusi variabel substitusi bergaya Oracle (&name dan &&name).",
     sqlVariableSyntax_atSet: "Ekspansi variabel inline",
     sqlVariableSyntax_atSetDescription: "Perluas deklarasi variabel inline dan substitusi nilainya sebelum dijalankan.",
     tableCompletionSchemaQualification: "Kualifikasi skema untuk pelengkapan tabel",

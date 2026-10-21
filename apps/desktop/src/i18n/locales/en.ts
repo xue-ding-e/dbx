@@ -9891,6 +9891,8 @@ export default {
     sqlVariableSyntax_mybatisDescription: "Prompt for a value to substitute MyBatis-style placeholders.",
     sqlVariableSyntax_sqlserver: "SQL Server-style placeholder",
     sqlVariableSyntax_sqlserverDescription: "Prompt for a value to substitute SQL Server-style placeholders (may collide with session variables).",
+    sqlVariableSyntax_substitution: "Substitution variable",
+    sqlVariableSyntax_substitutionDescription: "Prompt for a value to substitute Oracle-style substitution variables (&name and &&name).",
     sqlVariableSyntax_atSet: "Inline variable expansion",
     sqlVariableSyntax_atSetDescription: "Expand inline variable declarations and substitute their values before running.",
     tableCompletionSchemaQualification: "Schema qualification for table completion",

@@ -8848,6 +8848,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "Solicita un valor para sustituir los marcadores de estilo MyBatis.",
     sqlVariableSyntax_sqlserver: "Marcador estilo SQL Server",
     sqlVariableSyntax_sqlserverDescription: "Solicita un valor para sustituir los marcadores de estilo SQL Server (pueden entrar en conflicto con variables de sesión).",
+    sqlVariableSyntax_substitution: "Variable de sustitución",
+    sqlVariableSyntax_substitutionDescription: "Solicita un valor para sustituir variables de sustitución estilo Oracle (&name y &&name).",
     sqlVariableSyntax_atSet: "Expansión de variables en línea",
     sqlVariableSyntax_atSetDescription: "Expande las declaraciones de variables en línea y sustituye sus valores antes de ejecutar.",
     tableCompletionSchemaQualification: "Calificación de esquema al completar tablas",

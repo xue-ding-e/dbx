@@ -8609,6 +8609,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "Solicita um valor para substituir os espaços reservados de estilo MyBatis.",
     sqlVariableSyntax_sqlserver: "Espaço reservado estilo SQL Server",
     sqlVariableSyntax_sqlserverDescription: "Solicita um valor para substituir os espaços reservados de estilo SQL Server (podem colidir com variáveis de sessão).",
+    sqlVariableSyntax_substitution: "Variável de substituição",
+    sqlVariableSyntax_substitutionDescription: "Solicita um valor para substituir variáveis de substituição estilo Oracle (&name e &&name).",
     sqlVariableSyntax_atSet: "Expansão de variáveis inline",
     sqlVariableSyntax_atSetDescription: "Expande as declarações de variáveis inline e substitui seus valores antes de executar.",
     tableCompletionSchemaQualification: "Qualificação de schema no autocompletar de tabelas",

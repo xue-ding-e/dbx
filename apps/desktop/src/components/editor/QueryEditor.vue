@@ -260,10 +260,11 @@ const kingbaseConfig = computed(() => (props.databaseType === "kingbase" && prop
 const kingbaseSqlType = computed(() => kingbaseSqlDatabaseType(kingbaseConfig.value));
 
 function sqlStatementParameterOptions() {
-  const toggles = resolveSqlVariableSyntaxToggles(settingsStore.editorSettings.sqlVariableSyntaxOverrides, props.databaseType, settingsStore.editorSettings.sqlVariableSubstitutionEnabled);
+  const compatibilityMode = props.databaseType === "opengauss" ? connectionStore.databaseCompatibilityMode(props.connectionId, props.database) : kingbaseConfig.value?.database_info?.compatibilityMode;
+  const toggles = resolveSqlVariableSyntaxToggles(settingsStore.editorSettings.sqlVariableSyntaxOverrides, props.databaseType, settingsStore.editorSettings.sqlVariableSubstitutionEnabled, compatibilityMode);
   return {
     databaseType: kingbaseSqlType.value ?? props.databaseType,
-    compatibilityMode: props.databaseType === "opengauss" ? connectionStore.databaseCompatibilityMode(props.connectionId, props.database) : kingbaseConfig.value?.database_info?.compatibilityMode,
+    compatibilityMode,
     enabledSyntaxes: enabledSqlParameterSyntaxes(toggles),
   };
 }

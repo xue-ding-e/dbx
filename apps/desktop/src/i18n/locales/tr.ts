@@ -8082,6 +8082,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "MyBatis biçemli yer tutucuları değiştirmek için değer sor.",
     sqlVariableSyntax_sqlserver: "SQL Server biçemli yer tutucu",
     sqlVariableSyntax_sqlserverDescription: "SQL Server biçemli yer tutucuları değiştirmek için değer sor (oturum değişkenleriyle çakışabilir).",
+    sqlVariableSyntax_substitution: "Değiştirme değişkeni",
+    sqlVariableSyntax_substitutionDescription: "Oracle biçemli değiştirme değişkenlerini (&name ve &&name) değiştirmek için değer sor.",
     sqlVariableSyntax_atSet: "Satır içi değişken genişletme",
     sqlVariableSyntax_atSetDescription: "Satır içi değişken bildirimlerini genişlet ve çalıştırmadan önce değerlerini yerine koy.",
     tableCompletionSchemaQualification: "Tablo tamamlamasında şema nitelemesi",

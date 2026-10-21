@@ -272,7 +272,7 @@ import { currentExecutableStatementRange, type SqlTextRange } from "@/lib/sql/sq
 import { executableStatementRangeCacheForDoc, executableStatementRangeStartingAt, type ExecutableStatementRangeCache } from "@/lib/sql/executableStatementRangeCache";
 import { EMPTY_TABLE_COLUMN_TEMPLATE_DATA_TYPE, parseTableColumnTemplateFields, TABLE_COLUMN_TEMPLATE_DATABASE_TYPES, tableColumnTemplateRowsToSettings } from "@/lib/table/tableColumnTemplates";
 import {
-  DEFAULT_SQL_VARIABLE_SYNTAX_TOGGLES,
+  isModeDependentSubstitutionDatabase,
   normalizeSqlVariableSyntaxOverrides,
   resolveSqlVariableSyntaxToggles,
   SQL_VARIABLE_SYNTAX_DATABASE_TYPES,
@@ -280,6 +280,7 @@ import {
   SQL_VARIABLE_SYNTAX_TOKENS,
   type SqlVariableSyntaxOverrides,
   type SqlVariableSyntaxToggles,
+  updateSqlVariableSyntaxToggle,
 } from "@/lib/sql/sqlVariableSyntax";
 import {
   buildMcpCherryStudioConfig,
@@ -359,6 +360,7 @@ import {
 import { applyEditorSettingsDraftToRefs, type EditorSettingsDraftRefMap } from "@/lib/settings/applyEditorSettingsDraft";
 import { serializeSettingsTransfer, sortTransferCategories, transferCategoryForKey, type SettingsTransferCategoryId } from "@/lib/settings/settingsTransfer";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useQueryStore } from "@/stores/queryStore";
 import { effectiveDatabaseTypeForConnection } from "@/lib/database/jdbcDialect";
 import { useSavedSqlStore } from "@/stores/savedSqlStore";
 import { usePromptTemplateStore } from "@/stores/promptTemplateStore";
@@ -432,6 +434,7 @@ const { draft: editHistoryRetentionLimit, loaded: historyRetentionLoaded, loadin
 const { draft: editMcpHistoryRetentionLimit, loaded: mcpHistoryRetentionLoaded, loading: mcpHistoryRetentionLoading, saving: mcpHistoryRetentionSaving, loadError: mcpHistoryRetentionLoadError } = mcpHistoryRetention;
 const mcpHistoryCleanupLoading = ref(false);
 const connectionStore = useConnectionStore();
+const queryStore = useQueryStore();
 const hasSqlServerConnection = computed(() => connectionStore.connections.some((connection) => effectiveDatabaseTypeForConnection(connection) === "sqlserver"));
 const savedSqlStore = useSavedSqlStore();
 const promptTemplateStore = usePromptTemplateStore();
@@ -901,32 +904,56 @@ function updateExternalSqlEditorMaxMbInput(event: Event) {
   editExternalSqlEditorMaxMb.value = normalized;
 }
 
+const currentSqlVariableSyntaxCompatibilityMode = computed<string | undefined>(() => {
+  const dbType = editSqlVariableSyntaxDatabaseType.value;
+  if (!isModeDependentSubstitutionDatabase(dbType)) return undefined;
+
+  const activeTab = queryStore.tabs.find((tab) => tab.id === queryStore.activeTabId);
+  if (activeTab?.connectionId) {
+    const activeConn = connectionStore.getConfig(activeTab.connectionId);
+    const connDbType = activeConn ? (effectiveDatabaseTypeForConnection(activeConn) ?? activeConn.db_type) : undefined;
+    if (connDbType === dbType) {
+      if (dbType === "opengauss" || dbType === "gaussdb") {
+        return connectionStore.databaseCompatibilityMode(activeTab.connectionId, activeTab.database || activeConn?.database);
+      }
+      if (dbType === "kingbase") {
+        return activeConn?.database_info?.compatibilityMode;
+      }
+    }
+  }
+
+  if (connectionStore.activeConnectionId) {
+    const activeConn = connectionStore.getConfig(connectionStore.activeConnectionId);
+    const connDbType = activeConn ? (effectiveDatabaseTypeForConnection(activeConn) ?? activeConn.db_type) : undefined;
+    if (activeConn && connDbType === dbType) {
+      if (dbType === "opengauss" || dbType === "gaussdb") {
+        return connectionStore.databaseCompatibilityMode(activeConn.id, activeConn.database);
+      }
+      if (dbType === "kingbase") {
+        return activeConn.database_info?.compatibilityMode;
+      }
+    }
+  }
+
+  const conn = connectionStore.connections.find((c) => (effectiveDatabaseTypeForConnection(c) ?? c.db_type) === dbType);
+  if (conn) {
+    if (dbType === "opengauss" || dbType === "gaussdb") {
+      return connectionStore.databaseCompatibilityMode(conn.id, conn.database);
+    }
+    if (dbType === "kingbase") {
+      return conn.database_info?.compatibilityMode;
+    }
+  }
+
+  return undefined;
+});
+
 function sqlVariableSyntaxToggle(key: keyof SqlVariableSyntaxToggles): boolean {
-  return resolveSqlVariableSyntaxToggles(editSqlVariableSyntaxOverrides.value, editSqlVariableSyntaxDatabaseType.value)[key];
+  return resolveSqlVariableSyntaxToggles(editSqlVariableSyntaxOverrides.value, editSqlVariableSyntaxDatabaseType.value, true, currentSqlVariableSyntaxCompatibilityMode.value)[key];
 }
 
 function setSqlVariableSyntaxToggle(key: keyof SqlVariableSyntaxToggles, value: boolean) {
-  const dbType = editSqlVariableSyntaxDatabaseType.value;
-  if ((dbType === "neo4j" || dbType === "nebula") && key === "named") return;
-  const merged: SqlVariableSyntaxToggles = {
-    ...DEFAULT_SQL_VARIABLE_SYNTAX_TOGGLES,
-    ...editSqlVariableSyntaxOverrides.value[dbType],
-    [key]: value,
-  };
-  const next: SqlVariableSyntaxOverrides = {
-    ...editSqlVariableSyntaxOverrides.value,
-  };
-  // Keep storage sparse: an all-enabled type has no entry; otherwise persist only the disabled syntaxes.
-  if (SQL_VARIABLE_SYNTAX_KEYS.every((toggleKey) => merged[toggleKey])) {
-    delete next[dbType];
-  } else {
-    const partial: Partial<SqlVariableSyntaxToggles> = {};
-    for (const toggleKey of SQL_VARIABLE_SYNTAX_KEYS) {
-      if (!merged[toggleKey]) partial[toggleKey] = false;
-    }
-    next[dbType] = partial;
-  }
-  editSqlVariableSyntaxOverrides.value = next;
+  editSqlVariableSyntaxOverrides.value = updateSqlVariableSyntaxToggle(editSqlVariableSyntaxOverrides.value, editSqlVariableSyntaxDatabaseType.value, key, value, currentSqlVariableSyntaxCompatibilityMode.value);
 }
 const tableColumnTemplateSectionRef = ref<HTMLElement | null>(null);
 const draggedTableColumnTemplateRowId = ref<string | null>(null);

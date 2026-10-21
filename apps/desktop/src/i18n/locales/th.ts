@@ -10503,6 +10503,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "ขอค่าเพื่อแทนที่ Placeholder แบบ MyBatis",
     sqlVariableSyntax_sqlserver: "Placeholder แบบ SQL Server",
     sqlVariableSyntax_sqlserverDescription: "ขอค่าเพื่อแทนที่ Placeholder แบบ SQL Server (อาจชนกับตัวแปรเซสชัน)",
+    sqlVariableSyntax_substitution: "ตัวแปรแทนที่",
+    sqlVariableSyntax_substitutionDescription: "ขอค่าเพื่อแทนที่ตัวแปรแทนที่แบบ Oracle (&name และ &&name)",
     sqlVariableSyntax_atSet: "ขยายตัวแปรแบบ Inline",
     sqlVariableSyntax_atSetDescription: "ขยายการประกาศตัวแปรแบบ Inline และแทนค่าก่อนเรียกใช้",
     tableCompletionSchemaQualification: "ระบุ Schema สำหรับการเติมตาราง",

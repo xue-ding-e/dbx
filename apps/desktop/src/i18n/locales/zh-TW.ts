@@ -7953,6 +7953,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "為 MyBatis 風格佔位符提示輸入替換值。",
     sqlVariableSyntax_sqlserver: "SQL Server 風格佔位符",
     sqlVariableSyntax_sqlserverDescription: "為 SQL Server 風格佔位符提示輸入替換值（可能與工作階段變數衝突）。",
+    sqlVariableSyntax_substitution: "替換變數",
+    sqlVariableSyntax_substitutionDescription: "為 Oracle 風格替換變數（&name 與 &&name）提示輸入替換值。",
     sqlVariableSyntax_atSet: "內聯變數展開",
     sqlVariableSyntax_atSetDescription: "執行前展開內聯變數宣告並就地代入其值。",
     tableCompletionSchemaQualification: "SQL 資料表補全的結構描述限定",

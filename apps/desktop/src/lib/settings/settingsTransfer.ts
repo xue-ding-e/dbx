@@ -521,7 +521,7 @@ const NESTED_FIELD_VALIDATORS: Partial<Record<EditorSettingsDraftKey, (value: un
   snippets: (value) => isArrayOfShape(value, isSqlSnippetItem),
   modelGenerationTemplates: isModelGenerationTemplatesShape,
   sqlShortcuts: (value) => isArrayOfShape(value, isSqlShortcutActionItem),
-  sqlVariableSyntaxOverrides: (value) => isSqlVariableSyntaxOverridesShape(value, (toggle) => toggle === false),
+  sqlVariableSyntaxOverrides: (value) => isSqlVariableSyntaxOverridesShape(value, (toggle) => typeof toggle === "boolean"),
 };
 
 /**

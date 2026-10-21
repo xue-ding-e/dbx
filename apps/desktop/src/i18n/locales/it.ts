@@ -8611,6 +8611,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "Richiede un valore per sostituire i segnaposto in stile MyBatis.",
     sqlVariableSyntax_sqlserver: "Segnaposto stile SQL Server",
     sqlVariableSyntax_sqlserverDescription: "Richiede un valore per sostituire i segnaposto in stile SQL Server (possono entrare in conflitto con le variabili di sessione).",
+    sqlVariableSyntax_substitution: "Variabile di sostituzione",
+    sqlVariableSyntax_substitutionDescription: "Richiede un valore per sostituire le variabili di sostituzione in stile Oracle (&name e &&name).",
     sqlVariableSyntax_atSet: "Espansione di variabili inline",
     sqlVariableSyntax_atSetDescription: "Espande le dichiarazioni di variabili inline e ne sostituisce i valori prima dell'esecuzione.",
     tableCompletionSchemaQualification: "Qualificazione dello schema nel completamento tabelle",

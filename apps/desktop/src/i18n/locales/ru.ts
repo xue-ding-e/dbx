@@ -10074,6 +10074,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "Запрашивать значение для подстановки заполнителей в стиле MyBatis.",
     sqlVariableSyntax_sqlserver: "Заполнитель в стиле SQL Server",
     sqlVariableSyntax_sqlserverDescription: "Запрашивать значение для подстановки заполнителей в стиле SQL Server (может конфликтовать с переменными сеанса).",
+    sqlVariableSyntax_substitution: "Переменная подстановки",
+    sqlVariableSyntax_substitutionDescription: "Запрашивать значение для подстановки переменных подстановки в стиле Oracle (&name и &&name).",
     sqlVariableSyntax_atSet: "Раскрытие встроенных переменных",
     sqlVariableSyntax_atSetDescription: "Раскрывать встроенные объявления переменных и подставлять их значения перед выполнением.",
     tableCompletionSchemaQualification: "Указание схемы при автодополнении таблиц",

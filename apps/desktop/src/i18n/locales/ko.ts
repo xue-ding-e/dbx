@@ -8603,6 +8603,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "MyBatis 스타일 자리표시자를 치환할 값을 입력하라는 메시지를 표시합니다.",
     sqlVariableSyntax_sqlserver: "SQL Server 스타일 자리표시자",
     sqlVariableSyntax_sqlserverDescription: "SQL Server 스타일 자리표시자를 치환할 값을 입력하라는 메시지를 표시합니다 (세션 변수와 충돌할 수 있음).",
+    sqlVariableSyntax_substitution: "치환 변수",
+    sqlVariableSyntax_substitutionDescription: "Oracle 스타일 치환 변수(&name 및 &&name)를 치환할 값을 입력하라는 메시지를 표시합니다.",
     sqlVariableSyntax_atSet: "인라인 변수 확장",
     sqlVariableSyntax_atSetDescription: "실행 전에 인라인 변수 선언을 확장하고 값을 치환합니다.",
     tableCompletionSchemaQualification: "테이블 완성 스키마 한정",

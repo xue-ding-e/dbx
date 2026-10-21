@@ -8184,6 +8184,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "MyBatis üslublu yer tutucuları əvəz etmək üçün dəyər soruş.",
     sqlVariableSyntax_sqlserver: "SQL Server üslublu yer tutucu",
     sqlVariableSyntax_sqlserverDescription: "SQL Server üslublu yer tutucuları əvəz etmək üçün dəyər soruş (sessiya dəyişənləri ilə toqquşa bilər).",
+    sqlVariableSyntax_substitution: "Əvəzetmə dəyişəni",
+    sqlVariableSyntax_substitutionDescription: "Oracle üslublu əvəzetmə dəyişənlərini (&name və &&name) əvəz etmək üçün dəyər soruş.",
     sqlVariableSyntax_atSet: "Sətirdaxili dəyişənlərin açılması",
     sqlVariableSyntax_atSetDescription: "İşlətməzdən əvvəl sətirdaxili dəyişən elanlarını aç və dəyərlərini yerinə qoy.",
     tableCompletionSchemaQualification: "Cədvəl tamamlamasında sxem ixtisaslaşdırması",

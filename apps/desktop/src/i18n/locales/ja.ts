@@ -8608,6 +8608,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_mybatisDescription: "MyBatis 形式プレースホルダーを置き換える値の入力を求めます。",
     sqlVariableSyntax_sqlserver: "SQL Server 形式プレースホルダー",
     sqlVariableSyntax_sqlserverDescription: "SQL Server 形式プレースホルダーを置き換える値の入力を求めます（セッション変数と競合する場合があります）。",
+    sqlVariableSyntax_substitution: "置換変数",
+    sqlVariableSyntax_substitutionDescription: "Oracle 形式の置換変数（&name および &&name）を置き換える値の入力を求めます。",
     sqlVariableSyntax_atSet: "インライン変数展開",
     sqlVariableSyntax_atSetDescription: "実行前にインライン変数宣言を展開し、その値をインライン化します。",
     tableCompletionSchemaQualification: "テーブル補完のスキーマ修飾",
