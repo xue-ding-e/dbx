@@ -8726,6 +8726,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Pokazuj długie nazwy tabel, widoków i kolekcji w całości, zezwalając na przewijanie w poziomie.",
     sidebarShowTooltips: "Podpowiedzi na pasku bocznym",
     sidebarShowTooltipsDescription: "Pokazuj dymki ze szczegółami po najechaniu na połączenia i obiekty bazy danych na pasku bocznym. Wyłącz, aby zatrzymać wyskakujące podpowiedzi.",
+    sidebarShowUserAdmin: "Pokaż użytkowników i uprawnienia",
+    sidebarShowUserAdminDescription: "Pokazuj pozycje użytkowników i uprawnień w drzewie panelu bocznego, w tym Xugu. Zmienia tylko widoczność w drzewie; istniejące pozycje menu kontekstowego pozostają bez zmian.",
     sidebarIndent: "Wcięcie paska bocznego",
     sidebarIndentDescription: "Poziome przesunięcie dodawane na każdy poziom głębokości drzewa, w pikselach.",
     sidebarFontSize: "Rozmiar czcionki paska bocznego",

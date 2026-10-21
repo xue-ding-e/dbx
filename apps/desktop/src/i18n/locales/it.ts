@@ -8329,6 +8329,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Mostra i nomi lunghi di tabelle, viste e collezioni per intero consentendo lo scorrimento orizzontale della barra laterale.",
     sidebarShowTooltips: "Tooltip al passaggio del mouse nella barra laterale",
     sidebarShowTooltipsDescription: "Mostra tooltip con dettagli al passaggio del mouse su connessioni e oggetti del database nella barra laterale. Disattiva per nasconderli.",
+    sidebarShowUserAdmin: "Mostra utenti e permessi",
+    sidebarShowUserAdminDescription: "Mostra le voci utenti e permessi nell’albero laterale, incluse quelle di Xugu. Modifica solo la visibilità nell’albero; le voci esistenti del menu contestuale restano invariate.",
     snippetsDescription: "Personalizza i modelli di snippet SQL attivati nell'editor.",
     snippetTriggerKey: "Tasto di attivazione dello snippet",
     snippetTriggerKeyDescription: "Scegli il tasto utilizzato per attivare l'espansione dello snippet nell'editor (Tab, Spazio o Entrambi).",

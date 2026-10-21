@@ -9554,6 +9554,8 @@ export default {
     sidebarAllowHorizontalScrollDescription: "Show long table, view, and collection names in full by allowing horizontal sidebar scrolling.",
     sidebarShowTooltips: "Sidebar hover tooltips",
     sidebarShowTooltipsDescription: "Show detail tooltips when hovering connections and database objects in the sidebar. Turn off to stop hover popups.",
+    sidebarShowUserAdmin: "Show users and permissions entries",
+    sidebarShowUserAdminDescription: "Show users and permissions entries in the sidebar tree, including Xugu. This only affects tree visibility; existing context menu entries are unchanged.",
     sidebarIndent: "Sidebar indentation",
     sidebarIndentDescription: "Horizontal offset added per tree depth level, in pixels.",
     sidebarFontSize: "Sidebar font size",

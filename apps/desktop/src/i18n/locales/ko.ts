@@ -8289,6 +8289,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "사이드바 가로 스크롤을 허용하여 긴 테이블, 뷰, 컬렉션 이름을 전체로 표시합니다.",
     sidebarShowTooltips: "사이드바 호버 툴팁",
     sidebarShowTooltipsDescription: "사이드바에서 연결 및 데이터베이스 개체에 마우스를 올리면 상세 툴팁을 표시합니다. 끄면 표시되지 않습니다.",
+    sidebarShowUserAdmin: "사용자 및 권한 항목 표시",
+    sidebarShowUserAdminDescription: "사이드바 트리에 사용자 및 권한 항목을 표시합니다(Xugu 포함). 트리 표시만 변경하며 기존 컨텍스트 메뉴 항목에는 영향을 주지 않습니다.",
     sidebarDensity: "사이드바 표시 밀도",
     sidebarDensityDescription: "사이드바 탐색 트리의 행 높이 및 표시 밀도입니다.",
     sidebarDensity_default: "기본",

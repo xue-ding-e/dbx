@@ -8550,6 +8550,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Muestra completos los nombres largos de tablas, vistas y colecciones permitiendo desplazamiento horizontal en la barra lateral.",
     sidebarShowTooltips: "Sugerencias al pasar el cursor en la barra lateral",
     sidebarShowTooltipsDescription: "Muestra sugerencias con detalles al pasar el cursor sobre conexiones y objetos de la base de datos en la barra lateral. Desactívalo para ocultarlas.",
+    sidebarShowUserAdmin: "Mostrar usuarios y permisos",
+    sidebarShowUserAdminDescription: "Muestra las entradas de usuarios y permisos en el árbol lateral, incluidas las de Xugu. Solo afecta a la visibilidad del árbol; no modifica las entradas existentes del menú contextual.",
     snippetsDescription: "Personaliza plantillas SQL activadas en el editor.",
     snippetTriggerKey: "Tecla de activación de fragmentos",
     snippetTriggerKeyDescription: "Elija la tecla utilizada para activar la expansión de fragmentos en el editor (Tab, Espacio o Ambos).",

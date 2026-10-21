@@ -8655,6 +8655,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Tampilkan nama tabel, tampilan, dan koleksi yang panjang secara lengkap dengan mengizinkan gulir horizontal pada bilah sisi.",
     sidebarShowTooltips: "Tooltip hover bilah sisi",
     sidebarShowTooltipsDescription: "Tampilkan tooltip detail saat mengarahkan kursor ke koneksi dan objek database di bilah sisi. Nonaktifkan untuk menghentikan popup hover.",
+    sidebarShowUserAdmin: "Tampilkan pengguna dan izin",
+    sidebarShowUserAdminDescription: "Tampilkan entri pengguna dan izin di pohon bilah sisi, termasuk Xugu. Hanya memengaruhi tampilan pohon; entri menu konteks yang ada tidak berubah.",
     sidebarIndent: "Indentasi bilah sisi",
     sidebarIndentDescription: "Offset horizontal yang ditambahkan per tingkat kedalaman pohon, dalam piksel.",
     sidebarFontSize: "Ukuran font bilah sisi",

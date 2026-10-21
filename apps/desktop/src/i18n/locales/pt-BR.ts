@@ -8328,6 +8328,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Mostrar nomes longos de tabelas, views e coleções por completo, permitindo a rolagem horizontal da barra lateral.",
     sidebarShowTooltips: "Dicas ao passar o mouse na barra lateral",
     sidebarShowTooltipsDescription: "Mostra dicas com detalhes ao passar o mouse sobre conexões e objetos do banco de dados na barra lateral. Desative para ocultá-las.",
+    sidebarShowUserAdmin: "Mostrar usuários e permissões",
+    sidebarShowUserAdminDescription: "Mostra as entradas de usuários e permissões na árvore lateral, incluindo Xugu. Afeta apenas a visibilidade da árvore; as entradas existentes do menu de contexto não são alteradas.",
     snippetsDescription: "Personalize os modelos de snippets SQL acionados no editor.",
     snippetTriggerKey: "Tecla de ativação de snippets",
     snippetTriggerKeyDescription: "Escolha a tecla usada para acionar a expansão de snippets no editor (Tab, Espaço ou Ambos).",

@@ -10189,6 +10189,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "แสดงชื่อตาราง View และ Collection แบบเต็ม โดยอนุญาตให้ Sidebar เลื่อนแนวนอน",
     sidebarShowTooltips: "Tooltip เมื่อวางเหนือ Sidebar",
     sidebarShowTooltipsDescription: "แสดง Tooltip รายละเอียดเมื่อวางเหนือการเชื่อมต่อและออบเจ็กต์ฐานข้อมูลใน Sidebar ปิดเพื่อหยุด Popup",
+    sidebarShowUserAdmin: "แสดงรายการผู้ใช้และสิทธิ์",
+    sidebarShowUserAdminDescription: "แสดงรายการผู้ใช้และสิทธิ์ในโครงสร้างแถบด้านข้าง รวมถึง Xugu มีผลเฉพาะการแสดงผลในโครงสร้าง โดยไม่เปลี่ยนแปลงรายการเมนูคลิกขวาที่มีอยู่",
     sidebarIndent: "การเยื้อง Sidebar",
     sidebarIndentDescription: "ระยะเยื้องแนวนอนที่เพิ่มในแต่ละระดับของ Tree หน่วยเป็นพิกเซล",
     sidebarFontSize: "ขนาดฟอนต์ Sidebar",

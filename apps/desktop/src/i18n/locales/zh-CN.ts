@@ -9521,6 +9521,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "完整显示较长的表、视图和集合名称；默认关闭以保留省略号截断。",
     sidebarShowTooltips: "侧边栏悬浮提示",
     sidebarShowTooltipsDescription: "在侧边栏的连接和数据库对象上悬浮时显示详情提示；关闭后悬浮不再弹出。",
+    sidebarShowUserAdmin: "显示用户与权限入口",
+    sidebarShowUserAdminDescription: "在侧边栏树中显示用户与权限入口（含虚谷）。仅影响树节点显示，不改变现有右键菜单入口。",
     sidebarIndent: "侧边栏缩进",
     sidebarIndentDescription: "每个树层级缩进的像素偏移量。",
     sidebarFontSize: "侧边栏字体大小",

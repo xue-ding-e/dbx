@@ -8341,6 +8341,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "サイドバーの横スクロールを許可して、長いテーブル、ビュー、コレクション名を完全に表示します。",
     sidebarShowTooltips: "サイドバーのホバーツールチップ",
     sidebarShowTooltipsDescription: "サイドバーで接続やデータベースオブジェクトにホバーしたときに詳細ツールチップを表示します。オフにすると表示されません。",
+    sidebarShowUserAdmin: "ユーザーと権限の項目を表示",
+    sidebarShowUserAdminDescription: "サイドバーツリーにユーザーと権限の項目を表示します（Xugu を含む）。ツリーの表示のみが対象で、既存の右クリックメニューは変更されません。",
     snippetsDescription: "エディターでトリガーされるSQLスニペットテンプレートをカスタマイズします。",
     snippetTriggerKey: "スニペットトリガーキー",
     snippetTriggerKeyDescription: "エディターでスニペットを展開するトリガーキーを設定します（Tab、スペース、または両方）。",

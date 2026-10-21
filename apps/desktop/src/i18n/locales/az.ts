@@ -7885,6 +7885,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Yan paneldə üfüqi sürüşdürməyə icazə verərək uzun cədvəl, görünüş və kolleksiya adlarını tam göstər.",
     sidebarShowTooltips: "Yan paneldə kursor üzərinə gətirildikdə ipucları",
     sidebarShowTooltipsDescription: "Kursor yan paneldəki əlaqələrin və verilənlər bazası obyektlərinin üzərinə gətirildikdə ətraflı ipucları göstər. Bu pəncərələri dayandırmaq üçün söndürün.",
+    sidebarShowUserAdmin: "İstifadəçi və icazə bölmələrini göstər",
+    sidebarShowUserAdminDescription: "Xugu daxil olmaqla, yan panel ağacında istifadəçi və icazə bölmələrini göstərir. Yalnız ağacın görünüşünə təsir edir; mövcud kontekst menyusu bölmələri dəyişmir.",
     sidebarIndent: "Yan panel abzası",
     sidebarIndentDescription: "Ağacın hər dərinlik səviyyəsi üçün əlavə olunan üfüqi məsafə, piksellə.",
     sidebarFontSize: "Yan panel şriftinin ölçüsü",

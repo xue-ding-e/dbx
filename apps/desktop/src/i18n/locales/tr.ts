@@ -7783,6 +7783,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "Yatay kenar çubuğu kaydırmasına izin vererek uzun tablo, görünüm ve koleksiyon adlarını tam göster.",
     sidebarShowTooltips: "Kenar çubuğu ipuçları",
     sidebarShowTooltipsDescription: "Kenar çubuğunda bağlantıların ve veritabanı nesnelerinin üzerine gelindiğinde ayrıntı ipuçlarını göster. Açılır ipuçlarını durdurmak için kapatın.",
+    sidebarShowUserAdmin: "Kullanıcı ve izin girişlerini göster",
+    sidebarShowUserAdminDescription: "Xugu dahil, kenar çubuğu ağacında kullanıcı ve izin girişlerini gösterir. Yalnızca ağaç görünürlüğünü etkiler; mevcut bağlam menüsü girişleri değişmez.",
     sidebarIndent: "Kenar çubuğu girintisi",
     sidebarIndentDescription: "Ağaç derinliğinin her düzeyi için piksel cinsinden eklenen yatay kaydırma.",
     sidebarFontSize: "Kenar çubuğu yazı tipi boyutu",

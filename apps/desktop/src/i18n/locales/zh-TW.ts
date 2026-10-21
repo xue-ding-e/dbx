@@ -7674,6 +7674,8 @@ export default withEnglishFallback({
     sidebarAllowHorizontalScrollDescription: "透過啟用側邊欄的水平捲動功能，完整顯示長表格、檢視和集合的名稱",
     sidebarShowTooltips: "側邊欄懸浮提示",
     sidebarShowTooltipsDescription: "在側邊欄的連線與資料庫物件上懸浮時顯示詳細提示；關閉後懸浮不再彈出。",
+    sidebarShowUserAdmin: "顯示使用者與權限入口",
+    sidebarShowUserAdminDescription: "在側邊欄樹中顯示使用者與權限入口（含虛谷）。僅影響樹節點顯示，不變更現有右鍵選單入口。",
     snippetsDescription: "自訂編輯器中觸發的 SQL 程式碼片段範本。",
     snippetTriggerKey: "程式碼片段觸發鍵",
     snippetTriggerKeyDescription: "設定在編輯器中觸發插入程式碼片段的按鍵（Tab、空格或兩者皆可）。",
