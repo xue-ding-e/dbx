@@ -8638,6 +8638,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Com a lista de sugestões aberta, pressionar espaço aceita a palavra-chave, tabela ou coluna selecionada e mantém o espaço. Enter e Tab continuam iguais.",
     functionCompletionIncludeParams: "Incluir exemplos de parâmetros no preenchimento de funções",
     functionCompletionIncludeParamsDescription: "Incluir marcadores de posição de parâmetros dentro dos parênteses ao autocompletar funções. Quando desativado, apenas os parênteses são inseridos com o cursor posicionado dentro.",
+    sequenceCompletionEnabled: "Habilitar preenchimento de sequências",
+    sequenceCompletionEnabledDescription: "Sugerir nomes de sequências e pseudocolunas NEXTVAL/CURRVAL no editor SQL; desative para ocultar sequências das sugestões.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Modelos de busca de chave",
     redisKeyTemplatesPlaceholder: "Example:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

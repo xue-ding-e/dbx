@@ -8213,6 +8213,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Tamamlama siyahısı açıqkən boşluq düyməsini basmaq seçilmiş açar sözü, cədvəli və ya sütunu təsdiqləyir və boşluğu saxlayır. Enter və Tab əvvəlki kimi işləyir.",
     functionCompletionIncludeParams: "Funksiya tamamlamasında parametr nümunələrini daxil et",
     functionCompletionIncludeParamsDescription: "Funksiyaları tamamlayarkən mötərizə içində yer tutucu parametr nümunələrini əlavə edin. Deaktiv edildikdə yalnız mötərizələr əlavə edilir və kursor içəridə yerləşdirilir.",
+    sequenceCompletionEnabled: "Davamiyyət (sequence) tamamlamasını aktivləşdir",
+    sequenceCompletionEnabledDescription: "SQL redaktorunda ardıcıllıq adlarını və NEXTVAL/CURRVAL yalançı sütunlarını təklif edin; tamamlamalardan ardıcıllıqları gizlətmək üçün deaktiv edin.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Açar axtarışı şablonları",
     redisKeyTemplatesPlaceholder: "Nümunə:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

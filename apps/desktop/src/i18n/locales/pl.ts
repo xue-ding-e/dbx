@@ -9061,6 +9061,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Gdy lista uzupełniania jest otwarta, naciśnięcie Spacji akceptuje wybrane słowo kluczowe, tabelę lub kolumnę i zachowuje spację na końcu. Enter i Tab działają bez zmian.",
     functionCompletionIncludeParams: "Dołączaj przykłady parametrów w uzupełnianiu funkcji",
     functionCompletionIncludeParamsDescription: "Dołączaj przykładowe parametry zastępcze w nawiasach podczas uzupełniania funkcji. Gdy wyłączone, wstawiane są tylko nawiasy z kursorem umieszczonym w środku.",
+    sequenceCompletionEnabled: "Włącz uzupełnianie sekwencji",
+    sequenceCompletionEnabledDescription: "Sugeruj nazwy sekwencji oraz pseudokolumny NEXTVAL/CURRVAL w edytorze SQL; wyłącz, aby ukryć sekwencje w podpowiedziach.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Szablony wyszukiwania kluczy",
     redisKeyTemplatesPlaceholder: "Example:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

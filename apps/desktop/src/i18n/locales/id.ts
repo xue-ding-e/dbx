@@ -9023,6 +9023,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Saat daftar pelengkapan terbuka, menekan Spasi akan menerima kata kunci, tabel, atau kolom yang dipilih serta mempertahankan spasi di akhir. Enter dan Tab tetap berperilaku seperti sebelumnya.",
     functionCompletionIncludeParams: "Sertakan contoh parameter dalam pelengkapan fungsi",
     functionCompletionIncludeParamsDescription: "Sertakan contoh placeholder parameter di dalam tanda kurung saat melengkapi fungsi. Jika dinonaktifkan, hanya tanda kurung yang disisipkan dengan kursor di dalamnya.",
+    sequenceCompletionEnabled: "Aktifkan pelengkapan urutan (sequence)",
+    sequenceCompletionEnabledDescription: "Sarankan nama urutan dan kolom semu NEXTVAL/CURRVAL di editor SQL; nonaktifkan untuk menyembunyikan urutan dari pelengkapan.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Template pencarian key",
     redisKeyTemplatesPlaceholder: "Contoh:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

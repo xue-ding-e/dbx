@@ -7982,6 +7982,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "補全清單開啟時，按空格直接採用選取的關鍵字、資料表或欄名，並保留空格。Enter 與 Tab 維持原本行為。",
     functionCompletionIncludeParams: "函數補全帶參數範例",
     functionCompletionIncludeParamsDescription: "使用函數補全時，是否在括號內附帶參數佔位範例；關閉後僅補全括號並將游標置於括號內。",
+    sequenceCompletionEnabled: "啟用序列代碼補全",
+    sequenceCompletionEnabledDescription: "開啟後在 SQL 編輯器中提示序列名稱及 NEXTVAL/CURRVAL 偽列；關閉則不提示序列。",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Key 搜尋模板",
     redisKeyTemplatesPlaceholder: "例如：\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

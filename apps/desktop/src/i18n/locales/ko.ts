@@ -8637,6 +8637,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "완성 목록이 열려 있을 때 공백을 누르면 선택한 키워드, 테이블 또는 컬럼을 확정하고 공백을 유지합니다. Enter와 Tab은 기존과 동일하게 동작합니다.",
     functionCompletionIncludeParams: "함수 완성 시 매개변수 예시 포함",
     functionCompletionIncludeParamsDescription: "함수 완성 시 괄호 안에 매개변수 플레이스홀더 예시를 포함합니다. 비활성화하면 괄호만 완성되고 커서가 괄호 안에 위치합니다.",
+    sequenceCompletionEnabled: "시퀀스 자동 완성 사용",
+    sequenceCompletionEnabledDescription: "활성화하면 SQL 편집기에서 시퀀스 이름 및 NEXTVAL/CURRVAL 의사 열을 제안합니다. 비활성화하면 시퀀스가 제안되지 않습니다.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "키 검색 템플릿",
     redisKeyTemplatesPlaceholder: "Example:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

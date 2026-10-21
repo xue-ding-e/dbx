@@ -8640,6 +8640,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Con l'elenco dei suggerimenti aperto, premendo spazio si accetta la parola chiave, la tabella o la colonna selezionata mantenendo lo spazio. Invio e Tab restano invariati.",
     functionCompletionIncludeParams: "Includi esempi di parametri nel completamento funzioni",
     functionCompletionIncludeParamsDescription: "Include segnaposto per i parametri tra parentesi durante il completamento delle funzioni. Quando disattivato, inserisce solo le parentesi con il cursore posizionato all'interno.",
+    sequenceCompletionEnabled: "Abilita completamento sequenze",
+    sequenceCompletionEnabledDescription: "Suggerisce nomi di sequenze e pseudocolonne NEXTVAL/CURRVAL nell'editor SQL; disabilita per nascondere le sequenze dai suggerimenti.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Modelli di ricerca chiavi",
     redisKeyTemplatesPlaceholder: "Example:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

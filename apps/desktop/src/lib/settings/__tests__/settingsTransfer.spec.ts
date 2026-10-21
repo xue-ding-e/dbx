@@ -43,6 +43,15 @@ describe("settingsTransfer", () => {
     expect(parseSettingsTransferFile(fileWith({ functionCompletionIncludeParams: "false" })).ok).toBe(false);
   });
 
+  it("round-trips sequenceCompletionEnabled as an editor setting and rejects non-booleans", () => {
+    const text = serializeSettingsTransfer({ ...DEFAULT_EDITOR_SETTINGS, sequenceCompletionEnabled: false });
+    const result = parseSettingsTransferFile(text);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.editorSettings.sequenceCompletionEnabled).toBe(false);
+    expect(transferCategoryForKey("sequenceCompletionEnabled")).toBe("editor");
+    expect(parseSettingsTransferFile(fileWith({ sequenceCompletionEnabled: "false" })).ok).toBe(false);
+  });
+
   it("round-trips the welcome page mode and rejects invalid values", () => {
     const result = parseSettingsTransferFile(fileWith({ welcomePageMode: "workspace" }));
     expect(result.ok).toBe(true);

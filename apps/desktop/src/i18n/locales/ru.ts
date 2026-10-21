@@ -10108,6 +10108,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Пока список автодополнения открыт, нажатие пробела принимает выбранное ключевое слово, таблицу или столбец и сохраняет пробел. Enter и Tab работают как раньше.",
     functionCompletionIncludeParams: "Примеры параметров при автодополнении функций",
     functionCompletionIncludeParamsDescription: "Включать примеры параметров внутри скобок при автодополнении функций. Если выключено, вставляются только скобки с курсором внутри.",
+    sequenceCompletionEnabled: "Автодополнение последовательностей",
+    sequenceCompletionEnabledDescription: "Предлагать имена последовательностей и псевдоколонки NEXTVAL/CURRVAL в редакторе SQL. Если отключено, последовательности скрываются из автодополнения.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Шаблоны поиска ключей",
     redisKeyTemplatesPlaceholder: "Пример:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

@@ -10537,6 +10537,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "ขณะรายการเติมเปิดอยู่ กด Space เพื่อยอมรับ Keyword ตาราง หรือคอลัมน์ที่เลือกและคงช่องว่างต่อท้ายไว้ Enter และ Tab ทำงานเหมือนเดิม",
     functionCompletionIncludeParams: "รวมตัวอย่างพารามิเตอร์ในการเติม Function",
     functionCompletionIncludeParamsDescription: "รวมตัวอย่างพารามิเตอร์ Placeholder ในวงเล็บเมื่อเติม Function หากปิด จะใส่เฉพาะวงเล็บและวางเคอร์เซอร์ไว้ด้านใน",
+    sequenceCompletionEnabled: "เปิดใช้งานการเติม Sequence",
+    sequenceCompletionEnabledDescription: "แนะนำชื่อ Sequence และคอลัมน์หลอก NEXTVAL/CURRVAL ในตัวแก้ไข SQL ปิดเพื่อซ่อน Sequence จากการเติมข้อความ",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "เทมเพลตการค้นหาคีย์",
     redisKeyTemplatesPlaceholder: "ตัวอย่าง:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

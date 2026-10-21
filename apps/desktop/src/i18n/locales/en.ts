@@ -9925,6 +9925,8 @@ export default {
     sqlServerSpaceConfirmsCompletionDescription: "While the completion list is open, pressing Space accepts the selected keyword, table, or column and keeps the trailing space. Enter and Tab behave as before.",
     functionCompletionIncludeParams: "Include parameter examples in function completion",
     functionCompletionIncludeParamsDescription: "Include placeholder parameter examples inside parentheses when completing functions. When disabled, only the parentheses are inserted with the cursor placed inside.",
+    sequenceCompletionEnabled: "Enable sequence completion",
+    sequenceCompletionEnabledDescription: "Suggest sequence names and NEXTVAL/CURRVAL pseudo-columns in the SQL editor; disable to hide sequences from completions.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Key search templates",
     redisKeyTemplatesPlaceholder: "Example:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

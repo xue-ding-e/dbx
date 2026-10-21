@@ -9889,6 +9889,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "补全列表打开时，按空格直接采用选中的关键字、表名或列名，并保留空格。Enter 和 Tab 保持原有行为。",
     functionCompletionIncludeParams: "函数补全带参数示例",
     functionCompletionIncludeParamsDescription: "使用函数补全时，是否在括号内附带参数占位示例；关闭后仅补全括号并将光标置于括号内。",
+    sequenceCompletionEnabled: "启用序列代码补全",
+    sequenceCompletionEnabledDescription: "开启后在 SQL 编辑器中提示序列名称及 NEXTVAL/CURRVAL 伪列；关闭则不提示序列。",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Key 搜索模板",
     redisKeyTemplatesPlaceholder: "例如：\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

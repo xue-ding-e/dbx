@@ -460,6 +460,13 @@ describe("normalizeEditorSettings", () => {
     expect(normalizeEditorSettings({ functionCompletionIncludeParams: "yes" as unknown as boolean }).functionCompletionIncludeParams).toBe(true);
   });
 
+  it("enables sequence completion by default and preserves an explicit opt-out", () => {
+    expect(DEFAULT_EDITOR_SETTINGS.sequenceCompletionEnabled).toBe(true);
+    expect(normalizeEditorSettings({}).sequenceCompletionEnabled).toBe(true);
+    expect(normalizeEditorSettings({ sequenceCompletionEnabled: false }).sequenceCompletionEnabled).toBe(false);
+    expect(normalizeEditorSettings({ sequenceCompletionEnabled: "yes" as unknown as boolean }).sequenceCompletionEnabled).toBe(true);
+  });
+
   it("defaults snippetTriggerKey to tab and preserves valid options while falling back on invalid values", () => {
     expect(normalizeEditorSettings({}).snippetTriggerKey).toBe("tab");
     expect(normalizeEditorSettings({ snippetTriggerKey: "tab" }).snippetTriggerKey).toBe("tab");

@@ -8111,6 +8111,8 @@ export default withEnglishFallback({
     sqlServerSpaceConfirmsCompletionDescription: "Tamamlama listesi açıkken boşluk tuşuna basmak seçili anahtar sözcüğü, tabloyu veya sütunu onaylar ve boşluğu korur. Enter ve Tab aynı kalır.",
     functionCompletionIncludeParams: "Fonksiyon tamamlamada parametre örneklerini ekle",
     functionCompletionIncludeParamsDescription: "Fonksiyonlar tamamlanırken parantez içine yer tutucu parametre örnekleri ekleyin. Devre dışı bırakıldığında yalnızca parantezler eklenir ve imleç içine yerleştirilir.",
+    sequenceCompletionEnabled: "Dizi tamamlamayı etkinleştir",
+    sequenceCompletionEnabledDescription: "SQL düzenleyicide dizi adlarını ve NEXTVAL/CURRVAL sözde sütunlarını önerir; dizileri tamamlamadan gizlemek için devre dışı bırakın.",
     redisKeyTemplatesSection: "Redis",
     redisKeyTemplates: "Anahtar arama şablonları",
     redisKeyTemplatesPlaceholder: "Örnek:\nuser:{'{'}$userId{'}'}\nv3:adui:{'{'}$positionID{'}'}",

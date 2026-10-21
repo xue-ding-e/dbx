@@ -225,6 +225,15 @@ describe("EDITOR_SETTINGS_DRAFT_KEYS", () => {
     expect(editorSettingsDraftChanged(draft, base)).toBe(true);
     expect(editorSettingsPatchFromDraft(draft, base)).toEqual({ functionCompletionIncludeParams: false });
   });
+
+  it("includes sequenceCompletionEnabled in draft keys, draft conversion, and patch", () => {
+    expect(EDITOR_SETTINGS_DRAFT_KEYS).toContain("sequenceCompletionEnabled");
+    const draft = editorSettingsDraftFromSettings(makeSettings({ sequenceCompletionEnabled: false }));
+    const base = editorSettingsDraftFromSettings(makeSettings({ sequenceCompletionEnabled: true }));
+    expect(draft.sequenceCompletionEnabled).toBe(false);
+    expect(editorSettingsDraftChanged(draft, base)).toBe(true);
+    expect(editorSettingsPatchFromDraft(draft, base)).toEqual({ sequenceCompletionEnabled: false });
+  });
 });
 
 describe("editorSettingsDraftFromSettings", () => {
