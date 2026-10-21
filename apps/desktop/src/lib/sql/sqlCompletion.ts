@@ -1131,6 +1131,8 @@ const SQL_FUNCTION_SIGNATURES = new Map<string, string[]>([
 ]);
 
 const MYSQL_FUNCTION_SIGNATURES = new Map<string, string[]>([
+  ["AES_ENCRYPT", ["str", "key_str"]],
+  ["AES_DECRYPT", ["crypt_str", "key_str"]],
   ["CONVERT", ["expression", "type"]],
   ["DATE_FORMAT", ["date", "format"]],
   ["FROM_UNIXTIME", ["unix_timestamp"]],

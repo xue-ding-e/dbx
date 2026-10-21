@@ -20,6 +20,7 @@ import {
 } from "../../apps/desktop/src/lib/sql/sqlCompletion.ts";
 import { sqlCompletionContextFromSemantic } from "../../apps/desktop/src/lib/sql/semantic/completion.ts";
 import { buildSqlSemanticModel } from "../../apps/desktop/src/lib/sql/semantic/model.ts";
+import { sqlSnippetDatabaseTypeForConnection } from "../../apps/desktop/src/lib/database/jdbcDialect.ts";
 import type { DatabaseType } from "../../apps/desktop/src/types/database.ts";
 
 const tables: SqlCompletionTable[] = [
@@ -316,6 +317,41 @@ test("suggests MySQL VERSION and REVERSE without broadening other dialects", () 
     false,
   );
   assert.equal(buildFunctionItems("reve").find((item) => item.label === "REVERSE")?.apply, "REVERSE(${string})");
+});
+
+test("suggests MySQL AES functions with required arguments, including through JDBC MySQL", () => {
+  const jdbcMysqlType = sqlSnippetDatabaseTypeForConnection({ db_type: "jdbc", connection_string: "jdbc:mysql://localhost:3306/app" });
+  assert.equal(jdbcMysqlType, "mysql");
+
+  for (const databaseType of ["mysql", jdbcMysqlType] as const) {
+    for (const [name, parameters] of [
+      ["AES_ENCRYPT", ["str", "key_str"]],
+      ["AES_DECRYPT", ["crypt_str", "key_str"]],
+    ] as const) {
+      const sql = `SELECT ${name.slice(0, -3)}`;
+      const items = buildSqlCompletionItems(sql, sql.length, {
+        tables: [],
+        columnsByTable: new Map(),
+        databaseType,
+      });
+      assert.equal(items.find((item) => item.type === "function" && item.label === name)?.apply, `${name}(${parameters.map((parameter) => `\${${parameter}}`).join(", ")})`);
+      const call = `SELECT ${name}(`;
+      assert.deepEqual(getSqlFunctionSignatureHelp(call, call.length, databaseType)?.parameters, parameters);
+    }
+  }
+
+  for (const databaseType of ["postgres", "sqlserver"] as const) {
+    const sql = "SELECT AES_";
+    const items = buildSqlCompletionItems(sql, sql.length, {
+      tables: [],
+      columnsByTable: new Map(),
+      databaseType,
+    });
+    assert.equal(
+      items.some((item) => item.type === "function" && (item.label === "AES_ENCRYPT" || item.label === "AES_DECRYPT")),
+      false,
+    );
+  }
 });
 
 test("suggests the reported MySQL 5.7 built-in functions with dialect-specific signatures", () => {
