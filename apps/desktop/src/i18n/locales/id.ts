@@ -702,7 +702,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "Cari indeks tabel lokal tanpa permintaan jarak jauh. Nonaktifkan untuk mencari secara jarak jauh. Gunakan segarkan untuk membangun atau memperbarui indeks.",
     refreshLocalTableSearchIndex: "Segarkan indeks tabel lokal",
     globalLocalSearch: "Pencarian lokal",
-    globalLocalSearchTooltip: "Cari hanya objek bilah sisi yang sudah dimuat tanpa permintaan jarak jauh.",
+    globalLocalSearchTooltip: "Cari objek yang sudah dimuat dan indeks tabel tersimpan tanpa permintaan jarak jauh. Nonaktifkan untuk membuat indeks yang belum tersedia dan mencari objek lain di server. Gunakan Segarkan untuk memperbarui metadata.",
     regexSearch: "Pencarian regex",
     regexSearchTooltip: "Cocokkan nama, komentar, dan alias di bilah sisi dengan ekspresi reguler JavaScript.",
     clearFilter: "Bersihkan filter",

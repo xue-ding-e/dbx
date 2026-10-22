@@ -914,7 +914,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "リモート要求を行わずにローカルのテーブルインデックスを検索します。リモート検索するにはオフにしてください。更新でインデックスを作成または更新します。",
     refreshLocalTableSearchIndex: "ローカルテーブルインデックスを更新",
     globalLocalSearch: "ローカル検索",
-    globalLocalSearchTooltip: "リモート要求を行わず、現在読み込まれているサイドバーオブジェクトのみを検索します。",
+    globalLocalSearchTooltip: "リモート要求を行わずに読み込み済みオブジェクトとキャッシュされたテーブルインデックスを検索します。オフにすると不足しているインデックスを作成し、他のオブジェクトをリモートで検索します。メタデータを更新するには更新を使用してください。",
     regexSearch: "正規表現検索",
     regexSearchTooltip: "JavaScript 正規表現でサイドバーの名前、コメント、エイリアスを照合します。",
     clearFilter: "フィルターをクリア",

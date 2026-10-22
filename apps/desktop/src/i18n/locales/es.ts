@@ -924,7 +924,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "Busca en el índice local de tablas sin solicitudes remotas. Desactívalo para buscar de forma remota. Usa actualizar para crear o actualizar el índice.",
     refreshLocalTableSearchIndex: "Actualizar índice local de tablas",
     globalLocalSearch: "Búsqueda local",
-    globalLocalSearchTooltip: "Busca solo los objetos de la barra lateral cargados actualmente sin solicitudes remotas.",
+    globalLocalSearchTooltip: "Busca objetos cargados e índices de tablas en caché sin solicitudes remotas. Desactívalo para crear los índices faltantes y buscar otros objetos de forma remota. Usa Actualizar para actualizar los metadatos.",
     regexSearch: "Búsqueda con regex",
     regexSearchTooltip: "Coincide con nombres, comentarios y alias mediante expresiones regulares de JavaScript.",
     clearFilter: "Limpiar filtro",

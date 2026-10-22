@@ -497,7 +497,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "Uzaq sorğular göndərmədən yerli cədvəl indeksində axtarın. Uzaqdan axtarmaq üçün deaktiv edin. İndeksi yaratmaq və ya yeniləmək üçün yeniləmə əməliyyatından istifadə edin.",
     refreshLocalTableSearchIndex: "Yerli cədvəl indeksini yenilə",
     globalLocalSearch: "Yerli axtarış",
-    globalLocalSearchTooltip: "Uzaq sorğular göndərmədən yalnız yan paneldə hazırda yüklənmiş obyektlərdə axtarın.",
+    globalLocalSearchTooltip: "Uzaq sorğular göndərmədən yüklənmiş obyektlərdə və keşlənmiş cədvəl indekslərində axtarın. Çatışmayan indeksləri yaratmaq və digər obyektləri uzaqdan axtarmaq üçün deaktiv edin. Metaverilənləri yeniləmək üçün yeniləmə əməliyyatından istifadə edin.",
     regexSearch: "Müntəzəm ifadə ilə axtarış",
     regexSearchTooltip: "Yan paneldəki adları, şərhləri və ləqəbləri JavaScript müntəzəm ifadələri ilə uyğunlaşdırın.",
     clearFilter: "Süzgəci təmizlə",

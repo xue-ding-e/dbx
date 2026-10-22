@@ -766,7 +766,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "Przeszukuj lokalny indeks tabel bez zapytań sieciowych. Wyłącz tę opcję, aby szukać zdalnie. Użyj odświeżania, aby utworzyć lub zaktualizować indeks.",
     refreshLocalTableSearchIndex: "Odśwież lokalny indeks tabel",
     globalLocalSearch: "Wyszukiwanie lokalne",
-    globalLocalSearchTooltip: "Szukaj tylko w obiektach już wczytanych w panelu bocznym, bez zapytań zdalnych.",
+    globalLocalSearchTooltip: "Przeszukuj wczytane obiekty i indeksy tabel w pamięci podręcznej bez zapytań zdalnych. Wyłącz, aby utworzyć brakujące indeksy i szukać innych obiektów zdalnie. Użyj Odśwież, aby zaktualizować metadane.",
     regexSearch: "Wyszukiwanie wyrażeniem regularnym",
     regexSearchTooltip: "Dopasowuj nazwy, komentarze i aliasy w panelu bocznym przy użyciu wyrażeń regularnych JavaScript.",
     clearFilter: "Wyczyść filtr",

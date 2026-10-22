@@ -1010,7 +1010,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "开启后搜索本地表索引，不发送远程请求；关闭后使用远程搜索。请使用刷新按钮构建或更新索引。",
     refreshLocalTableSearchIndex: "刷新本地表索引",
     globalLocalSearch: "本地搜索",
-    globalLocalSearchTooltip: "开启后仅搜索已加载的侧边栏对象，不发送远程请求",
+    globalLocalSearchTooltip: "搜索已加载的对象和缓存的表索引，不发送远程请求。关闭后构建缺失的索引并远程搜索其他对象。请使用刷新更新元数据。",
     regexSearch: "正则搜索",
     regexSearchTooltip: "使用 JavaScript 正则表达式匹配侧边栏名称、备注和别名。",
     clearFilter: "清除筛选",

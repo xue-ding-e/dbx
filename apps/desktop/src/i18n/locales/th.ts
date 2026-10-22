@@ -1041,7 +1041,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "ค้นหา Index ตารางในเครื่องโดยไม่ส่ง Request ระยะไกล ปิดเพื่อค้นหาระยะไกล ใช้รีเฟรชเพื่อสร้างหรืออัปเดต Index",
     refreshLocalTableSearchIndex: "รีเฟรช Index ตารางในเครื่อง",
     globalLocalSearch: "การค้นหาในเครื่อง",
-    globalLocalSearchTooltip: "ค้นหาเฉพาะออบเจ็กต์ในแถบด้านข้างที่โหลดอยู่ในขณะนี้โดยไม่ส่ง Request ระยะไกล",
+    globalLocalSearchTooltip: "ค้นหาออบเจ็กต์ที่โหลดแล้วและ Index ตารางในแคชโดยไม่ส่ง Request ระยะไกล ปิดเพื่อสร้าง Index ที่ขาดหายไปและค้นหาออบเจ็กต์อื่นจากระยะไกล ใช้รีเฟรชเพื่ออัปเดต Metadata",
     regexSearch: "การค้นหา Regex",
     regexSearchTooltip: "จับคู่ชื่อ คอมเมนต์ และ Alias ในแถบด้านข้างด้วย Regular Expression ของ JavaScript",
     clearFilter: "ล้างตัวกรอง",

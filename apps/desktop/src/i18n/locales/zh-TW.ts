@@ -918,7 +918,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "使用本機資料表索引搜尋，不會發出遠端請求。關閉後改用遠端搜尋；使用重新整理建立或更新索引。",
     refreshLocalTableSearchIndex: "重新整理本機資料表索引",
     globalLocalSearch: "本機搜尋",
-    globalLocalSearchTooltip: "只搜尋目前已載入的側邊欄物件，不會發出遠端請求。",
+    globalLocalSearchTooltip: "搜尋已載入的物件與快取的資料表索引，不會發出遠端請求。關閉後可建立缺少的索引並遠端搜尋其他物件。使用重新整理更新中繼資料。",
     regexSearch: "正規表示式搜尋",
     regexSearchTooltip: "使用 JavaScript 正規表示式比對側邊欄名稱、備註與別名。",
     clearFilter: "清除篩選",

@@ -497,7 +497,7 @@ export default withEnglishFallback({
     localTableSearchTooltip: "Uzak istek olmadan yerel tablo dizinini arayın. Uzaktan aramak için kapatın. Dizini oluşturmak veya güncellemek için yenile düğmesini kullanın.",
     refreshLocalTableSearchIndex: "Yerel tablo dizinini yenile",
     globalLocalSearch: "Yerel arama",
-    globalLocalSearchTooltip: "Uzak istek olmadan yalnızca yüklü kenar çubuğu nesnelerini arayın.",
+    globalLocalSearchTooltip: "Uzak istek olmadan yüklü nesneleri ve önbelleğe alınmış tablo dizinlerini arayın. Eksik dizinleri oluşturmak ve diğer nesneleri uzaktan aramak için kapatın. Meta verileri güncellemek için Yenile düğmesini kullanın.",
     regexSearch: "Regex araması",
     regexSearchTooltip: "Kenar çubuğu adlarını, açıklamaları ve takma adları JavaScript düzenli ifadeleriyle eşleştirin.",
     clearFilter: "Filtreyi temizle",

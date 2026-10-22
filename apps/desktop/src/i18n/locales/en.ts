@@ -1074,7 +1074,7 @@ export default {
     localTableSearchTooltip: "Search the local table index without remote requests. Turn off to search remotely. Use refresh to build or update the index.",
     refreshLocalTableSearchIndex: "Refresh local table index",
     globalLocalSearch: "Local search",
-    globalLocalSearchTooltip: "Search only currently loaded sidebar objects without remote requests.",
+    globalLocalSearchTooltip: "Search loaded objects and cached table indexes without remote requests. Turn off to build missing indexes and search other objects remotely. Use Refresh to update metadata.",
     regexSearch: "Regex search",
     regexSearchTooltip: "Match sidebar names, comments, and aliases with JavaScript regular expressions.",
     clearFilter: "Clear filter",
