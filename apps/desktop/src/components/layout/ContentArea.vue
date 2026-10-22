@@ -85,6 +85,7 @@ import ObjectDependenciesPanel from "@/components/objects/ObjectDependenciesPane
 import { objectDependencyTarget, isObjectDependencySection, type ObjectDependencyTarget, type ObjectDetailsSection } from "@/lib/database/objectDependencyDetails";
 import DataGridFreezeFirstColumnControl from "@/components/grid/DataGridFreezeFirstColumnControl.vue";
 import DataGridStatusSqlControl from "@/components/grid/DataGridStatusSqlControl.vue";
+import type { DataGridSqlPreview } from "@/components/grid/dataGridSqlPreview";
 import DataGridCopyFormatControl from "@/components/grid/DataGridCopyFormatControl.vue";
 import DataGridFontFamilyControl from "@/components/grid/DataGridFontFamilyControl.vue";
 import DataGridColumnWidthModeControl from "@/components/grid/DataGridColumnWidthModeControl.vue";
@@ -113,6 +114,7 @@ function preloadDataGridComponent() {
 
 const QueryEditor = defineAsyncComponent({ loader: () => import("@/components/editor/QueryEditor.vue"), loadingComponent: QueryLoadingState, delay: 0 });
 const DataGrid = defineAsyncComponent(loadDataGridComponent);
+const DataGridSqlPreviewDialog = defineAsyncComponent(() => import("@/components/grid/DataGridSqlPreviewDialog.vue"));
 const QueryResultTransferDialog = defineAsyncComponent(() => import("@/components/transfer/QueryResultTransferDialog.vue"));
 const RedisKeyBrowser = defineAsyncComponent(() => import("@/components/redis/RedisKeyBrowser.vue"));
 const RedisQueryConsoleOutput = defineAsyncComponent(() => import("@/components/redis/RedisQueryConsoleOutput.vue"));
@@ -437,6 +439,41 @@ function viewObjectDependencySql(context: ObjectDependencyTarget, sql: string) {
 const canOpenTableImport = computed(() => supportsTableImport(activeEffectiveDatabaseType.value));
 const activeVectorConnection = computed(() => connectionStore.getConfig(props.activeTab.connectionId) ?? props.activeConnection);
 const activeDataTabExecutionDatabase = computed(() => dataTabExecutionDatabase(props.activeConnection, props.activeTab.database, activeDataTabTableMeta.value?.catalog));
+const tableSqlPreview = ref<{
+  preview: DataGridSqlPreview;
+  connectionId: string;
+  database: string;
+  schema?: string;
+  catalog?: string;
+} | null>(null);
+
+function viewTableSql(preview: DataGridSqlPreview) {
+  const tab = props.activeTab;
+  if (tab.mode !== "data") return;
+  const meta = activeDataTabTableMeta.value;
+  tableSqlPreview.value = {
+    preview,
+    connectionId: tab.connectionId,
+    // Query tabs need the logical database inside the catalog, not the pool's internal database.
+    database: tab.database,
+    schema: meta?.schema ?? tab.schema,
+    catalog: meta?.catalog ?? tab.catalog,
+  };
+}
+
+function openTableSqlInNewQuery(sql: string) {
+  const snapshot = tableSqlPreview.value;
+  if (!snapshot?.connectionId || !sql.trim()) return;
+  tableSqlPreview.value = null;
+  queryStore.createTab(snapshot.connectionId, snapshot.database, undefined, "query", snapshot.schema, sql, snapshot.catalog, { forceNew: true, schemaQualifiesSql: true });
+}
+
+watch(
+  () => props.activeTab.id,
+  () => {
+    tableSqlPreview.value = null;
+  },
+);
 const activeSqlStatementParameterOptions = computed(() =>
   sqlStatementParameterOptionsForCompatibility(activeEffectiveDatabaseType.value, activeEffectiveDatabaseType.value === "opengauss" ? connectionStore.databaseCompatibilityMode(activeResultConnectionId.value, activeResultDatabase.value) : undefined),
 );
@@ -3360,6 +3397,7 @@ defineExpose({
           :editable="!activeTab.tableMetaPending && (isTableDataEditable(activeEffectiveDatabaseType, activeTableMeta?.primaryKeys ?? [], activeTableMeta?.tableType) || !!influxDbV1DeleteSaveHandler)"
           :custom-save-handler="influxDbV1DeleteSaveHandler"
           context="table-data"
+          @view-sql="viewTableSql"
           :initial-where-input="activeTab.whereInput"
           :database-type="activeEffectiveDatabaseType"
           :connection-id="activeTab.connectionId"
@@ -3742,6 +3780,7 @@ defineExpose({
       <DamengRoleAdmin :key="activeTab.id" :connection="activeConnection" />
     </template>
 
+    <DataGridSqlPreviewDialog v-if="tableSqlPreview" :preview="tableSqlPreview.preview" :can-open-query="!!tableSqlPreview.connectionId" @close="tableSqlPreview = null" @open-query="openTableSqlInNewQuery" />
     <Dialog v-model:open="resultRunRenameOpen">
       <DialogContent class="sm:max-w-[400px]">
         <DialogHeader>
