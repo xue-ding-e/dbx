@@ -1207,13 +1207,12 @@ watch(
     // surface (a background group's editor) must never redirect the global
     // view when its own tab finishes executing.
     if (props.editorOnly) return;
-    // A batch run reports its progress statement by statement, and only the
-    // summary view shows that, so a run of several statements opens there
-    // instead of on the first statement's grid. The switch is recorded against
-    // the run it happened in: a user who picks another view mid-run keeps it,
-    // and the next run switches again.
+    // Show statement-by-statement progress only when summary is the configured
+    // default; otherwise this watcher would override the execution entry point's
+    // result-grid selection. Record the switch per run so a user's subsequent
+    // manual view selection survives progress updates.
     const batchExecution = props.activeTab.batchSqlExecution;
-    if (batchExecution && batchExecution.finishedAt === undefined && batchExecution.total > 1 && props.activeOutputView === "result" && props.activeTab.uiState?.batchSummaryExecutionId !== batchExecution.executionId) {
+    if (settingsStore.editorSettings.multiStatementDefaultView === "summary" && batchExecution && batchExecution.finishedAt === undefined && batchExecution.total > 1 && props.activeOutputView === "result" && props.activeTab.uiState?.batchSummaryExecutionId !== batchExecution.executionId) {
       queryStore.updateTabUiState(props.activeTab.id, { activeOutputView: "summary", batchSummaryExecutionId: batchExecution.executionId });
       emit("update:activeOutputView", props.activeTab.id, "summary");
       return;
