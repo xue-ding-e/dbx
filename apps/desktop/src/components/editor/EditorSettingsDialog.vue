@@ -207,6 +207,7 @@ import {
   webdavSyncInspect,
   webdavSyncSecretsStatus,
   webdavSyncTest,
+  relaunchApp,
   webdavSyncUpload,
   listInstalledAgentsLocal,
   listPlugins,
@@ -2649,8 +2650,7 @@ async function restartDbxForDuckDbIsolation() {
   duckDbRestarting.value = true;
   try {
     await persistSettings();
-    const { relaunch } = await import("@tauri-apps/plugin-process");
-    await relaunch();
+    await relaunchApp();
   } catch (e: any) {
     toast(t("settings.restartDbxFailed", { error: e?.message || String(e) }), 5000);
   } finally {
