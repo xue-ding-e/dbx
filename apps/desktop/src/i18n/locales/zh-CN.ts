@@ -4498,6 +4498,8 @@ export default withEnglishFallback({
     renameConversation: "重命名会话",
     conversationRenameFailed: "会话重命名失败",
     clearDatabaseSelection: "清空选择",
+    databaseTarget: "目标库",
+    setDatabaseTarget: "设为目标库",
     searchDatabases: "搜索数据库…",
     noDatabasesFound: "未找到数据库",
   },

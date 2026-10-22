@@ -3598,6 +3598,8 @@ export default withEnglishFallback({
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "Hədəf",
+    setDatabaseTarget: "Hədəf kimi təyin et",
     searchDatabases: "Verilənlər bazalarında axtarış…",
     noDatabasesFound: "Verilənlər bazası tapılmadı",
   },

@@ -4122,6 +4122,8 @@ export default withEnglishFallback({
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "대상",
+    setDatabaseTarget: "대상으로 설정",
     searchDatabases: "데이터베이스 검색…",
     noDatabasesFound: "데이터베이스를 찾을 수 없습니다",
   },

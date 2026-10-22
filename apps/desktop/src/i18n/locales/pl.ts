@@ -3988,6 +3988,8 @@ export default withEnglishFallback({
     renameConversation: "Zmień nazwę rozmowy",
     conversationRenameFailed: "Nie udało się zmienić nazwy rozmowy",
     clearDatabaseSelection: "Wyczyść zaznaczenie",
+    databaseTarget: "Docelowa",
+    setDatabaseTarget: "Ustaw jako docelową",
     searchDatabases: "Szukaj baz danych…",
     noDatabasesFound: "Nie znaleziono baz danych",
   },

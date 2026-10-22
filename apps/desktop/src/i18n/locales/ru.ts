@@ -4282,6 +4282,8 @@ export default withEnglishFallback({
     renameConversation: "Переименовать диалог",
     conversationRenameFailed: "Не удалось переименовать диалог",
     clearDatabaseSelection: "Очистить выбор",
+    databaseTarget: "Целевая",
+    setDatabaseTarget: "Сделать целевой",
     searchDatabases: "Поиск баз данных…",
     noDatabasesFound: "Базы данных не найдены",
   },

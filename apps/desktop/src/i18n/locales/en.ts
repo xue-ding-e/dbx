@@ -4570,6 +4570,8 @@ export default {
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "Target",
+    setDatabaseTarget: "Set as target",
     searchDatabases: "Search databases…",
     noDatabasesFound: "No databases found",
   },

@@ -4174,6 +4174,8 @@ export default withEnglishFallback({
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "目標庫",
+    setDatabaseTarget: "設為目標庫",
     searchDatabases: "搜尋資料庫…",
     noDatabasesFound: "未找到資料庫",
   },

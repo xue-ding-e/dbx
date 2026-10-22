@@ -3568,6 +3568,8 @@ export default withEnglishFallback({
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "Hedef",
+    setDatabaseTarget: "Hedef olarak ayarla",
     searchDatabases: "Veritabanlarında ara…",
     noDatabasesFound: "Veritabanı bulunamadı",
   },

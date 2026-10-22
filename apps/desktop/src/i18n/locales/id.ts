@@ -3918,6 +3918,8 @@ export default withEnglishFallback({
     renameConversation: "Ganti nama percakapan",
     conversationRenameFailed: "Gagal mengganti nama percakapan",
     clearDatabaseSelection: "Bersihkan pilihan",
+    databaseTarget: "Target",
+    setDatabaseTarget: "Jadikan target",
     searchDatabases: "Cari database…",
     noDatabasesFound: "Tidak ada database yang ditemukan",
   },

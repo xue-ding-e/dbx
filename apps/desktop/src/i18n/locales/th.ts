@@ -4481,6 +4481,8 @@ export default withEnglishFallback({
     renameConversation: "เปลี่ยนชื่อการสนทนา",
     conversationRenameFailed: "เปลี่ยนชื่อการสนทนาไม่สำเร็จ",
     clearDatabaseSelection: "ล้างการเลือก",
+    databaseTarget: "เป้าหมาย",
+    setDatabaseTarget: "ตั้งเป็นเป้าหมาย",
     searchDatabases: "ค้นหาฐานข้อมูล…",
     noDatabasesFound: "ไม่พบฐานข้อมูล",
     magpieImport: "นำเข้าจาก Magpie",

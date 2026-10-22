@@ -4078,6 +4078,8 @@ export default withEnglishFallback({
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "ターゲット",
+    setDatabaseTarget: "ターゲットに設定",
     searchDatabases: "データベースを検索…",
     noDatabasesFound: "データベースが見つかりません",
     toolApproval: {

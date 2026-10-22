@@ -4199,6 +4199,8 @@ export default withEnglishFallback({
     renameConversation: "Rename conversation",
     conversationRenameFailed: "Failed to rename conversation",
     clearDatabaseSelection: "Clear selection",
+    databaseTarget: "Destino",
+    setDatabaseTarget: "Establecer como destino",
     searchDatabases: "Buscar bases de datos…",
     noDatabasesFound: "No se encontraron bases de datos",
     toolApproval: {
