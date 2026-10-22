@@ -189,9 +189,8 @@ pub(crate) fn linux_compositing_available() -> bool {
     gtk::gdk::Screen::default().is_some_and(|screen| screen.is_composited())
 }
 
-/// Desktops where the transparent floating frame is known to render correctly. Others (notably
-/// KDE, which shows flickering or missing content with some driver/WebKitGTK combinations) keep
-/// the opaque window unless the user forces the frame on.
+/// Desktops where the floating frame is enabled automatically. Driver/WebKitGTK combinations
+/// can still cause flickering on GNOME, so the saved setting can disable this default.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn linux_desktop_supports_floating_frame(current_desktop: Option<&std::ffi::OsStr>) -> bool {
     current_desktop
@@ -199,7 +198,7 @@ fn linux_desktop_supports_floating_frame(current_desktop: Option<&std::ffi::OsSt
         .unwrap_or(false)
 }
 
-/// `DBX_LINUX_FLOATING_FRAME=1|0` is an optional override; without it the frame is only used on
+/// `DBX_LINUX_FLOATING_FRAME=1|0` overrides the saved preference; otherwise the frame is only used on
 /// GNOME running as a native Wayland client. GNOME on X11 ("GNOME on Xorg") keeps the opaque
 /// window: there the transparent WebKitGTK window stays see-through and only repaints the regions
 /// that get damaged (e.g. under the mouse).
@@ -209,6 +208,7 @@ fn should_enable_linux_floating_frame(
     native_wayland: bool,
     override_value: Option<&std::ffi::OsStr>,
     current_desktop: Option<&std::ffi::OsStr>,
+    enabled: bool,
 ) -> bool {
     if !compositing {
         return false;
@@ -216,14 +216,14 @@ fn should_enable_linux_floating_frame(
     match override_value.and_then(|value| value.to_str()) {
         Some("1") => true,
         Some("0") => false,
-        _ => native_wayland && linux_desktop_supports_floating_frame(current_desktop),
+        _ => enabled && native_wayland && linux_desktop_supports_floating_frame(current_desktop),
     }
 }
 
 /// The Linux config declares the main window with `create: false` so its transparency can
 /// depend at runtime on the desktop, the Wayland/X11 session and whether a compositor is available.
 #[cfg(target_os = "linux")]
-fn create_linux_main_window(app: &tauri::App) -> tauri::Result<()> {
+fn create_linux_main_window(app: &tauri::App, floating_frame_enabled: bool) -> tauri::Result<()> {
     let Some(config) = app.config().app.windows.iter().find(|window| window.label == "main").cloned() else {
         return Ok(());
     };
@@ -240,6 +240,7 @@ fn create_linux_main_window(app: &tauri::App) -> tauri::Result<()> {
         native_wayland,
         override_value.as_deref(),
         current_desktop.as_deref(),
+        floating_frame_enabled,
     );
     log::info!(
         "[WINDOW] Linux main window compositing={compositing}; native_wayland={native_wayland}; floating_frame={floating_frame}"
@@ -1271,36 +1272,83 @@ mod tests {
     #[test]
     fn linux_floating_frame_is_enabled_by_default_on_gnome_wayland_only() {
         for desktop in ["GNOME", "ubuntu:GNOME", "gnome", "GNOME-Classic:GNOME"] {
-            assert!(should_enable_linux_floating_frame(true, true, None, Some(OsStr::new(desktop))), "{desktop}");
+            assert!(should_enable_linux_floating_frame(true, true, None, Some(OsStr::new(desktop)), true), "{desktop}");
         }
         for desktop in ["KDE", "XFCE", "X-Cinnamon", "sway", "", "GNOMEISH"] {
-            assert!(!should_enable_linux_floating_frame(true, true, None, Some(OsStr::new(desktop))), "{desktop}");
+            assert!(
+                !should_enable_linux_floating_frame(true, true, None, Some(OsStr::new(desktop)), true),
+                "{desktop}"
+            );
         }
-        assert!(!should_enable_linux_floating_frame(true, true, None, None));
+        assert!(!should_enable_linux_floating_frame(true, true, None, None, true));
     }
 
     #[test]
     fn linux_floating_frame_is_disabled_by_default_on_gnome_x11() {
         for desktop in ["GNOME", "ubuntu:GNOME", "GNOME-Classic:GNOME"] {
-            assert!(!should_enable_linux_floating_frame(true, false, None, Some(OsStr::new(desktop))), "{desktop}");
+            assert!(
+                !should_enable_linux_floating_frame(true, false, None, Some(OsStr::new(desktop)), true),
+                "{desktop}"
+            );
         }
-        assert!(should_enable_linux_floating_frame(true, false, Some(OsStr::new("1")), Some(OsStr::new("GNOME"))));
+        assert!(should_enable_linux_floating_frame(
+            true,
+            false,
+            Some(OsStr::new("1")),
+            Some(OsStr::new("GNOME")),
+            true
+        ));
     }
 
     #[test]
     fn linux_floating_frame_override_wins_over_desktop() {
-        assert!(should_enable_linux_floating_frame(true, true, Some(OsStr::new("1")), Some(OsStr::new("KDE"))));
-        assert!(!should_enable_linux_floating_frame(true, true, Some(OsStr::new("0")), Some(OsStr::new("GNOME"))));
+        assert!(should_enable_linux_floating_frame(true, true, Some(OsStr::new("1")), Some(OsStr::new("KDE")), true));
+        assert!(!should_enable_linux_floating_frame(
+            true,
+            true,
+            Some(OsStr::new("0")),
+            Some(OsStr::new("GNOME")),
+            true
+        ));
         for value in ["", "true", "auto", "01"] {
-            assert!(should_enable_linux_floating_frame(true, true, Some(OsStr::new(value)), Some(OsStr::new("GNOME"))));
-            assert!(!should_enable_linux_floating_frame(true, true, Some(OsStr::new(value)), Some(OsStr::new("KDE"))));
+            assert!(should_enable_linux_floating_frame(
+                true,
+                true,
+                Some(OsStr::new(value)),
+                Some(OsStr::new("GNOME")),
+                true
+            ));
+            assert!(!should_enable_linux_floating_frame(
+                true,
+                true,
+                Some(OsStr::new(value)),
+                Some(OsStr::new("KDE")),
+                true
+            ));
         }
     }
 
     #[test]
     fn linux_floating_frame_requires_compositing() {
-        assert!(!should_enable_linux_floating_frame(false, true, Some(OsStr::new("1")), Some(OsStr::new("GNOME"))));
-        assert!(!should_enable_linux_floating_frame(false, true, None, Some(OsStr::new("GNOME"))));
+        assert!(!should_enable_linux_floating_frame(
+            false,
+            true,
+            Some(OsStr::new("1")),
+            Some(OsStr::new("GNOME")),
+            true
+        ));
+        assert!(!should_enable_linux_floating_frame(false, true, None, Some(OsStr::new("GNOME")), true));
+    }
+
+    #[test]
+    fn linux_floating_frame_setting_can_disable_gnome_default() {
+        let desktop = Some(OsStr::new("GNOME"));
+        assert!(!should_enable_linux_floating_frame(true, true, None, desktop, false));
+        assert!(!should_enable_linux_floating_frame(true, true, Some(OsStr::new("auto")), desktop, false));
+        assert!(should_enable_linux_floating_frame(true, true, Some(OsStr::new("1")), desktop, false));
+        assert!(!should_enable_linux_floating_frame(true, true, Some(OsStr::new("0")), desktop, true));
+        assert!(!should_enable_linux_floating_frame(true, false, None, desktop, true));
+        assert!(!should_enable_linux_floating_frame(false, true, Some(OsStr::new("1")), desktop, false));
     }
 
     #[test]
@@ -1925,22 +1973,23 @@ pub fn run() {
         })
         .setup(move |app| {
             let setup_start = Instant::now();
-            #[cfg(target_os = "linux")]
-            create_linux_main_window(app)?;
             eprintln!("[STARTUP] plugins registered in {:?}", startup_begin.elapsed());
             append_startup_probe(format!("setup entered after {:?}", startup_begin.elapsed()));
-            window_state_guard::restore_main_window_state(app.handle());
+            #[cfg(not(target_os = "linux"))]
+            {
+                window_state_guard::restore_main_window_state(app.handle());
 
-            if should_show_main_window_before_setup_tasks() {
-                prepare_main_window_for_display(app.handle());
-                show_main_window(app.handle());
-                append_startup_probe(format!(
-                    "early main window show requested; {}",
-                    main_window_probe_state(app.handle())
-                ));
-                startup_recovery::report_window_visibility_probe(startup_recovery::probe_main_window_visible(
-                    app.handle(),
-                ));
+                if should_show_main_window_before_setup_tasks() {
+                    prepare_main_window_for_display(app.handle());
+                    show_main_window(app.handle());
+                    append_startup_probe(format!(
+                        "early main window show requested; {}",
+                        main_window_probe_state(app.handle())
+                    ));
+                    startup_recovery::report_window_visibility_probe(startup_recovery::probe_main_window_visible(
+                        app.handle(),
+                    ));
+                }
             }
 
             append_startup_probe("resolving app data dir");
@@ -1992,6 +2041,22 @@ pub fn run() {
             let migration_gate = Arc::new(migration_gate::MigrationGate::new(migration_ready));
             app.manage(migration_gate.clone());
             let desktop_settings = tauri::async_runtime::block_on(storage.load_desktop_settings()).unwrap_or_default();
+            #[cfg(target_os = "linux")]
+            {
+                // Transparency must be chosen before creating the native window. Read the saved
+                // preference first so a disabled frame is never briefly shown during startup.
+                create_linux_main_window(app, desktop_settings.linux_floating_frame_enabled)?;
+                window_state_guard::restore_main_window_state(app.handle());
+
+                if should_show_main_window_before_setup_tasks() {
+                    prepare_main_window_for_display(app.handle());
+                    show_main_window(app.handle());
+                    append_startup_probe(format!(
+                        "early main window show requested; {}",
+                        main_window_probe_state(app.handle())
+                    ));
+                }
+            }
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
                     .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)

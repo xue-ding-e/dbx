@@ -9355,6 +9355,8 @@ export default withEnglishFallback({
     tabGroupRowsSingle: "Uma linha",
     tabGroupRowsTwoRow: "Duas linhas (grupos em linha própria)",
     tabGroupRowsDescription: "Aplica-se apenas a uma barra de abas no topo ou na base com agrupamento ativado: os grupos ocupam uma linha própria e as abas do grupo selecionado aparecem na linha seguinte.",
+    linuxFloatingFrame: "Efeito de transparência da janela",
+    linuxFloatingFrameDescription: "Ativa automaticamente bordas transparentes em desktops compatíveis. Pode ser desativado se a janela piscar; entra em vigor após aplicar e reiniciar o DBX. As configurações de variáveis de ambiente têm prioridade.",
     shortcutExecuteAllSql: "Executar todo o SQL",
   },
   driverStore: {
