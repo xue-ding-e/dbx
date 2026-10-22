@@ -2523,6 +2523,18 @@ export const useQueryStore = defineStore("query", () => {
     }
   }
 
+  /**
+   * Whether the active result run currently owns the displayed result object.
+   * Background follow-ups (metadata analysis, row counts) may only persist their
+   * updates into a run that still displays the result they analyzed; a run the
+   * user switched to mid-execution must not receive that result.
+   */
+  function activeResultRunOwnsDisplayedResult(tab: QueryTab): boolean {
+    if (!tab.activeResultRunId) return false;
+    const run = tab.resultRuns?.find((item) => item.id === tab.activeResultRunId);
+    return run?.result === tab.result || !!run?.results?.some((item) => item === tab.result);
+  }
+
   function syncActiveResultRunFromDisplayed(tab: QueryTab, sql?: string) {
     if (!tab.activeResultRunId || !tab.resultRuns?.length) return;
     const index = tab.resultRuns.findIndex((run) => run.id === tab.activeResultRunId);
@@ -7567,7 +7579,7 @@ export const useQueryStore = defineStore("query", () => {
         const current = tabs.value.find((t) => t.id === tabId);
         if (!current || current.result !== result) return;
         applyQueryDisplayMetadata(current, display);
-        syncActiveResultRunFromDisplayed(current);
+        if (activeResultRunOwnsDisplayedResult(current)) syncActiveResultRunFromDisplayed(current);
         queryExecutionLog("info", "metadata:display-ready", { traceId, elapsed: elapsed() });
       };
       // Metadata requests outlive the displayed result when another query starts
@@ -7579,7 +7591,7 @@ export const useQueryStore = defineStore("query", () => {
       const current = tabs.value.find((t) => t.id === tabId);
       if (patch && current?.result === result) {
         applyQueryMetadataPatch(current, patch, databaseType, executionDatabase);
-        syncActiveResultRunFromDisplayed(current);
+        if (activeResultRunOwnsDisplayedResult(current)) syncActiveResultRunFromDisplayed(current);
         queryExecutionLog("info", "metadata:done", { traceId, elapsed: elapsed() });
       } else {
         queryExecutionLog("warn", "metadata:stale", { traceId, elapsed: elapsed() });
@@ -7593,7 +7605,7 @@ export const useQueryStore = defineStore("query", () => {
     if (current.executionId !== executionId && current.result !== result) return;
     current.resultTotalRowCount = totalRowCount;
     current.resultTotalRowCountLoading = false;
-    syncActiveResultRunFromDisplayed(current);
+    if (activeResultRunOwnsDisplayedResult(current)) syncActiveResultRunFromDisplayed(current);
   }
 
   type TotalRowCountSqlTarget = { sql: string; schema?: string };
@@ -7753,6 +7765,13 @@ export const useQueryStore = defineStore("query", () => {
       sourceTraceId?: string;
       skipEnsureConnected?: boolean;
       openInNewResultTab?: boolean;
+      /**
+       * Re-run the displayed result in place: refresh / auto-refresh / page /
+       * sort are result-view operations, so with "auto-keep results" enabled
+       * they update the current result run instead of capturing a new one.
+       * Explicit executions keep capturing runs.
+       */
+      refreshActiveResultRun?: boolean;
       targetContext?: SqlExecutionTargetContext;
       executionTarget?: MultiDbExecutionTarget;
       onExecutionStarted?: () => void;
@@ -7770,7 +7789,11 @@ export const useQueryStore = defineStore("query", () => {
     // response as another run. Previously `resultAutoSave` only made the latter
     // decision after clearing the displayed payload, which caused the result
     // toolbar and grid to briefly disappear before the next Run was added.
-    const captureAutoSavedResultRun = tab.mode === "query" && tab.resultAutoSave === true && (!!tab.activeResultRunId || (!!tab.result && !isQueryExecutionErrorResult(tab.result)));
+    // A refresh of the displayed result is not a new execution: it must update
+    // the active result run in place even when auto-keep is enabled, otherwise
+    // every refresh/auto-refresh tick would add a result tab (issue #13043).
+    const refreshActiveResultRun = tab.mode === "query" && options?.refreshActiveResultRun === true && !!tab.activeResultRunId;
+    const captureAutoSavedResultRun = tab.mode === "query" && tab.resultAutoSave === true && !refreshActiveResultRun && (!!tab.activeResultRunId || (!!tab.result && !isQueryExecutionErrorResult(tab.result)));
     let captureResultRun = openInNewResultTab || captureAutoSavedResultRun;
     let resultRunToRestore: string | undefined;
     let reuseResultRun = false;
@@ -7834,10 +7857,13 @@ export const useQueryStore = defineStore("query", () => {
     // An error/cancelled result has no dataset to preserve; clearing it lets
     // QueryLoadingState display the live elapsed execution timer (issue #12749).
     const preserveQueryResultDuringExecution = tab.mode === "query" && !!tab.result && !isQueryExecutionErrorResult(tab.result) && !captureResultRun;
-    const preserveResultDuringExecution = batchResume !== undefined || (options?.preserveResultDuringExecution === true && (!tab.result || !isQueryExecutionErrorResult(tab.result))) || captureAutoSavedResultRun || preserveQueryResultDuringExecution;
+    const preserveResultDuringExecution = batchResume !== undefined || (options?.preserveResultDuringExecution === true && (!tab.result || !isQueryExecutionErrorResult(tab.result))) || captureAutoSavedResultRun || refreshActiveResultRun || preserveQueryResultDuringExecution;
     const updateActiveResultRun = !!tab.activeResultRunId && preserveResultDuringExecution;
     tab.isExecuting = true;
     tab.executingResultRunId = !captureResultRun && updateActiveResultRun ? tab.activeResultRunId : null;
+    // The run this execution updates in place, locked before any await. Completion
+    // must not write into a different run the user switched to mid-execution.
+    const lockedResultRunId = tab.executingResultRunId;
     options?.onExecutionStarted?.();
     tab.isCancelling = false;
     if (!tab.queryExecutionStartedAt) {
@@ -7905,6 +7931,7 @@ export const useQueryStore = defineStore("query", () => {
     let executionDispatched = false;
     let clientRequestStartedAt: number | undefined;
     let producedResult = false;
+    let refreshFailedPreservingRun = false;
     const resumedExecutionTarget = batchResume?.batch.executionTarget;
     const executionConnectionId = resumedExecutionTarget?.connectionId ?? options?.executionTarget?.connectionId ?? tab.connectionId;
     // Captured for the catch below: a single-statement failure aborts the whole
@@ -9342,7 +9369,12 @@ export const useQueryStore = defineStore("query", () => {
           totalRowCountResolved = true;
         }
         touchResult(current);
-        syncDisplayedResultRun(current, queryBaseSql, captureResultRun);
+        // Only sync the displayed run when it is still the run this execution
+        // targeted; switching result runs mid-execution must not overwrite the
+        // run the user is now looking at.
+        if (lockedResultRunId === null || current.activeResultRunId === lockedResultRunId) {
+          syncDisplayedResultRun(current, queryBaseSql, captureResultRun);
+        }
         if (!batchPagination && !options?.appendResult && !resultLimitReached && !totalRowCountResolved && (current.mode === "query" || current.mode === "data") && current.result) {
           countQueryTotalRowsInBackground({
             tabId: id,
@@ -9448,7 +9480,9 @@ export const useQueryStore = defineStore("query", () => {
           current.results = undefined;
           current.activeResultIndex = undefined;
         }
-        if (!captureResultRun && previousDisplayedResults.some(Boolean)) {
+        if (!captureResultRun && !refreshActiveResultRun && previousDisplayedResults.some(Boolean)) {
+          // A failed in-place refresh keeps the retained run's previous dataset, so
+          // its large-value handles must not be released with the displayed error.
           releaseReplacedResultLargeValues(current, ...previousDisplayedResults);
         }
         current.queryAnalysis = undefined;
@@ -9478,7 +9512,14 @@ export const useQueryStore = defineStore("query", () => {
         publishResultGeneration(current, "execute");
         // When a pinned result requires a new run, errors must use that same
         // run instead of being replaced by the retained pinned result below.
-        syncDisplayedResultRun(current, queryBaseSql, captureResultRun);
+        // A failed in-place refresh leaves the retained run untouched (the error
+        // stays on the displayed surface only), and a run switched to mid-execution
+        // must not receive this execution's error either.
+        if (refreshActiveResultRun) {
+          refreshFailedPreservingRun = true;
+        } else if (lockedResultRunId === null || current.activeResultRunId === lockedResultRunId) {
+          syncDisplayedResultRun(current, queryBaseSql, captureResultRun);
+        }
       }
     } finally {
       unsubscribeQueryMessages?.();
@@ -9496,7 +9537,13 @@ export const useQueryStore = defineStore("query", () => {
         const liveBatch = liveBatchSqlExecutions.get(current);
         if (liveBatch?.executionId === executionId) current.batchSqlExecution = liveBatch;
         finishBatchSqlExecution(current, executionId, current.isCancelling === true);
-        if (current.activeResultRunId && current.result) syncActiveResultRunFromDisplayed(current);
+        if (current.activeResultRunId && current.result && !refreshFailedPreservingRun) {
+          // Same ownership rule as the completion syncs above: never write into a
+          // run this execution did not target.
+          if (current.executingResultRunId === null || current.activeResultRunId === current.executingResultRunId) {
+            syncActiveResultRunFromDisplayed(current);
+          }
+        }
         if (captureResultRun && !current.activeResultRunId) {
           restorePendingResultRun(current, executionId);
         } else {
