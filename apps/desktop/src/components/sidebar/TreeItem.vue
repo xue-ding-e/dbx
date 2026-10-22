@@ -961,7 +961,9 @@ const selectionVisual = computed(() => {
   return {
     selected,
     multiSelected,
-    rowSelected: selected || multiSelected,
+    // The active row can remain the keyboard lead after Ctrl/Cmd toggles it
+    // out of the selection. Only actual members should keep the highlight.
+    rowSelected: connectionStore.selectedTreeNodeIds.length > 0 ? multiSelected : selected,
     usesSelectionSetHighlight: connectionStore.connectionMultiSelectActive || connectionStore.selectedTreeNodeIds.length > 1,
   };
 });
@@ -1921,10 +1923,6 @@ function onKeydown(event: KeyboardEvent) {
   background-color: var(--tree-connection-active-focus-bg, var(--tree-connection-active-bg));
 }
 
-.tree-item-connection-tint.tree-item-active--selection-set:focus::before {
-  background-color: var(--tree-connection-active-bg, var(--tree-connection-row-bg));
-}
-
 .tree-table-search-control {
   position: relative;
   isolation: isolate;
@@ -1969,15 +1967,33 @@ function onKeydown(event: KeyboardEvent) {
   background-color: var(--tree-connection-active-focus-bg, rgb(33 60 89)) !important;
 }
 
-/* Multi-selection treats every selected row as equal; keep focus neutral. */
-.tree-item-active--selection-set:focus {
-  background-color: var(--tree-connection-active-bg, rgb(235 235 235)) !important;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 14%, transparent);
+/* Keep every member of a multi-selection visible, including after focus leaves
+   the tree. The inset marker also distinguishes selection from hover/tint. */
+.tree-item-active--selection-set {
+  --tree-selection-set-bg: rgb(211 227 245);
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
+:root.dark .tree-item-active--selection-set {
+  --tree-selection-set-bg: rgb(33 60 89);
+}
+
+.tree-item-active--selection-set,
+.tree-item-active--selection-set:focus,
+:root.dark .tree-item-active--selection-set,
 :root.dark .tree-item-active--selection-set:focus {
-  background-color: var(--tree-connection-active-bg, rgb(36 36 36)) !important;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 18%, transparent);
+  background-color: var(--tree-selection-set-bg) !important;
+}
+
+/* Colored connections paint their descendants through a separate background
+   layer; use the same selection tint on that layer as on ordinary rows. */
+.tree-item-connection-tint.tree-item-active--selection-set::before,
+.tree-item-connection-tint.tree-item-active--selection-set:focus::before {
+  /* Labels can be nested under display: contents wrappers, so keep the
+     opaque selection layer behind all content in the isolated row. */
+  z-index: -1;
+  background-color: var(--tree-selection-set-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 /* Locate highlight: instant warning tint, then fade on removal */
