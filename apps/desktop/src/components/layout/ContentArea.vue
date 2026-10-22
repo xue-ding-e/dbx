@@ -2152,7 +2152,7 @@ defineExpose({
           </div>
         </Pane>
         <Pane v-if="(resultsPaneOpen || resultOnly) && !editorOnly" class="min-h-0" :size="resultOnly ? 100 : resultsPaneSize" :min-size="resultOnly ? 100 : 20">
-          <div data-query-result-surface class="h-full flex flex-col border border-transparent" :style="activeResultColor ? { borderColor: activeResultColor } : undefined">
+          <div data-query-result-surface class="h-full flex flex-col">
             <!--
               The shared result surface (resultOnly) is always mounted regardless of
               whether the active tab has run a query yet, and this toolbar is the only
