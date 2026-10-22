@@ -9184,6 +9184,17 @@ mod tests {
     }
 
     #[test]
+    fn mysql_binary_string_preserves_canonical_hex_for_ascii_uuid() {
+        let binary_column = mysql_test_column(ColumnType::MYSQL_TYPE_STRING, 63, ColumnFlags::BINARY_FLAG, 36);
+        let uuid_bytes = b"01a057bf-2bbd-70a6-b3c3-56eb409a0f95".to_vec();
+
+        assert_eq!(
+            mysql_bytes_to_json(uuid_bytes, &binary_column),
+            serde_json::json!("0x30316130353762662d326262642d373061362d623363332d353665623430396130663935")
+        );
+    }
+
+    #[test]
     fn mysql_binary_values_preserve_all_bytes_as_hex() {
         let binary_column = mysql_test_column(ColumnType::MYSQL_TYPE_STRING, 63, ColumnFlags::BINARY_FLAG, 8);
         let varbinary_column = mysql_test_column(ColumnType::MYSQL_TYPE_VAR_STRING, 63, ColumnFlags::BINARY_FLAG, 8);
