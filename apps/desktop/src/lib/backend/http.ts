@@ -3129,6 +3129,10 @@ export async function listSqlFilesInFolder(_folderPath: string, _fileFilter?: st
   throw new Error("Listing SQL files in a folder is only available in the desktop app");
 }
 
+export async function searchSqlFileContents(_roots: string[], _query: string, _fileFilter?: string): Promise<import("@/lib/backend/tauri").SqlFileContentSearchResult> {
+  throw new Error("Searching SQL file contents is only available in the desktop app");
+}
+
 export async function createSqlFileInFolder(_rootPath: string, _directoryPath: string, _fileName: string): Promise<string> {
   throw new Error("Managing SQL files in folders is only available in the desktop app");
 }

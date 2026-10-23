@@ -1,32 +1,33 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, onUnmounted, watch, useId } from "vue";
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, useId } from "vue";
 import { useI18n } from "vue-i18n";
-import { FolderOpen, FolderClosed, FileCode, FolderPlus, ChevronRight, ChevronDown, X, Trash2, RefreshCw, FolderSearch, Copy, Play, ChevronsUpDown, ChevronsDownUp, Settings, FilePlus, Pencil, Search, ArrowDownAZ, ArrowUpAZ, Loader2, GripVertical, Check } from "@lucide/vue";
+import { FolderOpen, FolderClosed, FileCode, FolderPlus, ChevronRight, ChevronDown, X, Trash2, RefreshCw, FolderSearch, Copy, Play, ChevronsUpDown, ChevronsDownUp, Settings, FilePlus, Pencil, ArrowDownAZ, ArrowUpAZ, GripVertical, Check } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import SqlPanelSearch from "@/components/layout/SqlPanelSearch.vue";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LightTooltip from "@/components/ui/LightTooltip.vue";
 import HelpTooltip from "@/components/ui/tooltip/HelpTooltip.vue";
 import SidebarLocateButton from "@/components/sidebar/SidebarLocateButton.vue";
+import SqlSearchMatchSnippet from "@/components/layout/SqlSearchMatchSnippet.vue";
 import CustomContextMenu, { type ContextMenuItem } from "@/components/ui/CustomContextMenu.vue";
 import { useQueryStore } from "@/stores/queryStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useToast } from "@/composables/useToast";
+import { useSqlFileContentSearch } from "@/composables/useSqlFileContentSearch";
+import type { SavedSqlLineMatch } from "@/lib/savedSql/savedSqlSearch";
 import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
 import { translateBackendError } from "@/i18n/backend-errors";
 import { copyToClipboard } from "@/lib/common/clipboard";
 import { forgetExternalSqlFileTarget, forgetExternalSqlFolderTargets, moveExternalSqlFileTarget, moveExternalSqlFolderTargets, resolveExternalSqlFileTargetForActiveTab } from "@/lib/sql/externalSqlFileTarget";
 import { externalSqlFileOpenErrorMessage, externalSqlEditorMaxBytes, formatSqlFileSize, isExternalSqlFileTooLargeError, isSqlFilePath, normalizeExternalSqlPath, queryTabExternalFilePath, relocateExternalSqlPathWithinFolder } from "@/lib/sql/sqlFileOpen";
-import type { SavedSqlLineMatch } from "@/lib/savedSql/savedSqlSearch";
 import * as api from "@/lib/backend/api";
 import type { SqlFileEntry } from "@/lib/backend/api";
 import { getSqlFileFilter, getSqlFileFolderPaths, saveSqlFileFilter, saveSqlFileFolderPaths, notifySqlFileFoldersChanged } from "@/lib/sqlFile/sqlFileFolders";
-import { filterAndSortSqlFileEntries, getSqlFileSortOrder, saveSqlFileSortOrder, type SqlFileSortOrder } from "@/lib/sql/sqlFileTreeFilter";
-import { contentMatchPathSet, searchSqlFileContents, SQL_FILE_CONTENT_SEARCH_DEBOUNCE_MS, type SqlFileContentMatchGroup, type SqlFileContentSearchResult } from "@/lib/sql/sqlFileContentSearch";
-import SqlSearchMatchSnippet from "@/components/layout/SqlSearchMatchSnippet.vue";
+import { filterAndSortSqlFileEntries, getSqlFileSortOrder, saveSqlFileSortOrder, type SqlFileSearchMode, type SqlFileSortOrder } from "@/lib/sql/sqlFileTreeFilter";
 import { orderedListSelectionIntent, type OrderedListSelectionItem } from "@/lib/selection/orderedListSelection";
 import { getSqlFileOpenMode, saveSqlFileOpenMode, type SqlFileOpenMode } from "@/lib/sqlFile/sqlFileInteraction";
 import { getSqlFileOrder, saveSqlFileOrder, reorderSqlFiles, remapSqlFileOrder, sqlFileParentPath, type SqlFileOrder } from "@/lib/sqlFile/sqlFileOrder";
@@ -55,9 +56,6 @@ interface FolderState {
 }
 
 const folders = ref<FolderState[]>([]);
-// Bumped whenever the loaded file set changes (folder added/removed/reloaded),
-// so an active content search can be re-run against the new tree.
-const foldersRevision = ref(0);
 const fileTree = ref<HTMLElement | null>(null);
 const locatingFile = ref(false);
 const currentFilePath = computed(() => {
@@ -68,12 +66,47 @@ const filterSettingsOpen = ref(false);
 const fileFilterDraft = ref(getSqlFileFilter());
 const openMode = ref<SqlFileOpenMode>(getSqlFileOpenMode());
 const openModeDraft = ref<SqlFileOpenMode>(openMode.value);
+const foldersRevision = ref(0);
 const treeId = useId();
 let lastClickedKey: string | null = null;
 const fileFilterRegexExample = "(?i)[.](sql|ddl|sh|py)$";
 
-const searchText = ref("");
-const searchQuery = computed(() => searchText.value.trim().toLowerCase());
+const searchInput = ref<InstanceType<typeof SqlPanelSearch> | null>(null);
+const searchInputPending = ref(false);
+const searchMode = ref<SqlFileSearchMode>("name");
+const searchQuery = ref("");
+const {
+  searching: scanning,
+  error: searchError,
+  matchesByPath,
+  matchingPaths,
+  incomplete: searchIncomplete,
+  skippedCount,
+  skippedFiles,
+  truncated: searchTruncated,
+} = useSqlFileContentSearch(
+  () => (searchMode.value === "content" ? searchQuery.value : ""),
+  () => folders.value,
+  () => searchInputPending.value,
+);
+const searching = computed(() => searchInputPending.value || scanning.value);
+const searchIncompleteHelp = computed(() => {
+  const reasonKeys: Record<string, string> = {
+    tooLarge: "sqlFileTree.searchSkippedTooLarge",
+    unreadable: "sqlFileTree.searchSkippedUnreadable",
+    invalidEncoding: "sqlFileTree.searchSkippedInvalidEncoding",
+    outsideRoot: "sqlFileTree.searchSkippedOutsideRoot",
+    notRegularFile: "sqlFileTree.searchSkippedNotRegularFile",
+  };
+  const counts = new Map<string, number>();
+  for (const file of skippedFiles.value) {
+    const key = Object.prototype.hasOwnProperty.call(reasonKeys, file.reason) ? reasonKeys[file.reason] : "sqlFileTree.searchSkippedOther";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const details = [...counts].map(([key, count]) => t(key, { count }));
+  if (searchTruncated.value) details.push(t("sqlFileTree.searchPreviewLimits", { perFile: 100, total: 1000 }));
+  return [t("sqlFileTree.searchIncompleteHelp"), ...details].join("\n");
+});
 const sortOrder = ref<SqlFileSortOrder>(getSqlFileSortOrder ? getSqlFileSortOrder() : "asc");
 const manualOrder = ref<SqlFileOrder>(getSqlFileOrder());
 const sortOptions = computed(() => [
@@ -84,180 +117,9 @@ const sortOptions = computed(() => [
 const currentSortOption = computed(() => sortOptions.value.find((option) => option.order === sortOrder.value)!);
 const userCollapsedDuringSearch = ref<Set<string>>(new Set());
 
-// ---- content search ------------------------------------------------------
-// Name/dir filtering stays synchronous against the already-loaded tree; body
-// matches come from the backend after a debounce. Only the latest generation
-// may write results, so fast typing cannot apply an older query's hits.
-const contentSearchResult = ref<SqlFileContentSearchResult | null>(null);
-const contentSearching = ref(false);
-// True from the moment a query is scheduled until its backend answer (or
-// failure) lands. The tree uses it to hold back the "no results" state, which
-// would otherwise flash for the debounce window before body hits arrive.
-const contentSearchPending = ref(false);
-const contentSearchQuery = ref("");
-let contentSearchGeneration = 0;
-let contentSearchTimer: ReturnType<typeof setTimeout> | undefined;
-
-const contentMatchPaths = computed<ReadonlySet<string>>(() => contentMatchPathSet(contentSearchResult.value));
-
-function clearContentSearch() {
-  contentSearchGeneration++;
-  if (contentSearchTimer !== undefined) {
-    clearTimeout(contentSearchTimer);
-    contentSearchTimer = undefined;
-  }
-  contentSearchResult.value = null;
-  contentSearchQuery.value = "";
-  contentSearching.value = false;
-  contentSearchPending.value = false;
-}
-
-/**
- * Walks the loaded tree once and derives what the content search needs: the
- * extensions to filter on and how deep the backend walk may go.
- *
- * Depth is measured against the tree itself rather than a constant: the tree is
- * shown from `folders[].entries`, so a hit below its deepest file could never
- * render. `WalkBuilder` counts the root as depth 0, while a direct child of a
- * root is tree depth 0 — hence `deepestTreeDepth + 1`. Deriving it from the
- * data means the panel's depth can never drift from the scanner's own contract
- * (a duplicated `MAX_SCAN_DEPTH` would).
- */
-function visibleSqlFileSearchScope(): { extensions: string[]; maxDepth: number } {
-  const extensions = new Set<string>();
-  let deepestFileDepth = -1;
-  const visit = (items: SqlFileEntry[], depth: number) => {
-    for (const item of items) {
-      if (item.is_dir) {
-        visit(item.children, depth + 1);
-        continue;
-      }
-      if (depth > deepestFileDepth) deepestFileDepth = depth;
-      const dot = item.name.lastIndexOf(".");
-      // A dotless name has no extension; only dotted names contribute a filter.
-      if (dot > 0 && dot < item.name.length - 1) extensions.add(item.name.slice(dot + 1).toLowerCase());
-    }
-  };
-  for (const folder of folders.value) visit(folder.entries, 0);
-  // Roots are all walked with a single depth, so use the deepest one. The tree
-  // is already depth-capped by the scanner, which keeps this bounded.
-  return { extensions: [...extensions], maxDepth: Math.max(deepestFileDepth + 1, 1) };
-}
-
-async function runContentSearch(query: string) {
-  if (!query) {
-    clearContentSearch();
-    return;
-  }
-  // Web runtime has no filesystem search (the HTTP stub throws); stay on the
-  // in-memory name filter instead of issuing a request that always fails.
-  if (!isTauriRuntime()) {
-    contentSearchPending.value = false;
-    return;
-  }
-  const roots = folders.value.map((folder) => folder.path);
-  // Nothing to search against (no folders open, or a folder still loading) —
-  // keep the name-only tree and skip a request that would return nothing.
-  if (roots.length === 0) {
-    contentSearchResult.value = null;
-    contentSearchQuery.value = "";
-    contentSearching.value = false;
-    contentSearchPending.value = false;
-    return;
-  }
-  const generation = ++contentSearchGeneration;
-  const { extensions, maxDepth } = visibleSqlFileSearchScope();
-  // Nothing loaded yet (folders still scanning): a search without the panel's
-  // extension set would walk unrelated files, so wait for the next reload.
-  if (extensions.length === 0) {
-    contentSearching.value = false;
-    contentSearchPending.value = false;
-    return;
-  }
-  contentSearching.value = true;
-  try {
-    const result = await searchSqlFileContents({ roots, query, extensions, maxDepth });
-    // Discard the answer if a newer query started meanwhile, or if the box no
-    // longer shows this query — otherwise old hits would widen the tree.
-    if (generation !== contentSearchGeneration || query !== searchQuery.value) return;
-    contentSearchResult.value = result;
-    contentSearchQuery.value = query;
-  } catch {
-    // Web runtime (the stub throws) or a backend walk failure: degrade to name
-    // filtering instead of surfacing an error for every keystroke.
-    if (generation !== contentSearchGeneration) return;
-    contentSearchResult.value = null;
-    contentSearchQuery.value = "";
-  } finally {
-    if (generation === contentSearchGeneration) {
-      contentSearching.value = false;
-      // A newer query may already be queued behind the debounce; keep the
-      // pending flag set for it so the empty state does not flash in between.
-      if (query === searchQuery.value) contentSearchPending.value = false;
-    }
-  }
-}
-
-function scheduleContentSearch(query: string) {
-  if (contentSearchTimer !== undefined) {
-    clearTimeout(contentSearchTimer);
-    contentSearchTimer = undefined;
-  }
-  if (!query) {
-    clearContentSearch();
-    return;
-  }
-  // Outside the desktop runtime there is nothing to wait for: name filtering is
-  // the whole feature there, so the "no results" state must stay immediate.
-  if (!isTauriRuntime()) {
-    contentSearchPending.value = false;
-    return;
-  }
-  contentSearchPending.value = true;
-  contentSearchTimer = setTimeout(() => {
-    contentSearchTimer = undefined;
-    void runContentSearch(query);
-  }, SQL_FILE_CONTENT_SEARCH_DEBOUNCE_MS);
-}
-
-// Results are keyed to the query they were produced for; drop them as soon as
-// the box shows something else so stale hits never widen the tree.
-watch(searchQuery, (query) => {
+watch([searchQuery, searchMode], () => {
   userCollapsedDuringSearch.value.clear();
-  if (!query) {
-    clearContentSearch();
-    return;
-  }
-  if (contentSearchQuery.value !== query) {
-    contentSearchResult.value = null;
-    contentSearchQuery.value = "";
-  }
-  scheduleContentSearch(query);
 });
-
-// Folder reloads (refresh, add/remove, rename, create/delete) change the file
-// set, so re-run the active search instead of leaving orphan hits behind.
-watch(foldersRevision, () => {
-  const query = searchQuery.value;
-  if (!query) return;
-  scheduleContentSearch(query);
-});
-
-onUnmounted(() => {
-  contentSearchGeneration++;
-  if (contentSearchTimer !== undefined) {
-    clearTimeout(contentSearchTimer);
-    contentSearchTimer = undefined;
-  }
-});
-
-function contentGroupFor(path: string): SqlFileContentMatchGroup | undefined {
-  const normalized = normalizeExternalSqlPath(path);
-  const group = contentSearchResult.value?.matchesByPath.get(normalized);
-  // Guard against a stale result slipping through while a new query is pending.
-  if (!group || contentSearchQuery.value !== searchQuery.value) return undefined;
-  return group;
-}
 
 function setSortOrder(order: SqlFileSortOrder) {
   if (!saveSqlFileSortOrder(order)) {
@@ -334,10 +196,10 @@ async function locateFileTarget(path: string) {
   if (disposed) return;
   const target = findFileTarget(path);
   if (!target) return;
-  if (searchText.value) {
+  if (searchInput.value?.text) {
     const isVisibleNow = visibleItems.value.some((item) => item.folder === target.folder && item.type === "file" && normalizeExternalSqlPath(item.path) === target.path);
-    if (!isVisibleNow) {
-      searchText.value = "";
+    if (searchInputPending.value || !isVisibleNow) {
+      searchInput.value?.clear();
       await nextTick();
     }
   }
@@ -605,7 +467,7 @@ interface ProcessedFolder {
 const folderProcessedMap = computed<Map<string, ProcessedFolder>>(() => {
   const map = new Map<string, ProcessedFolder>();
   for (const folder of folders.value) {
-    const res = filterAndSortSqlFileEntries(folder.entries, searchQuery.value, sortOrder.value, contentMatchPaths.value, manualOrder.value);
+    const res = filterAndSortSqlFileEntries(folder.entries, searchQuery.value, sortOrder.value, matchingPaths.value, searchMode.value, manualOrder.value);
     map.set(folder.path, {
       entries: res.entries,
       autoExpanded: res.autoExpanded,
@@ -702,14 +564,14 @@ function collectDirPaths(entries: SqlFileEntry[], into: Set<string>) {
   }
 }
 
-async function openFile(path: string, reveal?: { line: number; column?: number }) {
+async function openFile(path: string, reveal?: { line: number; column: number }) {
   if (!isTauriRuntime()) return;
   try {
     const snapshot = await api.readExternalSqlFileSnapshot(path, externalSqlEditorMaxBytes(settingsStore.editorSettings.externalSqlEditorMaxMb));
     const target = resolveExternalSqlFileTargetForActiveTab(path, queryStore.tabs, queryStore.activeTabId, (connectionId) => connectionStore.getConfig(connectionId));
     queryStore.openExternalSqlFile(target.connectionId, target.database, path, snapshot.content, snapshot.version, target.catalog, target.schema, reveal, snapshot.encoding);
   } catch (e: any) {
-    if (isExternalSqlFileTooLargeError(e) && isSqlFilePath(path)) {
+    if (!reveal && isExternalSqlFileTooLargeError(e) && isSqlFilePath(path)) {
       executeFile(path);
       toast(t("sqlFile.largeFileExecutionOpened", { size: formatSqlFileSize(e.sizeBytes) }), 6000);
       return;
@@ -718,22 +580,12 @@ async function openFile(path: string, reveal?: { line: number; column?: number }
   }
 }
 
-/** Opens a file at a content-search hit, reusing the normal open flow so
- * conflict/too-large handling stays identical. */
-async function openContentMatch(path: string, match: SavedSqlLineMatch) {
-  // Mirror the SQL library panel: clicking a snippet makes its file the active
-  // row before opening, so the highlight does not stay on an unrelated entry.
-  const normalizedPath = normalizeExternalSqlPath(path);
-  // Match on the node's own path: `id` is the composite nodeKey, so a path lookup
-  // has to compare against `item.path` (as locateActiveFile does).
-  const index = visibleItems.value.findIndex((item) => item.type === "file" && normalizeExternalSqlPath(item.path) === normalizedPath);
-  if (index >= 0) {
-    const item = visibleItems.value[index];
-    selectedKeys.value = new Set();
-    activeKey.value = item.id;
-    selectionAnchorKey.value = item.id;
-  }
-  await openFile(path, { line: match.lineNumber, column: match.column });
+function handleSearchMatch(rootPath: string, path: string, match: SavedSqlLineMatch) {
+  const key = nodeKey(rootPath, "file", path);
+  selectedKeys.value = new Set();
+  activeKey.value = key;
+  selectionAnchorKey.value = key;
+  void openFile(path, { line: match.lineNumber, column: match.column });
 }
 
 // Open the App-level SQL file execution dialog with this file pre-selected so
@@ -901,10 +753,10 @@ async function scrollActiveRow() {
   document.getElementById(`${treeId}-row-${activeItemIndex.value}`)?.scrollIntoView({ block: "nearest" });
 }
 
-// Preserve identity across sorting; replace hidden or removed selection only once
-// all roots have finished loading, so refresh does not discard the active file.
-watch(visibleItems, (items, previous) => {
-  if (folders.value.some((folder) => folder.loading)) return;
+// Preserve selection while content-only hits temporarily disappear during a
+// scan. Watching the pending flags also reconciles selection after an error.
+watch([visibleItems, searching, () => folders.value.some((folder) => folder.loading || folder.refreshing)], ([items, searchPending, foldersPending], [previous]) => {
+  if (searchPending || foldersPending) return;
   const ids = new Set(items.map((item) => item.id));
   selectedKeys.value = new Set([...selectedKeys.value].filter((key) => ids.has(key)));
   if (activeKey.value && !ids.has(activeKey.value)) {
@@ -1417,14 +1269,13 @@ function clearContextTarget() {
     </div>
 
     <div v-if="folders.length > 0" class="border-b shrink-0 px-2 py-1">
-      <div class="relative">
-        <Search class="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-        <input data-sql-file-search v-model="searchText" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full h-6 pl-7 pr-6 text-[13px] rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring" :placeholder="t('grid.search')" />
-        <Loader2 v-if="contentSearching" data-sql-file-content-searching class="absolute right-6 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-muted-foreground" />
-        <button v-if="searchText" type="button" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" @click="searchText = ''">
-          <X class="h-3 w-3" />
-        </button>
-      </div>
+      <SqlPanelSearch ref="searchInput" v-model:mode="searchMode" panel="file" @query="searchQuery = $event" @pending="searchInputPending = $event" />
+      <p v-if="searching" class="mt-1 text-xs text-muted-foreground" role="status" aria-live="polite">{{ t("sqlFileTree.searching") }}</p>
+      <p v-else-if="searchError" class="mt-1 text-xs text-destructive" role="status">{{ t("sqlFileTree.searchFailed", { message: translateBackendError(t, searchError) }) }}</p>
+      <p v-else-if="searchIncomplete" class="mt-1 text-xs text-muted-foreground" role="status">
+        {{ t("sqlFileTree.searchIncomplete", { skipped: skippedCount }) }}
+        <HelpTooltip :label="searchIncompleteHelp" side="bottom" :side-offset="4" trigger-class="ml-1 align-middle" content-class="max-w-[320px] whitespace-pre-line" />
+      </p>
     </div>
 
     <CustomContextMenu :items="contextMenuItems" @close="clearContextTarget">
@@ -1512,7 +1363,7 @@ function clearContextTarget() {
                 <div v-else-if="folder.entries.length === 0" class="px-3 py-2 text-xs text-muted-foreground">
                   {{ t("sqlFileTree.noSqlFiles") }}
                 </div>
-                <div v-else-if="searchQuery && !contentSearchPending && getProcessedEntries(folder.path).length === 0" data-sql-file-empty-search class="px-3 py-2 text-xs text-muted-foreground">
+                <div v-else-if="searchQuery && !searching && !searchError && !searchIncomplete && getProcessedEntries(folder.path).length === 0" data-sql-file-empty-search class="px-3 py-2 text-xs text-muted-foreground">
                   {{ t("grid.noSearchResults") }}
                 </div>
                 <div v-else>
@@ -1595,15 +1446,15 @@ function clearContextTarget() {
                         </LightTooltip>
                       </template>
                     </div>
-                    <!-- Content hits render directly under their file row so the
-                         matched lines are visible where the file lives. -->
                     <SqlSearchMatchSnippet
-                      v-if="!entry.is_dir && contentGroupFor(entry.path)"
+                      v-if="searchMode === 'content' && !entry.is_dir && matchesByPath.has(normalizeExternalSqlPath(entry.path))"
                       :data-sql-file-content-snippet="entry.path"
-                      :matches="contentGroupFor(entry.path)?.matches ?? []"
-                      :total-matches="contentGroupFor(entry.path)?.totalMatches ?? 0"
-                      :depth="depth"
-                      @select-match="(match) => openContentMatch(entry.path, match)"
+                      :matches="matchesByPath.get(normalizeExternalSqlPath(entry.path))!.matches"
+                      :total-matches="matchesByPath.get(normalizeExternalSqlPath(entry.path))!.totalMatches"
+                      :preview-limit="matchesByPath.get(normalizeExternalSqlPath(entry.path))!.matches.length"
+                      :query="searchQuery"
+                      :depth="depth + 1"
+                      @select-match="handleSearchMatch(folder.path, entry.path, $event)"
                     />
                   </template>
                 </div>

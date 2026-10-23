@@ -1394,6 +1394,20 @@ export async function listSqlFilesInFolder(folderPath: string, fileFilter?: stri
   return invoke("list_sql_files_in_folder", { folderPath, fileFilter, includeEmptyDirectories });
 }
 
+export type SqlFileContentMatch = import("@/lib/savedSql/savedSqlSearch").SavedSqlSearchMatchResult & {
+  path: string;
+};
+
+export interface SqlFileContentSearchResult {
+  files: SqlFileContentMatch[];
+  skippedFiles: { path: string; reason: string }[];
+  truncated: boolean;
+}
+
+export async function searchSqlFileContents(roots: string[], query: string, fileFilter?: string): Promise<SqlFileContentSearchResult> {
+  return invoke("search_sql_file_contents", { roots, query, fileFilter });
+}
+
 export async function createSqlFileInFolder(rootPath: string, directoryPath: string, fileName: string): Promise<string> {
   return invoke("create_sql_file_in_folder", { rootPath, directoryPath, fileName });
 }

@@ -523,6 +523,7 @@ export const inspectExternalSqlFile = forward("inspectExternalSqlFile");
 export const writeExternalSqlFile = forward("writeExternalSqlFile");
 export const saveExternalSqlFile = forward("saveExternalSqlFile");
 export const listSqlFilesInFolder = forward("listSqlFilesInFolder");
+export const searchSqlFileContents = forward("searchSqlFileContents");
 export const globalSearch = forward("globalSearch");
 export const loadGlobalSearchSettings = forward("loadGlobalSearchSettings");
 export const saveGlobalSearchSettings = forward("saveGlobalSearchSettings");
@@ -1216,6 +1217,8 @@ export type {
   QueryResultExportRequest,
   AgentEvent,
   SqlFileEntry,
+  SqlFileContentMatch,
+  SqlFileContentSearchResult,
   GlobalSearchRequest,
   GlobalSearchMatch,
   GlobalSearchSettings,
