@@ -23,7 +23,9 @@ use crate::types::{
     ColumnInfo, ForeignKeyInfo, FunctionInfo, IndexInfo, OwnerInfo, RuleInfo, SequenceInfo, TableInfo, TriggerInfo,
 };
 
+mod oracle_routines;
 mod sqlserver_dependencies;
+pub use oracle_routines::{diff_oracle_routines, oracle_routine_diff_sql, OracleRoutineCompareContext};
 
 use sqlserver_dependencies::build_dependency_aware_alter_column_batch;
 
@@ -498,6 +500,8 @@ pub struct SchemaDiffPreparationOptions {
     pub source_functions: Vec<FunctionInfo>,
     #[serde(default)]
     pub target_functions: Vec<FunctionInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oracle_routines: Option<OracleRoutineCompareContext>,
     #[serde(default)]
     pub source_sequences: Vec<SequenceInfo>,
     #[serde(default)]
@@ -1989,6 +1993,7 @@ impl Default for SchemaDiffPreparationOptions {
             target_details: Vec::new(),
             source_functions: Vec::new(),
             target_functions: Vec::new(),
+            oracle_routines: None,
             source_sequences: Vec::new(),
             target_sequences: Vec::new(),
             source_rules: Vec::new(),
@@ -2191,7 +2196,10 @@ pub fn prepare_schema_diff(options: SchemaDiffPreparationOptions) -> SchemaDiffP
         None
     };
 
-    let function_diffs = diff_functions(&options.source_functions, &options.target_functions);
+    let function_diffs = match &options.oracle_routines {
+        Some(context) => diff_oracle_routines(&options.source_functions, &options.target_functions, context),
+        None => diff_functions(&options.source_functions, &options.target_functions),
+    };
     let sequence_diffs = diff_sequences(&options.source_sequences, &options.target_sequences);
     let rule_diffs = diff_rules(&options.source_rules, &options.target_rules);
     let owner_diffs = diff_owners(&options.source_owners, &options.target_owners);
@@ -2214,9 +2222,9 @@ pub fn prepare_schema_diff(options: SchemaDiffPreparationOptions) -> SchemaDiffP
         }
     }
 
-    let (sync_sql, _) = generate_schema_sync_sql_inner(
+    let (mut sync_sql, _) = generate_schema_sync_sql_inner(
         &diffs,
-        &function_diffs,
+        if options.oracle_routines.is_some() { &[] } else { &function_diffs },
         &sequence_diffs,
         &rule_diffs,
         &owner_diffs,
@@ -2226,6 +2234,18 @@ pub fn prepare_schema_diff(options: SchemaDiffPreparationOptions) -> SchemaDiffP
         options.source_dialect,
         &options.field_mappings,
     );
+    if let Some(context) = &options.oracle_routines {
+        for diff in &function_diffs {
+            if let Ok(sql) = oracle_routine_diff_sql(diff, context) {
+                if !sql.is_empty() {
+                    if !sync_sql.is_empty() {
+                        sync_sql.push_str("\n\n");
+                    }
+                    sync_sql.push_str(&sql);
+                }
+            }
+        }
+    }
 
     let (rollback_sync_sql, missing_rollback_objects) = match &rollback_graph {
         Some(graph) => {
@@ -13953,6 +13973,7 @@ mod tests {
             target_details: vec![],
             source_functions: vec![],
             target_functions: vec![],
+            oracle_routines: None,
             source_sequences: vec![],
             target_sequences: vec![],
             source_rules: vec![],

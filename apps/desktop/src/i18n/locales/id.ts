@@ -7735,7 +7735,7 @@ export default withEnglishFallback({
     routineSelectionUnrestricted: "Membandingkan semua fungsi dan prosedur. Pilih rutin tertentu untuk membatasi perbandingan.",
     routineSelectionTooLarge: "Skema ini memiliki {count} rutin (batas {limit} untuk perbandingan tanpa batasan). Pilih rutin tertentu sebelum membandingkan.",
     routineSelectionNeedSource: "Pilih koneksi dan database sumber terlebih dahulu untuk memilih rutin.",
-    routineSelectionUnsupported: "Perbandingan prosedur/fungsi memerlukan dialek yang sama dan didukung di kedua sisi (MySQL, SQL Server, atau keluarga PostgreSQL).",
+    routineSelectionUnsupported: "Perbandingan prosedur/fungsi memerlukan jenis basis data yang didukung dan kompatibel serta kode sumber yang dapat dibaca di kedua sisi.",
     routineSameNameMatchingOnly: "Rutin dicocokkan berdasarkan nama yang sama (dan signature). Pemetaan ganti nama manual belum tersedia di rilis ini.",
     sourceRoutines: "Rutin sumber",
     noRoutines: "Tidak ditemukan rutin",

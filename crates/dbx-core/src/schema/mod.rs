@@ -24,6 +24,7 @@ mod agent_pg_sequences;
 mod external_table_filter_tests;
 mod kingbase;
 mod mongodb_columns;
+pub mod oracle_routines;
 pub mod plugin_metadata;
 #[cfg(test)]
 mod plugin_metadata_tests;
@@ -11427,6 +11428,42 @@ fn finalize_object_source(mut source: db::ObjectSource) -> db::ObjectSource {
     source
 }
 
+async fn managed_object_source<T: serde::de::DeserializeOwned + Send + 'static>(
+    pool: &PoolKind,
+    database: &str,
+    schema: &str,
+    name: &str,
+    object_type: &db::ObjectSourceKind,
+    relation_name: Option<&str>,
+    timeout: Option<Duration>,
+) -> Result<T, String> {
+    match pool {
+        PoolKind::Agent(client) => {
+            client
+                .lock()
+                .await
+                .get_object_source_for_relation(database, schema, name, object_type, relation_name, timeout)
+                .await
+        }
+        PoolKind::ExternalDriver { config, session, .. } => {
+            session
+                .invoke_with_timeout(
+                    "getObjectSource",
+                    serde_json::json!({
+                        "connection": config.as_ref(),
+                        "database": database,
+                        "schema": schema,
+                        "name": name,
+                        "object_type": object_type,
+                    }),
+                    timeout,
+                )
+                .await
+        }
+        _ => Err("Managed object source is not supported for this connection".into()),
+    }
+}
+
 async fn get_object_source_once(
     state: &AppState,
     connection_id: &str,
@@ -11468,19 +11505,16 @@ async fn get_object_source_once(
                     routine_parameters: None,
                 });
             }
-            let result: db::ObjectSource = session
-                .invoke_with_timeout(
-                    "getObjectSource",
-                    serde_json::json!({
-                        "connection": config.as_ref(),
-                        "database": database,
-                        "schema": schema,
-                        "name": name,
-                        "object_type": &object_type,
-                    }),
-                    agent_metadata_timeout(Some(config.as_ref())),
-                )
-                .await?;
+            let result: db::ObjectSource = managed_object_source(
+                pool_handle.as_ref().ok_or("Pool not found")?,
+                database,
+                schema,
+                name,
+                &object_type,
+                None,
+                agent_metadata_timeout(Some(config.as_ref())),
+            )
+            .await?;
             return Ok(result);
         }
         if let Some(client) = extract_pool!(pool_handle.as_ref(), SqlServer) {
@@ -11530,17 +11564,16 @@ async fn get_object_source_once(
                     None => String::new(),
                 }
             } else {
-                let mut client = client.lock().await;
-                let result: db::ObjectSource = client
-                    .get_object_source_for_relation(
-                        database,
-                        schema,
-                        name,
-                        &object_type,
-                        relation_name,
-                        agent_metadata_timeout(db_config.as_ref()),
-                    )
-                    .await?;
+                let result: db::ObjectSource = managed_object_source(
+                    pool_handle.as_ref().ok_or("Pool not found")?,
+                    database,
+                    schema,
+                    name,
+                    &object_type,
+                    relation_name,
+                    agent_metadata_timeout(db_config.as_ref()),
+                )
+                .await?;
                 return Ok(result);
             }
         } else {

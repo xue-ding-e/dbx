@@ -8,6 +8,14 @@ use crate::models::connection::DatabaseType;
 use crate::sql::split_sql_statements_for_database;
 use crate::types::ObjectSourceKind;
 
+mod oracle_routines;
+pub use oracle_routines::{
+    analyze_oracle_routine_draft, comparable_oracle_routine_definition, prepare_oracle_routine_definition,
+    validate_oracle_routine_target_definition, OracleDraftIssue, OracleDraftName, OracleDraftParameter,
+    OracleDraftQuery, OracleDraftReference, OracleDraftReferenceRole, OracleRoutineDefinitionInput,
+    OracleRoutineDraftAnalysis,
+};
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditableObjectSourceSqlInput {

@@ -9,6 +9,8 @@ import type { DatabaseBackupCommand, DatabaseBackupBackgroundStatus } from "@/li
 import type { PluginUiStorageItemRef, SqlFileFailureLogExportPayload, SqlFileFailureLogInfo, SqlFileFailureLogKey, SqlFileFailureLogTextPayload, SyncCatalogItem, SyncSelection, SyncSnapshotCatalog } from "@/lib/backend/tauri";
 import { FAILURE_LOG_TEXT_TOO_LARGE } from "@/lib/export/failureLogExport";
 import { saveTextFile } from "@/lib/export/saveTextFile";
+import { functionDiffsToWire, functionInfoFromWire, schemaDiffPreparationFromWire, schemaDiffPreparationToWire, type FunctionInfoWire, type SchemaDiffPreparationWire } from "./functionInfoTransport";
+import type { OracleRoutineSnapshot, OracleRoutineOperation, OracleRoutineOperationObservation, OracleRoutineSaveInput, OracleRoutinePlanInput, OracleRoutinePlan } from "@/types/schemaDiff";
 
 export function databaseBackupCommand<T = unknown>(command: DatabaseBackupCommand): Promise<T> {
   return post("/api/database-backups", command);
@@ -1362,7 +1364,7 @@ export async function getTableDisplayDdl(connectionId: string, database: string,
 }
 
 export async function prepareSchemaDiff(options: SchemaDiffPreparationOptions): Promise<SchemaDiffPreparation> {
-  return post("/api/schema-diff/prepare", options);
+  return schemaDiffPreparationFromWire(await post<SchemaDiffPreparationWire>("/api/schema-diff/prepare", schemaDiffPreparationToWire(options)));
 }
 
 export async function generateSchemaSyncSql(diffs: TableDiff[], databaseType: DatabaseType, targetSchema?: string, functionDiffs?: FunctionDiff[], sequenceDiffs?: SequenceDiff[], ruleDiffs?: RuleDiff[], ownerDiffs?: OwnerDiff[], cascadeDelete?: boolean): Promise<string> {
@@ -1370,7 +1372,7 @@ export async function generateSchemaSyncSql(diffs: TableDiff[], databaseType: Da
     diffs,
     databaseType,
     targetSchema,
-    functionDiffs: functionDiffs ?? [],
+    functionDiffs: functionDiffsToWire(functionDiffs ?? []),
     sequenceDiffs: sequenceDiffs ?? [],
     ruleDiffs: ruleDiffs ?? [],
     ownerDiffs: ownerDiffs ?? [],
@@ -1382,11 +1384,40 @@ export async function generateSchemaSyncPlan(input: SelectedSchemaDiffInput, opt
   return post("/api/schema-diff/generate-sync-plan", {
     ...input,
     ...options,
+    functionDiffs: functionDiffsToWire(input.functionDiffs),
   });
 }
 
 export async function listFunctions(connectionId: string, database: string, schema: string): Promise<FunctionInfo[]> {
-  return get(`/api/schema/functions?${qs({ connection_id: connectionId, database, schema })}`);
+  return (await get<FunctionInfoWire[]>(`/api/schema/functions?${qs({ connection_id: connectionId, database, schema })}`)).map(functionInfoFromWire);
+}
+
+export function loadSchemaDiffRoutines(connectionId: string, database: string, schema: string, selectedRoutines?: string[]): Promise<OracleRoutineSnapshot> {
+  return get(`/api/schema/diff-routines?${qs({ connection_id: connectionId, database, schema, selected_routines: selectedRoutines === undefined ? undefined : JSON.stringify(selectedRoutines) })}`);
+}
+
+export function prepareOracleRoutineSave(input: OracleRoutineSaveInput): Promise<OracleRoutineOperation> {
+  return post("/api/schema/routine-save", input);
+}
+
+export function prepareOracleRoutinePlan(input: OracleRoutinePlanInput): Promise<OracleRoutinePlan> {
+  return post("/api/schema/routine-plan", input);
+}
+
+export function prepareOracleRoutineRecovery(operationId: string): Promise<OracleRoutinePlan> {
+  return post("/api/schema/routine-recovery", { operationId });
+}
+
+export function executeOracleRoutineOperation(operationId: string, approvedSql: string): Promise<OracleRoutineOperation> {
+  return post("/api/schema/routine-execute", { operationId, approvedSql });
+}
+
+export function observeOracleRoutineOperation(operationId: string, refreshReadback = false): Promise<OracleRoutineOperationObservation> {
+  return get(`/api/schema/routine-operation?${qs({ operation_id: operationId, refresh_readback: refreshReadback })}`);
+}
+
+export function updateOracleRoutineOperationReferences(retainOperationIds: string[], releaseOperationIds: string[]): Promise<void> {
+  return post("/api/schema/routine-operation-references", { retainOperationIds, releaseOperationIds });
 }
 
 export async function listSequences(connectionId: string, database: string, schema: string, withLastValues: boolean): Promise<SequenceInfo[]> {

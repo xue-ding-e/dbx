@@ -7,6 +7,8 @@ import type { MongoRestoreUpload, MongoSourceReadOptions } from "./mongodbDumpTy
 import type { DamengDumpKind, DamengDumpRequest, DamengDumpProgress } from "./damengDumpTypes";
 import type { UserSkillRootSettings, UserSkillsListResult, UserSkillsReadResult } from "@/types/userSkills";
 import type { DatabaseBackupCommand, DatabaseBackupBackgroundStatus } from "@/lib/backup/backgroundDatabaseBackup";
+import { functionDiffsToWire, functionInfoFromWire, schemaDiffPreparationFromWire, schemaDiffPreparationToWire, type FunctionInfoWire, type SchemaDiffPreparationWire } from "./functionInfoTransport";
+import type { OracleRoutineSnapshot, OracleRoutineOperation, OracleRoutineOperationObservation, OracleRoutineSaveInput, OracleRoutinePlanInput, OracleRoutinePlan } from "@/types/schemaDiff";
 
 export function databaseBackupCommand<T = unknown>(command: DatabaseBackupCommand): Promise<T> {
   return invoke("database_backup_command", { command });
@@ -2778,7 +2780,7 @@ export async function getTableDisplayDdl(connectionId: string, database: string,
 }
 
 export async function prepareSchemaDiff(options: SchemaDiffPreparationOptions): Promise<SchemaDiffPreparation> {
-  return invoke("prepare_schema_diff", { options });
+  return schemaDiffPreparationFromWire(await invoke<SchemaDiffPreparationWire>("prepare_schema_diff", { options: schemaDiffPreparationToWire(options) }));
 }
 
 export async function listDialectDataTypes(dialectName: string): Promise<string[]> {
@@ -2790,7 +2792,7 @@ export async function generateSchemaSyncSql(diffs: TableDiff[], databaseType: Da
     diffs,
     databaseType,
     targetSchema,
-    functionDiffs: functionDiffs ?? [],
+    functionDiffs: functionDiffsToWire(functionDiffs ?? []),
     sequenceDiffs: sequenceDiffs ?? [],
     ruleDiffs: ruleDiffs ?? [],
     ownerDiffs: ownerDiffs ?? [],
@@ -2802,11 +2804,40 @@ export async function generateSchemaSyncPlan(input: SelectedSchemaDiffInput, opt
   return invoke("generate_schema_sync_plan", {
     ...input,
     ...options,
+    functionDiffs: functionDiffsToWire(input.functionDiffs),
   });
 }
 
 export async function listFunctions(connectionId: string, database: string, schema: string): Promise<FunctionInfo[]> {
-  return invoke("list_functions", { connectionId, database, schema });
+  return (await invoke<FunctionInfoWire[]>("list_functions", { connectionId, database, schema })).map(functionInfoFromWire);
+}
+
+export function loadSchemaDiffRoutines(connectionId: string, database: string, schema: string, selectedRoutines?: string[]): Promise<OracleRoutineSnapshot> {
+  return invoke("load_schema_diff_routines", { connectionId, database, schema, ...(selectedRoutines === undefined ? {} : { selectedRoutines }) });
+}
+
+export function prepareOracleRoutineSave(input: OracleRoutineSaveInput): Promise<OracleRoutineOperation> {
+  return invoke("prepare_oracle_routine_save", { input });
+}
+
+export function prepareOracleRoutinePlan(input: OracleRoutinePlanInput): Promise<OracleRoutinePlan> {
+  return invoke("prepare_oracle_routine_plan", { input });
+}
+
+export function prepareOracleRoutineRecovery(operationId: string): Promise<OracleRoutinePlan> {
+  return invoke("prepare_oracle_routine_recovery", { operationId });
+}
+
+export function executeOracleRoutineOperation(operationId: string, approvedSql: string): Promise<OracleRoutineOperation> {
+  return invoke("execute_oracle_routine_operation", { operationId, approvedSql });
+}
+
+export function observeOracleRoutineOperation(operationId: string, refreshReadback = false): Promise<OracleRoutineOperationObservation> {
+  return invoke("observe_oracle_routine_operation", { operationId, refreshReadback });
+}
+
+export function updateOracleRoutineOperationReferences(retainOperationIds: string[], releaseOperationIds: string[]): Promise<void> {
+  return invoke("update_oracle_routine_operation_references", { retainOperationIds, releaseOperationIds });
 }
 
 export async function listSequences(connectionId: string, database: string, schema: string, withLastValues: boolean): Promise<SequenceInfo[]> {

@@ -379,6 +379,10 @@ pub struct ConnectionLifecycleSnapshot {
 }
 
 impl ConnectionLifecycleSnapshot {
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     pub fn cancellation(&self) -> &CancellationToken {
         &self.cancellation
     }
@@ -422,6 +426,7 @@ pub struct AppState {
     shared_resource_budgets: std::sync::Mutex<HashMap<String, SharedResourceBudget>>,
     pub configs: RwLock<HashMap<String, ConnectionConfig>>,
     pub running_queries: RunningQueries,
+    pub routine_operations: crate::schema::oracle_routines::RoutineOperationRegistry,
     pub tunnels: TunnelManager,
     pub proxy_tunnels: ProxyTunnelManager,
     pub http_tunnels: HttpTunnelManager,
@@ -1781,6 +1786,7 @@ impl AppState {
             shared_resource_budgets: std::sync::Mutex::new(HashMap::new()),
             configs: RwLock::new(HashMap::new()),
             running_queries: RunningQueries::default(),
+            routine_operations: crate::schema::oracle_routines::RoutineOperationRegistry::default(),
             tunnels: TunnelManager::new(data_dir),
             proxy_tunnels: ProxyTunnelManager::new(),
             http_tunnels: HttpTunnelManager::new(),

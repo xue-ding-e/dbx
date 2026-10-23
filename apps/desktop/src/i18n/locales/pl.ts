@@ -7798,7 +7798,7 @@ export default withEnglishFallback({
     routineSelectionUnrestricted: "Porównywanie wszystkich funkcji i procedur. Wybierz konkretne elementy, aby ograniczyć porównanie.",
     routineSelectionTooLarge: "Ten schemat ma {count} procedur i funkcji (limit dla nieograniczonego porównania wynosi {limit}). Wybierz konkretne elementy przed porównaniem.",
     routineSelectionNeedSource: "Najpierw wybierz źródłowe połączenie i bazę danych, aby wybrać procedury i funkcje.",
-    routineSelectionUnsupported: "Porównywanie procedur/funkcji wymaga tego samego obsługiwanego dialektu po obu stronach (MySQL, SQL Server lub rodzina PostgreSQL).",
+    routineSelectionUnsupported: "Porównywanie procedur/funkcji wymaga zgodnych i obsługiwanych typów baz danych oraz dostępnego kodu źródłowego po obu stronach.",
     routineSameNameMatchingOnly: "Procedury i funkcje są dopasowywane według identycznej nazwy (i sygnatury). Ręczne mapowanie zmian nazw nie jest dostępne w tej wersji.",
     sourceRoutines: "Procedury i funkcje źródłowe",
     noRoutines: "Nie znaleziono procedur ani funkcji",
