@@ -282,7 +282,8 @@ test("Rust build timings remain available after failures without waiting for can
 test("Linux Rust dependency installs bound apt mirror stalls", () => {
   for (const name of ["packages", "rust-fmt-clippy", "rust-test", "agent-rust"]) {
     const content = job(name);
-    assert.equal((content.match(/sudo timeout --kill-after=30s 10m apt-get/g) ?? []).length, 2);
+    const deadlines = [...content.matchAll(/sudo timeout --kill-after=30s (\d+)m apt-get/g)].map((match) => Number(match[1]));
+    assert.deepEqual(deadlines, [10, name === "agent-rust" ? 10 : 20]);
     for (const option of ["Acquire::Retries=3", "Acquire::http::Timeout=30", "Acquire::https::Timeout=30"]) {
       assert.ok(content.includes(option));
     }
