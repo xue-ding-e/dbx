@@ -10405,6 +10405,9 @@ export default withEnglishFallback({
     actionSuccess: "「{name}」の{action}が完了しました。",
   },
   sqlFileTree: {
+    sortManual: "手動並べ替え",
+    sortManualHint: "同じフォルダー内のファイルをドラッグして並べ替えます。検索中はドラッグできません。",
+    sortSaveFailed: "ファイルの並べ替え設定を保存できませんでした。",
     folderNameInvalid: "パスではなく単一のフォルダー名を入力してください。",
     folderNameExcluded: "このフォルダー名は SQL ファイルパネルの表示対象外です。",
     folderDepthExceeded: "フォルダーの最大階層に達しました。",

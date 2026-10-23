@@ -9324,6 +9324,9 @@ export default withEnglishFallback({
     completedWithErrors: "การเรียกใช้เสร็จสิ้น: สำเร็จ {succeeded}, ล้มเหลว {failed}",
   },
   sqlFileTree: {
+    sortManual: "เรียงลำดับด้วยตนเอง",
+    sortManualHint: "ลากไฟล์ในโฟลเดอร์เดียวกันเพื่อจัดลำดับใหม่ ไม่สามารถลากขณะค้นหาได้",
+    sortSaveFailed: "ไม่สามารถบันทึกการตั้งค่าการเรียงลำดับไฟล์ได้",
     locateActiveFile: "ค้นหาตำแหน่งไฟล์ปัจจุบัน",
     activeFileNotFound: "ไม่พบไฟล์ปัจจุบัน ตรวจสอบว่าไฟล์มีอยู่หรือถูกซ่อนโดยตัวกรองไฟล์หรือไม่",
     title: "ไฟล์ SQL",

@@ -6778,6 +6778,9 @@ export default withEnglishFallback({
     completedWithErrors: "Çalıştırma tamamlandı: {succeeded} başarılı, {failed} başarısız",
   },
   sqlFileTree: {
+    sortManual: "Elle sıralama",
+    sortManualHint: "Sıralamayı değiştirmek için aynı klasördeki dosyaları sürükleyin. Arama sırasında sürükleme devre dışıdır.",
+    sortSaveFailed: "Dosya sıralama tercihi kaydedilemedi.",
     folderNameInvalid: "Yol yerine tek bir klasör adı girin.",
     folderNameExcluded: "Bu klasör adı SQL dosya tarayıcısından hariç tutulur.",
     folderDepthExceeded: "Maksimum klasör derinliğine ulaşıldı.",

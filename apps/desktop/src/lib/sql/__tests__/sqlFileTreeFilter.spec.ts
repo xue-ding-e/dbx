@@ -147,6 +147,16 @@ describe("sqlFileTreeFilter", () => {
       expect(result.matchCount).toBeGreaterThan(0);
     });
 
+    it("preserves manual order for content-only matches", () => {
+      const manualOrder = { "/sql/queries": ["/sql/queries/select_user.sql", "/sql/queries/get_orders.sql"] };
+      const result = filterAndSortSqlFileEntries(sampleEntries, "needle", "manual", new Set(["/sql/queries/get_orders.sql", "/sql/queries/select_user.sql"]), manualOrder);
+
+      expect(result.entries.map((entry) => entry.name)).toEqual(["queries"]);
+      expect(result.entries[0].children.map((entry) => entry.name)).toEqual(["select_user.sql", "get_orders.sql"]);
+      expect(result.autoExpanded.has("/sql/queries")).toBe(true);
+      expect(result.matchCount).toBe(2);
+    });
+
     it("normalizes entry paths before comparing them with the content-match set", () => {
       // Scanned entries keep native separators on Windows while content-search
       // paths are normalized, so the comparison has to normalize the entry side.

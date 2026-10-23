@@ -7599,6 +7599,9 @@ export default withEnglishFallback({
     completedWithErrors: "Eksekusi selesai: {succeeded} berhasil, {failed} gagal",
   },
   sqlFileTree: {
+    sortManual: "Urutan manual",
+    sortManualHint: "Seret file dalam folder yang sama untuk mengubah urutan. Penyeretan dinonaktifkan saat mencari.",
+    sortSaveFailed: "Tidak dapat menyimpan preferensi urutan file.",
     folderNameInvalid: "Masukkan satu nama folder, bukan jalur.",
     folderNameExcluded: "Nama folder ini dikecualikan dari penjelajah file SQL.",
     folderDepthExceeded: "Kedalaman folder maksimum telah tercapai.",

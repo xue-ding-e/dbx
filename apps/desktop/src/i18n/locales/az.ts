@@ -6898,6 +6898,9 @@ export default withEnglishFallback({
     completedWithErrors: "İcra tamamlandı: {succeeded} uğurlu, {failed} uğursuz",
   },
   sqlFileTree: {
+    sortManual: "Əl ilə sıralama",
+    sortManualHint: "Sıralamaq üçün eyni qovluqdakı faylları sürükləyin. Axtarış zamanı sürükləmə deaktivdir.",
+    sortSaveFailed: "Fayl sıralama seçimini saxlamaq mümkün olmadı.",
     folderNameInvalid: "Yol deyil, tək qovluq adı daxil edin.",
     folderNameExcluded: "Bu qovluq adı SQL fayl brauzerindən istisna edilib.",
     folderDepthExceeded: "Maksimum qovluq dərinliyinə çatılıb.",

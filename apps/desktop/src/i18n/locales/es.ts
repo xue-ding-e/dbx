@@ -10621,6 +10621,9 @@ export default withEnglishFallback({
     actionSuccess: '{action} completado para "{name}".',
   },
   sqlFileTree: {
+    sortManual: "Orden manual",
+    sortManualHint: "Arrastra archivos dentro de la misma carpeta para reordenarlos. No se puede arrastrar durante la búsqueda.",
+    sortSaveFailed: "No se pudo guardar la preferencia de orden de los archivos.",
     folderNameInvalid: "Introduzca un solo nombre de carpeta, no una ruta.",
     folderNameExcluded: "Este nombre de carpeta está excluido del explorador de archivos SQL.",
     folderDepthExceeded: "Se alcanzó la profundidad máxima de carpetas.",

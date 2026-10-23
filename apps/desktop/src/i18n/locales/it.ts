@@ -10369,6 +10369,9 @@ export default withEnglishFallback({
     actionSuccess: '{action} completato per "{name}".',
   },
   sqlFileTree: {
+    sortManual: "Ordine manuale",
+    sortManualHint: "Trascina i file nella stessa cartella per riordinarli. Il trascinamento è disabilitato durante la ricerca.",
+    sortSaveFailed: "Impossibile salvare la preferenza di ordinamento dei file.",
     folderNameInvalid: "Inserisci un solo nome di cartella, non un percorso.",
     folderNameExcluded: "Questo nome di cartella è escluso dal browser di file SQL.",
     folderDepthExceeded: "È stata raggiunta la profondità massima delle cartelle.",

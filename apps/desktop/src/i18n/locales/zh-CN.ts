@@ -8686,6 +8686,9 @@ export default withEnglishFallback({
     completedWithErrors: "执行完成：成功 {succeeded} 条，失败 {failed} 条",
   },
   sqlFileTree: {
+    sortManual: "手动排序",
+    sortManualHint: "拖拽同一目录中的文件调整顺序；搜索期间不可拖拽。",
+    sortSaveFailed: "无法保存文件排序偏好。",
     folderNameInvalid: "请输入单个文件夹名称，不能包含路径。",
     folderNameExcluded: "此文件夹名称被 SQL 文件面板排除。",
     folderDepthExceeded: "已达到文件夹最大层级。",

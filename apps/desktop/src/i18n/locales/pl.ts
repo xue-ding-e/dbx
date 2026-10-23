@@ -7653,6 +7653,9 @@ export default withEnglishFallback({
     totalFiles: "Pliki: {count}",
   },
   sqlFileTree: {
+    sortManual: "Kolejność ręczna",
+    sortManualHint: "Przeciągaj pliki w tym samym folderze, aby zmienić kolejność. Przeciąganie jest wyłączone podczas wyszukiwania.",
+    sortSaveFailed: "Nie udało się zapisać ustawienia sortowania plików.",
     title: "Aktualizacja zabezpieczeń danych",
     storageHelp: "Są to rzeczywiste pliki .sql na dysku otwarte przez „Otwórz folder”. Zmiany zapisywane są bezpośrednio w pliku źródłowym.",
     openFolder: "Otwórz folder",

@@ -7522,6 +7522,9 @@ export default withEnglishFallback({
     completedWithErrors: "실행 완료: 성공 {succeeded}개, 실패 {failed}개",
   },
   sqlFileTree: {
+    sortManual: "수동 정렬",
+    sortManualHint: "같은 폴더의 파일을 드래그하여 순서를 변경합니다. 검색 중에는 드래그할 수 없습니다.",
+    sortSaveFailed: "파일 정렬 설정을 저장할 수 없습니다.",
     folderNameInvalid: "경로가 아닌 폴더 이름 하나를 입력하세요.",
     folderNameExcluded: "이 폴더 이름은 SQL 파일 패널에서 제외됩니다.",
     folderDepthExceeded: "최대 폴더 깊이에 도달했습니다.",

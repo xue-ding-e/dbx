@@ -10375,6 +10375,9 @@ export default withEnglishFallback({
     actionSuccess: "已完成對「{name}」的{action}。",
   },
   sqlFileTree: {
+    sortManual: "手動排序",
+    sortManualHint: "拖曳同一目錄中的檔案調整順序；搜尋期間無法拖曳。",
+    sortSaveFailed: "無法儲存檔案排序偏好。",
     folderNameInvalid: "請輸入單一資料夾名稱，不能包含路徑。",
     folderNameExcluded: "此資料夾名稱被 SQL 檔案面板排除。",
     folderDepthExceeded: "已達到資料夾最大層級。",

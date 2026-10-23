@@ -8964,6 +8964,9 @@ export default withEnglishFallback({
     completedWithErrors: "Выполнение завершено: успешно {succeeded}, с ошибкой {failed}",
   },
   sqlFileTree: {
+    sortManual: "Ручной порядок",
+    sortManualHint: "Перетаскивайте файлы в одной папке для изменения порядка. Во время поиска перетаскивание отключено.",
+    sortSaveFailed: "Не удалось сохранить настройку сортировки файлов.",
     folderNameInvalid: "Введите одно имя папки, а не путь.",
     folderNameExcluded: "Это имя папки исключено из обозревателя SQL-файлов.",
     folderDepthExceeded: "Достигнута максимальная глубина папок.",

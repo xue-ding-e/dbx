@@ -8718,6 +8718,9 @@ export default {
     completedWithErrors: "Execution completed: {succeeded} succeeded, {failed} failed",
   },
   sqlFileTree: {
+    sortManual: "Manual order",
+    sortManualHint: "Drag files within the same folder to reorder. Dragging is disabled while searching.",
+    sortSaveFailed: "Could not save the file sorting preference.",
     folderNameInvalid: "Enter a single folder name, not a path.",
     folderNameExcluded: "This folder name is excluded from the SQL file browser.",
     folderDepthExceeded: "The maximum folder depth has been reached.",
