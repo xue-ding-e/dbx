@@ -3305,7 +3305,8 @@ public final class DbxJdbcPlugin {
             while (rs.next()) {
                 found = true;
                 String name = rs.getString("TABLE_NAME");
-                if (!metadataNameMatches(name, normalizedFilter)) {
+                String comment = rs.getString("REMARKS");
+                if (!metadataNameOrCommentMatches(name, comment, normalizedFilter)) {
                     continue;
                 }
                 if (skipped++ < Math.max(0, offset)) {
@@ -3375,7 +3376,9 @@ public final class DbxJdbcPlugin {
         int max = limit <= 0 ? Integer.MAX_VALUE : limit;
         int skipped = 0;
         for (JsonNode item : source) {
-            if (!metadataNameMatches(item.path("name").asText(""), normalizedFilter)) {
+            String name = item.path("name").asText("");
+            String comment = item.hasNonNull("comment") ? item.path("comment").asText("") : null;
+            if (!metadataNameOrCommentMatches(name, comment, normalizedFilter)) {
                 continue;
             }
             String type = item.path(typeField).asText("");
@@ -3392,6 +3395,16 @@ public final class DbxJdbcPlugin {
             result.add(item);
         }
         return result;
+    }
+
+    private static boolean metadataNameOrCommentMatches(String name, String comment, String filter) {
+        if (filter == null || filter.isEmpty()) {
+            return true;
+        }
+        if (metadataNameMatches(name, filter)) {
+            return true;
+        }
+        return comment != null && !comment.isEmpty() && metadataNameMatches(comment, filter);
     }
 
     private static boolean metadataNameMatches(String name, String filter) {

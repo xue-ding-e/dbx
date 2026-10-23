@@ -2311,6 +2311,12 @@ final class DbxJdbcPluginTest {
               "sql": "CREATE TABLE IF NOT EXISTS app.people_archive (id INT PRIMARY KEY)"
             }
             """.formatted(CONNECTION));
+        request("executeQuery", """
+            {
+              "connection": %s,
+              "sql": "CREATE TABLE IF NOT EXISTS app.cards (id INT PRIMARY KEY); COMMENT ON TABLE app.cards IS '卡片信息表'"
+            }
+            """.formatted(CONNECTION));
 
         JsonNode response = request("listTables", """
             {
@@ -2326,6 +2332,20 @@ final class DbxJdbcPluginTest {
         assertFalse(response.has("error"), response.toString());
         assertEquals(1, response.path("result").size());
         assertEquals("PEOPLE_ARCHIVE", response.path("result").path(0).path("name").asText());
+
+        JsonNode commentMatchResponse = request("listTables", """
+            {
+              "connection": %s,
+              "schema": "APP",
+              "filter": "卡片",
+              "object_types": ["TABLE"]
+            }
+            """.formatted(CONNECTION));
+
+        assertFalse(commentMatchResponse.has("error"), commentMatchResponse.toString());
+        assertEquals(1, commentMatchResponse.path("result").size());
+        assertEquals("CARDS", commentMatchResponse.path("result").path(0).path("name").asText());
+        assertEquals("卡片信息表", commentMatchResponse.path("result").path(0).path("comment").asText());
     }
 
     @Test
