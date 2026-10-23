@@ -504,6 +504,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "Kenar çubuğu adlarını, açıklamaları ve takma adları JavaScript düzenli ifadeleriyle eşleştirin.",
     clearFilter: "Filtreyi temizle",
     locateTargetNotFound: "Öğe kenar çubuğunda bulunamıyor. Silinmiş veya gizlenmiş olabilir.",
+    locateSqlFile: "SQL dosya listesinde bul",
     locateActiveTab: "Kenar çubuğunda bul",
   },
   savedSql: {

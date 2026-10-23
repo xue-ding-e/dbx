@@ -191,6 +191,7 @@ const groupExecutableSql = computed(() => {
         :special-page-tabs="toolbar.specialPageTabs.value"
         @activate-tab="$emit('activate-tab', $event)"
         @locate-tab="$emit('locate-tab', $event)"
+        @locate-sql-file="$emit('locate-sql-file', $event)"
         @toggle-zen-mode="$emit('toggle-zen-mode')"
         @start-resize="$emit('start-resize', $event)"
         @toggle-collapse="$emit('toggle-collapse')"

@@ -773,6 +773,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "Dopasowuj nazwy, komentarze i aliasy w panelu bocznym przy użyciu wyrażeń regularnych JavaScript.",
     clearFilter: "Wyczyść filtr",
     locateTargetNotFound: "Pozycja nie jest dostępna w panelu bocznym. Mogła zostać usunięta lub ukryta.",
+    locateSqlFile: "Znajdź na liście plików SQL",
     locateActiveTab: "Znajdź na pasku bocznym",
   },
   savedSql: {

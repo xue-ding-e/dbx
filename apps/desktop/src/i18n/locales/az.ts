@@ -504,6 +504,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "Yan paneldəki adları, şərhləri və ləqəbləri JavaScript müntəzəm ifadələri ilə uyğunlaşdırın.",
     clearFilter: "Süzgəci təmizlə",
     locateTargetNotFound: "Element yan paneldə mövcud deyil. O, silinmiş və ya gizlədilmiş ola bilər.",
+    locateSqlFile: "SQL fayl siyahısında tap",
     locateActiveTab: "Yan paneldə tap",
   },
   savedSql: {

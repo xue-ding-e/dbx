@@ -959,6 +959,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "Сопоставлять имена, комментарии и псевдонимы в боковой панели с помощью регулярных выражений JavaScript.",
     clearFilter: "Очистить фильтр",
     locateTargetNotFound: "Элемент недоступен на боковой панели. Возможно, он был удалён или скрыт.",
+    locateSqlFile: "Найти в списке SQL-файлов",
     locateActiveTab: "Найти в боковой панели",
   },
   savedSql: {

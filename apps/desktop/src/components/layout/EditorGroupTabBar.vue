@@ -41,6 +41,7 @@ import {
   ChevronsUpDown,
   Clock3,
   Copy,
+  Crosshair,
   Database,
   FoldHorizontal,
   ListFilter,
@@ -118,6 +119,7 @@ import {
   tabIconClass,
   tabTooltipLines,
 } from "@/lib/tabs/tabPresentation";
+import { queryTabExternalFilePath } from "@/lib/sql/sqlFileOpen";
 import { activeTabSidebarTarget } from "@/lib/sidebar/sidebarActiveTabTarget";
 import "./appTabBar.css";
 import type { QueryTab } from "@/types/database";
@@ -142,6 +144,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   "activate-tab": [tabId: string];
   "locate-tab": [tab: QueryTab];
+  "locate-sql-file": [tab: QueryTab];
   "toggle-zen-mode": [];
   "start-resize": [event: PointerEvent];
   "toggle-collapse": [];
@@ -1687,6 +1690,12 @@ function getTabMenuItems(tab: QueryTab): ContextMenuItem[] {
       visible: !!activeTabSidebarTarget(tab),
       onLocate: () => emit("locate-tab", tab),
     }),
+    {
+      label: t("sidebar.locateSqlFile"),
+      icon: Crosshair,
+      visible: !!queryTabExternalFilePath(tab),
+      action: () => emit("locate-sql-file", tab),
+    },
     { label: "", separator: true },
     createPinTabMenuItem({
       label: tab.pinned ? t("contextMenu.unpinTab") : t("contextMenu.pinTab"),

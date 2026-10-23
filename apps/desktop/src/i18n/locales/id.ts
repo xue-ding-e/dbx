@@ -709,6 +709,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "Cocokkan nama, komentar, dan alias di bilah sisi dengan ekspresi reguler JavaScript.",
     clearFilter: "Bersihkan filter",
     locateTargetNotFound: "Item tidak tersedia di bilah sisi. Item mungkin telah dihapus atau disembunyikan.",
+    locateSqlFile: "Temukan dalam daftar file SQL",
     locateActiveTab: "Cari di bilah sisi",
   },
   savedSql: {

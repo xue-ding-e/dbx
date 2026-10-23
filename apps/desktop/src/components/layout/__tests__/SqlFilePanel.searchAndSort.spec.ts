@@ -209,6 +209,6 @@ describe("SqlFilePanel search and sort", () => {
     expect(host.textContent).toContain("zebra.sql");
     const zebraRow = host.querySelector<HTMLElement>('[data-sql-file-path="/sql/zebra.sql"]');
     expect(zebraRow).not.toBeNull();
-    expect(zebraRow!.classList.contains("bg-accent")).toBe(true);
+    await vi.waitFor(() => expect(zebraRow!.classList.contains("bg-accent")).toBe(true));
   });
 });

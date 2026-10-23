@@ -983,6 +983,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "使用 JavaScript 正規表示式比對側邊欄名稱、備註與別名。",
     clearFilter: "清除篩選",
     locateTargetNotFound: "側邊欄中找不到對應項目，該項目可能已被刪除或隱藏。",
+    locateSqlFile: "在 SQL 檔案清單中定位",
     locateActiveTab: "在側邊欄中定位",
   },
   savedSql: {

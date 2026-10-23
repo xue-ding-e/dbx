@@ -978,6 +978,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "Trova nomi, commenti e alias con espressioni regolari JavaScript.",
     clearFilter: "Cancella filtro",
     locateTargetNotFound: "L’elemento non è disponibile nella barra laterale. Potrebbe essere stato rimosso o nascosto.",
+    locateSqlFile: "Individua nell’elenco dei file SQL",
     locateActiveTab: "Trova nella barra laterale",
   },
   savedSql: {

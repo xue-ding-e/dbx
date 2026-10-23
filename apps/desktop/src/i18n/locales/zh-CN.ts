@@ -1075,6 +1075,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "使用 JavaScript 正则表达式匹配侧边栏名称、备注和别名。",
     clearFilter: "清除筛选",
     locateTargetNotFound: "左侧导航中未找到对应项目，该项目可能已被删除或隐藏。",
+    locateSqlFile: "在 SQL 文件列表中定位",
     locateActiveTab: "在侧边栏中定位",
   },
   savedSql: {

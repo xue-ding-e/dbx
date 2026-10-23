@@ -1139,6 +1139,7 @@ export default {
     regexSearchTooltip: "Match sidebar names, comments, and aliases with JavaScript regular expressions.",
     clearFilter: "Clear filter",
     locateTargetNotFound: "The item is not available in the sidebar. It may have been removed or hidden.",
+    locateSqlFile: "Locate in SQL file list",
     locateActiveTab: "Locate in sidebar",
   },
   savedSql: {

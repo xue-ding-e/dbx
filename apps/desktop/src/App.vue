@@ -114,7 +114,7 @@ import { getPlatform, isMacOS, isWindows } from "@/lib/backend/platform";
 import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
 import { openQueryResultArchiveFile } from "@/lib/query/queryResultArchiveFile";
 import { activeTabExternalSqlFileTarget, rememberExternalSqlFileTarget, resolveExternalSqlFileTarget, resolveExternalSqlFileTargetForActiveTab, unassociatedExternalSqlFileTarget, type ExternalSqlFileTarget } from "@/lib/sql/externalSqlFileTarget";
-import { defaultSavedQueryFileName, externalSqlFileOpenErrorMessage, externalSqlEditorMaxBytes, isSqlFilePath, queryEditorOpenFileAccept, queryEditorOpenFileFilters, readBrowserSqlFile, sqlFileTitleFromPath } from "@/lib/sql/sqlFileOpen";
+import { defaultSavedQueryFileName, externalSqlFileOpenErrorMessage, externalSqlEditorMaxBytes, isSqlFilePath, queryEditorOpenFileAccept, queryEditorOpenFileFilters, queryTabExternalFilePath, readBrowserSqlFile, sqlFileTitleFromPath } from "@/lib/sql/sqlFileOpen";
 import type { ConnectionConfig, DatabaseType, ObjectBrowserFilter, ObjectSourceKind, QueryTab, TableInfoTab, TabOutputView, TreeNode } from "@/types/database";
 import { OPEN_PLUGIN_SETTINGS, type PluginCenterFocus } from "@/lib/plugins/pluginCenterNavigation";
 import { parsePluginInstallDeepLink } from "@/lib/plugins/pluginInstallDeepLink";
@@ -484,7 +484,16 @@ const isAiPanelMaximized = ref(false);
 const isHistoryPanelMaximized = ref(false);
 const isZenMode = ref(false);
 const showSqlLibraryPanel = ref(safeLocalStorageGet("dbx-sql-library-open") === "true");
+const sqlFileLocateRequest = ref<{ id: number; path: string } | null>(null);
+let sqlFileLocateRequestId = 0;
 const showSqlFilePanel = ref(safeLocalStorageGet("dbx-sql-file-panel-open") === "true");
+watch(
+  showSqlFilePanel,
+  (open) => {
+    if (!open) sqlFileLocateRequest.value = null;
+  },
+  { flush: "sync" },
+);
 const rightSidebarPanelRefs: Record<RightSidebarPanelId, typeof showAiPanel> = {
   ai: showAiPanel,
   history: showHistory,
@@ -3662,6 +3671,18 @@ function setSidebarOpen(open: boolean) {
   safeLocalStorageSet("dbx-sidebar-open", open ? "true" : "false");
 }
 
+function locateSqlFile(tab: QueryTab) {
+  const path = queryTabExternalFilePath(tab);
+  if (!path || isDetachedWindowContext) return;
+  isZenMode.value = false;
+  openRightSidebarPanel("sqlFile");
+  sqlFileLocateRequest.value = { id: ++sqlFileLocateRequestId, path };
+}
+
+function finishSqlFileLocate(requestId: number) {
+  if (sqlFileLocateRequest.value?.id === requestId) sqlFileLocateRequest.value = null;
+}
+
 async function locateTabInSidebar(tab: QueryTab) {
   setSidebarOpen(true);
   await nextTick();
@@ -5488,6 +5509,7 @@ onUnmounted(() => {
                     ref="contentAreaRef"
                     :content-suppressed="activeTab?.mode === 'plugin-workbench'"
                     @locate-tab="locateTabInSidebar"
+                    @locate-sql-file="locateSqlFile"
                     @close-tab="
                       (tabId: string) => {
                         if (tabId === queryStore.activeTabId) void closeActiveSurface();
@@ -5734,7 +5756,7 @@ onUnmounted(() => {
           >
             <div class="panel-resize-handle panel-resize-handle--left" @pointerdown="startSqlFilePanelResize" />
             <div class="h-full min-h-0 overflow-hidden rounded-[inherit]">
-              <SqlFilePanel @close="closeRightSidebarPanel('sqlFile')" />
+              <SqlFilePanel :locate-request="sqlFileLocateRequest" @locate-handled="finishSqlFileLocate" @close="closeRightSidebarPanel('sqlFile')" />
             </div>
           </div>
           <PluginShortcutBar v-if="!isDetachedWindowContext && !isZenMode && settingsStore.editorSettings.pluginShortcuts.enabled && settingsStore.editorSettings.pluginShortcuts.position.startsWith('right-')" :position="settingsStore.editorSettings.pluginShortcuts.position" />

@@ -1069,6 +1069,7 @@ export default withEnglishFallback({
     regexSearchTooltip: "จับคู่ชื่อ คอมเมนต์ และ Alias ในแถบด้านข้างด้วย Regular Expression ของ JavaScript",
     clearFilter: "ล้างตัวกรอง",
     locateTargetNotFound: "รายการนี้ไม่พร้อมใช้งานในแถบด้านข้าง อาจถูกลบหรือซ่อนไว้",
+    locateSqlFile: "ค้นหาในรายการไฟล์ SQL",
     locateActiveTab: "ค้นหาในแถบด้านข้าง",
   },
   savedSql: {
