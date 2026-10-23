@@ -1802,6 +1802,8 @@ export interface QueryResult {
   /** Retained result refs also cover cells already hydrated into complete local values. */
   large_value_refs?: string[];
   session_id?: string | null;
+  /** Frontend-only owner of a manual transaction's result cursor, including retained runs. */
+  manual_transaction_session_id?: string;
   has_more?: boolean;
   /** Frontend-only SQL page lookahead, independent of the driver's cursor has_more. */
   page_has_more?: boolean;

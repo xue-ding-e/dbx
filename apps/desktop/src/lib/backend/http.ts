@@ -1760,7 +1760,8 @@ export async function exportSnapshotResult(request: SnapshotExportRequest, fileP
   anchor.click();
 }
 
-export async function closeQuerySession(connectionId: string, database: string, sessionId: string, clientSessionId?: string, catalog?: string): Promise<boolean> {
+export async function closeQuerySession(connectionId: string, database: string, sessionId: string, clientSessionId?: string, catalog?: string, txnSessionId?: string): Promise<boolean> {
+  if (txnSessionId) throw new Error("Manual transaction management is only available in the desktop app.");
   return post("/api/query/close-session", {
     connectionId,
     database,

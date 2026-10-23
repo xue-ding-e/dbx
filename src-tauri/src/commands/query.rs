@@ -384,7 +384,17 @@ pub async fn close_query_session(
     session_id: String,
     client_session_id: Option<String>,
     catalog: Option<String>,
+    txn_session_id: Option<String>,
 ) -> Result<bool, String> {
+    if let Some(txn_session_id) = txn_session_id {
+        return dbx_core::query::close_manual_transaction_query_session(
+            &state,
+            &connection_id,
+            &txn_session_id,
+            &session_id,
+        )
+        .await;
+    }
     dbx_core::query::close_query_session(
         &state,
         &connection_id,

@@ -609,6 +609,31 @@ describe("queryStore table data refresh", () => {
     expect(mocks.executeMulti).toHaveBeenCalledTimes(2);
   });
 
+  it.each(["before offset", "at offset"])("advances through empty Cassandra cursor pages %s", async (emptyPagePosition) => {
+    mocks.getConnectionConfig.mockReturnValue({ id: "cassandra-1", name: "Cassandra", db_type: "cassandra", database: "app" });
+    const page = (rows: number[]) => ({ columns: ["id"], rows: rows.map((id) => [id]), affected_rows: 0, execution_time_ms: 1, session_id: "cursor-empty", has_more: true });
+    const pages = emptyPagePosition === "before offset" ? [[], [1, 2], [3, 4]] : [[1, 2], [], [3, 4]];
+    for (const rows of pages) mocks.executeMulti.mockResolvedValueOnce([page(rows)]);
+    const { useQueryStore } = await import("@/stores/queryStore");
+    const store = useQueryStore();
+    const tabId = store.createTab("cassandra-1", "app", "paged_rows", "data");
+    store.setTableMeta(tabId, {
+      tableName: "paged_rows",
+      tableType: "TABLE",
+      columns: [{ name: "id", data_type: "int", is_nullable: false, column_default: null, is_primary_key: true, extra: null }],
+      primaryKeys: ["id"],
+    });
+
+    await store.executeTabSql(tabId, 'SELECT * FROM "paged_rows";', { pagination: { limit: 2, offset: 2 } });
+
+    const tab = store.tabs.find((candidate) => candidate.id === tabId)!;
+    expect(tab.result?.rows).toEqual([[3], [4]]);
+    expect(tab.result?.timing_page_count).toBe(3);
+    expect(tab.resultPageOffset).toBe(2);
+    expect(mocks.executeMulti.mock.calls.map((call) => call[5]?.resultSessionId)).toEqual([undefined, "cursor-empty", "cursor-empty"]);
+    expect(mocks.closeQuerySession).not.toHaveBeenCalled();
+  });
+
   it("closes a Cassandra replay cursor when a later page fails", async () => {
     mocks.getConnectionConfig.mockReturnValue({ id: "cassandra-1", name: "Cassandra", db_type: "cassandra", database: "app" });
     mocks.executeMulti.mockResolvedValueOnce([{ columns: ["id"], rows: [[1], [2]], affected_rows: 0, execution_time_ms: 1, session_id: "cursor-lost", has_more: true }]).mockRejectedValueOnce(new Error("query session not found: cursor-lost"));

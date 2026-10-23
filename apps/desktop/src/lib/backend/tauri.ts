@@ -2194,13 +2194,14 @@ export async function exportSnapshotResult(request: import("./http").SnapshotExp
   signal?.throwIfAborted();
 }
 
-export async function closeQuerySession(connectionId: string, database: string, sessionId: string, clientSessionId?: string, catalog?: string): Promise<boolean> {
+export async function closeQuerySession(connectionId: string, database: string, sessionId: string, clientSessionId?: string, catalog?: string, txnSessionId?: string): Promise<boolean> {
   return invoke("close_query_session", {
     connectionId,
     database,
     sessionId,
     clientSessionId,
     catalog,
+    txnSessionId,
   });
 }
 
