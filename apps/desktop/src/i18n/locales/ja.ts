@@ -66,6 +66,18 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectRelations: {
+    title: "関連",
+    foreignKeys: "外部キー",
+    ownership: "親と子のオブジェクト",
+    references: "参照先テーブル",
+    referencedBy: "参照元テーブル",
+    parent: "親オブジェクト",
+    unresolved: "参照先を特定できません",
+    incomplete: "一部の列または参照先は表示されていません。列の対応が不完全な可能性があります。",
+    visibility: "現在のアカウントから参照できるディクショナリの関連のみ表示します。",
+    empty: "現在のアカウントから参照できる記録はありません。",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "依存先",

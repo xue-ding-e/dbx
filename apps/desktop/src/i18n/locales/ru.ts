@@ -8,6 +8,18 @@ import { meilisearchManagementRu } from "./meilisearchManagement";
 
 // Russian locale. Entries omitted here fall back to English at runtime.
 export default withEnglishFallback({
+  objectRelations: {
+    title: "Связи",
+    foreignKeys: "Внешние ключи",
+    ownership: "Родитель и дочерние объекты",
+    references: "Целевые таблицы",
+    referencedBy: "Ссылающиеся таблицы",
+    parent: "Родительский объект",
+    unresolved: "Идентификатор цели недоступен",
+    incomplete: "Некоторые столбцы или цели не видны. Сопоставление может быть неполным.",
+    visibility: "Показаны только связи словаря, видимые текущей учётной записи.",
+    empty: "Нет записей, видимых текущей учётной записи.",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "Зависимости",

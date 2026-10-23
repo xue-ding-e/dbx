@@ -50,6 +50,18 @@ const damengDump = {
 };
 
 export default withEnglishFallback({
+  objectRelations: {
+    title: "ความสัมพันธ์",
+    foreignKeys: "คีย์นอก",
+    ownership: "วัตถุแม่และลูก",
+    references: "ตารางที่อ้างอิงถึง",
+    referencedBy: "ตารางที่อ้างอิงตารางนี้",
+    parent: "วัตถุแม่",
+    unresolved: "ไม่สามารถระบุวัตถุเป้าหมายได้",
+    incomplete: "บางคอลัมน์หรือเป้าหมายมองไม่เห็น การจับคู่คอลัมน์อาจไม่ครบถ้วน",
+    visibility: "แสดงเฉพาะความสัมพันธ์ในพจนานุกรมที่บัญชีปัจจุบันมองเห็น",
+    empty: "ไม่มีรายการที่บัญชีปัจจุบันมองเห็น",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "วัตถุที่พึ่งพา",

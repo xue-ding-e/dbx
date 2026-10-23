@@ -3093,6 +3093,19 @@ async function openDatabaseObjectDependencies() {
   if (currentDatabaseType() === "oracle" || currentDatabaseType() === "oceanbase-oracle") {
     const target = oracleTarget(node);
     if (!target) return;
+    const connection = connectionStore.getConfig(node.connectionId);
+    const propertyDatabase = connection && node.schema && connectionUsesVisibleSchemaFilter(connection) ? connection.database || node.database : node.database;
+    if (target.type === "TABLE" || target.type === "VIEW" || target.type === "MATERIALIZED_VIEW") {
+      queryStore.openObjectProperties({ connectionId: node.connectionId, database: propertyDatabase, catalog: node.catalog, schema: target.schema, name: target.name, objectType: target.type, initialTab: "relations" });
+      return;
+    }
+    // TYPE lifecycle belongs to its dedicated integration; do not bypass its source guard.
+    if (target.type === "TYPE" || target.type === "TYPE_BODY") return;
+    if (target.type === "INDEX") {
+      if (node.parentName && node.parentSchema)
+        queryStore.openObjectProperties({ connectionId: node.connectionId, database: propertyDatabase, catalog: node.catalog, schema: node.parentSchema, name: node.parentName, objectType: "TABLE", initialTab: "relations", focusObject: { owner: target.schema, name: target.name, type: "INDEX" } });
+      return;
+    }
     openObjectSourceDialog(false, false, { ...node, type: target.type.toLowerCase() as "procedure" | "function" | "package", schema: target.schema, objectName: target.name, label: target.name, parentType: undefined, parentName: undefined, parentSchema: undefined });
     return;
   }

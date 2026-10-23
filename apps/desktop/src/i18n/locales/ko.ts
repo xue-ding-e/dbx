@@ -65,6 +65,18 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectRelations: {
+    title: "관계",
+    foreignKeys: "외래 키",
+    ownership: "부모 및 자식 객체",
+    references: "참조하는 테이블",
+    referencedBy: "이 테이블을 참조하는 테이블",
+    parent: "부모 객체",
+    unresolved: "대상 정보를 확인할 수 없습니다",
+    incomplete: "일부 열 또는 대상을 볼 수 없어 열 매핑이 불완전할 수 있습니다.",
+    visibility: "현재 계정에서 볼 수 있는 사전 관계만 표시합니다.",
+    empty: "현재 계정에서 볼 수 있는 기록이 없습니다.",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "의존하는 객체",

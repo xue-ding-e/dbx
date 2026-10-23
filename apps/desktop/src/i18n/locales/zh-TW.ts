@@ -67,6 +67,18 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectRelations: {
+    title: "關係",
+    foreignKeys: "外鍵參照",
+    ownership: "所屬與子物件",
+    references: "參照的資料表",
+    referencedBy: "參照此表的資料表",
+    parent: "所屬物件",
+    unresolved: "目標身分不可見",
+    incomplete: "部分欄位或目標不可見，已讀取的欄位可能不完整。",
+    visibility: "僅顯示目前帳號可見的字典關係。",
+    empty: "目前帳號可見範圍內沒有記錄。",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "依賴物件",

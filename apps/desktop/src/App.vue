@@ -3445,6 +3445,12 @@ function tableTargetFromActiveTab(table: string | SqlObjectNavigationTarget, con
 }
 
 async function onClickTable(table: SqlObjectNavigationTarget, context?: SqlObjectNavigationContext) {
+  if (table.type === "index") {
+    const origin = context ?? activeTab.value;
+    if (!origin || !table.parentName || !table.parentSchema || !table.schema) return;
+    queryStore.openObjectProperties({ connectionId: origin.connectionId, database: origin.database, catalog: origin.catalog, schema: table.parentSchema, name: table.parentName, objectType: "TABLE", initialTab: "indexes", focusObject: { owner: table.schema, name: table.name, type: "INDEX" } });
+    return;
+  }
   // Procedures/functions/packages open source (same as sidebar view-source), not table data/DDL.
   if (isSqlObjectNavigationRoutineType(table.type)) {
     await onOpenObjectSource(table, false, context);

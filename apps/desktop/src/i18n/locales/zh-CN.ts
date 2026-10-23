@@ -11,6 +11,18 @@ import { mongodbDatabaseDumpZhCN as mongoDump } from "./mongodbDatabaseDump";
 import { damengDumpZhCN as damengDump } from "./damengDump";
 
 export default withEnglishFallback({
+  objectRelations: {
+    title: "关系",
+    foreignKeys: "外键引用",
+    ownership: "所属与子对象",
+    references: "引用的表",
+    referencedBy: "引用此表的表",
+    parent: "所属对象",
+    unresolved: "目标身份不可见",
+    incomplete: "部分列或目标不可见，已读取的列可能不完整。",
+    visibility: "仅显示当前账号可见的字典关系。",
+    empty: "当前账号可见范围内无记录。",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "依赖对象",

@@ -66,6 +66,18 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  objectRelations: {
+    title: "Relações",
+    foreignKeys: "Chaves estrangeiras",
+    ownership: "Pai e filhos",
+    references: "Tabelas referenciadas",
+    referencedBy: "Tabelas que referenciam",
+    parent: "Objeto pai",
+    unresolved: "Identidade do destino indisponível",
+    incomplete: "Algumas colunas ou destinos não estão visíveis. O mapeamento pode estar incompleto.",
+    visibility: "Apenas relações do dicionário visíveis para a conta atual são mostradas.",
+    empty: "Nenhum registro visível para a conta atual.",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "Dependências",

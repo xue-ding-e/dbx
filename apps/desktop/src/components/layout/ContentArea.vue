@@ -2831,6 +2831,7 @@ defineExpose({
               <DataGrid
                 v-else-if="activeTab.result && hasTabularResult && (!activeTab.isExecuting || !isQueryExecutionErrorResult(activeTab.result))"
                 ref="dataGridRef"
+                @open-dependency-object="(context, target) => emit('openDependencyObject', context, target)"
                 :key="activeResultGridInstanceKey"
                 :cache-key="activeResultGridCacheKey"
                 :column-width-cache-key="activeResultGridColumnWidthCacheKey"
@@ -3379,6 +3380,7 @@ defineExpose({
         <DataGrid
           v-if="activeTab.result && (!activeTab.isExecuting || !isQueryExecutionErrorResult(activeTab.result))"
           ref="dataGridRef"
+          @open-dependency-object="(context, target) => emit('openDependencyObject', context, target)"
           class="flex-1 min-h-0"
           :key="activeTab.id"
           :cache-key="activeTab.id"
@@ -3693,6 +3695,13 @@ defineExpose({
           :selected-object-filter="activeTab.objectBrowser?.filter"
           :initial-search-query="activeTab.objectBrowser?.searchQuery"
           :viewport="activeTab.objectBrowser?.viewport"
+          :property-request="activeTab.objectPropertiesRequest"
+          @property-request-consumed="
+            (id) => {
+              if (activeTab.objectPropertiesRequest?.requestId === id) activeTab.objectPropertiesRequest = undefined;
+            }
+          "
+          @open-dependency-object="(context, target) => emit('openDependencyObject', context, target)"
           @open-table="emit('openObjectTable', activeTab.id, $event)"
           @locate-table="onLocateObjectTable"
           @schema-change="emit('objectSchemaChange', activeTab.id, $event)"

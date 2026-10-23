@@ -65,6 +65,18 @@ const consul = {
 };
 
 export default {
+  objectRelations: {
+    title: "Relations",
+    foreignKeys: "Foreign keys",
+    ownership: "Parent and children",
+    references: "Referenced tables",
+    referencedBy: "Referencing tables",
+    parent: "Parent object",
+    unresolved: "Target identity is unavailable",
+    incomplete: "Some columns or targets are not visible. The column mapping may be incomplete.",
+    visibility: "Only dictionary relations visible to the current account are shown.",
+    empty: "No records are visible to the current account.",
+  },
   tableColumnPaste,
   objectDependencies: {
     dependencies: "Dependencies",
