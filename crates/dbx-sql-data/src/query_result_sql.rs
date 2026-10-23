@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::ops::ControlFlow;
 
-use dbx_sql_core::sql_risk::{prove_read_only_for_database, ReadProof};
 use serde::{Deserialize, Serialize};
 
 use crate::models::connection::DatabaseType;
@@ -60,8 +59,8 @@ pub struct QueryPaginationExecutionPlanOptions {
 #[serde(rename_all = "camelCase")]
 pub struct QueryPaginationExecutionPlan {
     pub sql_to_execute: String,
-    /// Optional native MySQL page with one extra row. Only offered for queries
-    /// accepted by the strict read-only proof; callers must trim the probe row.
+    /// Legacy optional MySQL lookahead, retained for wire compatibility.
+    /// New plans leave this unset to avoid scanning beyond the requested page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_probe_sql: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -283,34 +282,10 @@ pub fn build_query_pagination_execution_plan(
         plan.page_sql = page_sql;
         plan.page_limit = Some(options.pagination.limit);
         plan.page_offset = Some(options.pagination.offset);
-        // A SELECT can mutate session state or invoke a user function. Do not
-        // evaluate an extra row unless both the original and rewritten query
-        // satisfy the same strict proof used for manual-transaction reads.
-        if options.database_type == Some(DatabaseType::Mysql)
-            && !options.use_agent_cursor
-            && options.pagination.limit > 0
-            && prove_read_only_for_database(&options.sql, DatabaseType::Mysql) == ReadProof::ProvenReadOnly
-            && (options.sql == options.query_base_sql
-                || prove_read_only_for_database(&options.query_base_sql, DatabaseType::Mysql)
-                    == ReadProof::ProvenReadOnly)
-        {
-            if let Some(probe_limit) =
-                options.pagination.limit.checked_add(1).filter(|limit| *limit <= i32::MAX as usize)
-            {
-                let probe = build_paginated_query_sql(PaginatedQuerySqlOptions {
-                    original_sql: options.sql.clone(),
-                    database_type: options.database_type,
-                    limit: probe_limit,
-                    offset: options.pagination.offset,
-                });
-                if probe.ok {
-                    plan.page_probe_sql = probe.sql.map(|sql| match execution_hint {
-                        Some(hint) => inject_execution_hint(&sql, hint),
-                        None => sql,
-                    });
-                }
-            }
-        }
+        // Do not request an extra row to prove that another page exists.
+        // Finding one more match in a filtered query can scan the entire
+        // remaining input even when the requested page is ready (#13211).
+        // A full page with unknown total keeps the frontend's next-page option.
         if options.pagination.offset > 0
             && pagination_strategy(options.database_type, PaginationContext::UserQuery)
                 == TablePaginationStrategy::Rownum
@@ -5309,6 +5284,57 @@ WHERE u.id = picked.id;
             Some("/*sets:allsets*/SELECT COUNT(*) AS dbx_total_rows FROM (select @@server_id) `dbx_count`;")
         );
         assert!(!plan.use_agent_result_session);
+    }
+
+    #[test]
+    fn mysql_pagination_does_not_look_past_the_requested_page() {
+        for sql in [
+            "SELECT * FROM table1 a, table2 b WHERE a.id = b.id AND REPLACE(SUBSTR(b.ymd, 1, 7), '-', '') < a.ym",
+            "SELECT id FROM people WHERE active = 1",
+            "SELECT id FROM people",
+        ] {
+            for offset in [0, 1000] {
+                let plan = build_query_pagination_execution_plan(QueryPaginationExecutionPlanOptions {
+                    sql: sql.to_string(),
+                    query_base_sql: sql.to_string(),
+                    database_type: Some(DatabaseType::Mysql),
+                    pagination: QueryPagination { limit: 1000, offset, session_id: None },
+                    use_agent_cursor: false,
+                    first_page_uses_actual_sql: false,
+                    execution_hint: None,
+                });
+                let expected_sql = if offset == 0 {
+                    format!("{sql} LIMIT 1000;")
+                } else {
+                    format!("{sql} LIMIT 1000 OFFSET {offset};")
+                };
+
+                assert_eq!(plan.sql_to_execute, expected_sql);
+                assert_eq!(plan.page_sql.as_deref(), Some(expected_sql.as_str()));
+                assert_eq!(plan.page_limit, Some(1000));
+                assert_eq!(plan.page_offset, Some(offset));
+                assert!(plan.page_probe_sql.is_none(), "must not wait for a 1001st match: {sql}");
+                assert!(serde_json::to_value(&plan).unwrap().get("pageProbeSql").is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn mysql_pagination_keeps_the_user_limit_without_a_probe() {
+        let sql = "SELECT id FROM people LIMIT 10";
+        let plan = build_query_pagination_execution_plan(QueryPaginationExecutionPlanOptions {
+            sql: sql.to_string(),
+            query_base_sql: sql.to_string(),
+            database_type: Some(DatabaseType::Mysql),
+            pagination: QueryPagination { limit: 1000, offset: 0, session_id: None },
+            use_agent_cursor: false,
+            first_page_uses_actual_sql: false,
+            execution_hint: None,
+        });
+
+        assert_eq!(plan.sql_to_execute, "SELECT id FROM people LIMIT 10;");
+        assert_eq!(plan.exact_query_row_bound, Some(10));
+        assert!(plan.page_probe_sql.is_none());
     }
 
     #[test]

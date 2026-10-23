@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDataGridStructuredFilterStates, loadDataGridStructuredFilterState, saveDataGridStructuredFilterState } from "@/lib/dataGrid/dataGridFilterBuilderPersistence";
 import { clearDataGridSortBuilderMemoryCache, useDataGridSortBuilder } from "@/composables/useDataGridSortBuilder";
 import { resetRowIdLocatorStateForTests, rowIdLocatorUnsupported } from "@/lib/table/tableRowIdSupport";
+import { canGoNextDataGridPage } from "@/lib/dataGrid/dataGridPagination";
 
 const mocks = vi.hoisted(() => ({
   buildTableSelectSql: vi.fn(),
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/backend/api", () => ({
+  analyzeEditableQueryEditability: vi.fn().mockResolvedValue({ editable: false, reason: "complex-query" }),
   buildTableSelectSql: mocks.buildTableSelectSql,
   closeClientConnectionSession: mocks.closeClientConnectionSession,
   closeQuerySession: mocks.closeQuerySession,
@@ -128,6 +130,49 @@ describe("queryStore table data refresh", () => {
     expect(tab.resultPageLimit).toBe(55);
     expect(tab.resultPageOffset).toBe(offset);
     expect(tab.resultTotalRowCount).toBe(hasMore ? undefined : offset + 55);
+  });
+
+  it.each(["query", "data"] as const)("keeps MySQL %s pages bounded when no lookahead is offered (#13211)", async (mode) => {
+    mocks.getConnectionConfig.mockReturnValue({ id: "mysql-1", db_type: "mysql", database: "app" });
+    const { useQueryStore } = await import("@/stores/queryStore");
+    const store = useQueryStore();
+    const id = store.createTab("mysql-1", "app", "dates", mode);
+    const baseSql = "SELECT * FROM table1 a, table2 b WHERE a.id = b.id AND REPLACE(SUBSTR(b.ymd, 1, 7), '-', '') < a.ym";
+    let returnedRows = 1000;
+    let offset = 0;
+    mocks.prepareQueryPaginationExecutionPlan.mockImplementation(async () => ({
+      sqlToExecute: `${baseSql} LIMIT 1000${offset ? ` OFFSET ${offset}` : ""};`,
+      pageSql: `${baseSql} LIMIT 1000${offset ? ` OFFSET ${offset}` : ""};`,
+      pageLimit: 1000,
+      pageOffset: offset,
+      useAgentResultSession: false,
+    }));
+    mocks.executeMulti.mockImplementation(async () => [
+      {
+        columns: ["id"],
+        rows: Array.from({ length: returnedRows }, (_, index) => [offset + index + 1]),
+        affected_rows: 0,
+        execution_time_ms: 1,
+        has_more: false,
+      },
+    ]);
+
+    await store.executeTabSql(id, mode === "data" ? `${baseSql} LIMIT 1000;` : baseSql, { pagination: { limit: 1000, offset } });
+
+    expect(mocks.executeMulti).toHaveBeenLastCalledWith("mysql-1", "app", `${baseSql} LIMIT 1000;`, undefined, expect.any(String), expect.objectContaining({ maxRows: 1000 }));
+    const tab = store.tabs.find((candidate) => candidate.id === id)!;
+    expect(tab.result?.rows).toHaveLength(1000);
+    expect(tab.result?.page_has_more).toBeUndefined();
+    expect(tab.resultTotalRowCount).toBeUndefined();
+    expect(canGoNextDataGridPage({ rowCount: tab.result!.rows.length, pageSize: 1000, pageHasMore: tab.result?.page_has_more, totalRowCount: tab.resultTotalRowCount })).toBe(true);
+
+    offset = 1000;
+    returnedRows = 0;
+    await store.executeTabSql(id, mode === "data" ? `${baseSql} LIMIT 1000 OFFSET 1000;` : baseSql, { pagination: { limit: 1000, offset } });
+
+    expect(mocks.executeMulti.mock.calls[1]?.[2]).toBe(`${baseSql} LIMIT 1000 OFFSET 1000;`);
+    expect(tab.result?.rows).toHaveLength(0);
+    expect(canGoNextDataGridPage({ rowCount: tab.result!.rows.length, pageSize: 1000, pageOffset: offset, pageHasMore: tab.result?.page_has_more, totalRowCount: tab.resultTotalRowCount })).toBe(false);
   });
 
   it("loads a duplicated data tab with its filter, database sort and page without sharing results", async () => {
