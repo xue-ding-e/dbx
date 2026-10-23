@@ -4440,6 +4440,13 @@ fn target_text_type(target_db: &DatabaseType) -> &'static str {
     }
 }
 
+fn has_max_length_param(lowered_source_type: &str) -> bool {
+    lowered_source_type
+        .split_once('(')
+        .and_then(|(_, rest)| rest.split_once(')'))
+        .is_some_and(|(params, _)| params.trim() == "max")
+}
+
 /// DuckDB reads a bare `NUMERIC`/`DECIMAL` as DECIMAL(18, 3), which keeps only
 /// 15 integer digits, so a transferred NUMBER(18) key failed every insert with
 /// "Could not convert string ... to DECIMAL(18,3)" (#12846). A precision/scale
@@ -4521,6 +4528,13 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
         } else {
             "bigint"
         };
+    }
+
+    // SQL Server `timestamp` is a synonym for `rowversion`: an 8 byte binary row
+    // counter read as `0x...`, not a date and time. Mapping it to a temporal type
+    // made every insert fail with an invalid timestamp format (#13190).
+    if *source_db == DatabaseType::SqlServer && is_sqlserver_rowversion_type(&t) {
+        base = "binary";
     }
 
     if matches!(
@@ -4624,7 +4638,12 @@ pub fn map_column_type(source_type: &str, source_db: &DatabaseType, target_db: &
             }
         }
         "varchar" | "nvarchar" | "character varying" | "varchar2" => {
-            if t.contains('(') {
+            // `(max)` is SQL Server only syntax for an up to 2 GB string. Other
+            // targets reject `VARCHAR(max)` in CREATE TABLE (#13190), so the
+            // column becomes the target's unbounded text type instead.
+            if has_max_length_param(&t) && *target_db != DatabaseType::SqlServer {
+                target_text_type(target_db).into()
+            } else if t.contains('(') {
                 let len_part = transfer_length_params(&t, source_db, target_db);
                 match target_db {
                     target_db if is_postgres_transfer_dialect(target_db) => format!("VARCHAR{len_part}"),
@@ -23432,7 +23451,8 @@ SELECT 1 FROM dual"#
             map_column_type("varchar(20 byte)", &DatabaseType::Mysql, &DatabaseType::Oracle),
             "VARCHAR(20 byte)"
         );
-        assert_eq!(map_column_type("nvarchar(max)", &DatabaseType::SqlServer, &DatabaseType::Dameng), "VARCHAR(max)");
+        // SQL Server `(max)` has no Dameng spelling and becomes CLOB (#13190).
+        assert_eq!(map_column_type("nvarchar(max)", &DatabaseType::SqlServer, &DatabaseType::Dameng), "CLOB");
     }
 
     #[test]
@@ -23532,6 +23552,31 @@ SELECT 1 FROM dual"#
         assert_eq!(map_column_type("NUMBER(14,2)", &DatabaseType::Oracle, &DatabaseType::DuckDb), "DECIMAL(14,2)");
         assert_eq!(map_column_type("decimal(10, 4)", &DatabaseType::Mysql, &DatabaseType::DuckDb), "DECIMAL(10,4)");
         assert_eq!(map_column_type("numeric(38,38)", &DatabaseType::Postgres, &DatabaseType::DuckDb), "DECIMAL(38,38)");
+    }
+
+    #[test]
+    fn map_column_type_maps_sqlserver_max_length_strings_to_text() {
+        // `(max)` is SQL Server only syntax: DuckDB failed CREATE TABLE with
+        // `syntax error at or near "max"` on `VARCHAR(max)` (#13190).
+        for source_type in ["nvarchar(max)", "varchar(max)", "NVARCHAR(MAX)"] {
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::DuckDb), "TEXT");
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::Postgres), "TEXT");
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::Mysql), "TEXT");
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::Oracle), "CLOB");
+        }
+        assert_eq!(map_column_type("nvarchar(50)", &DatabaseType::SqlServer, &DatabaseType::DuckDb), "VARCHAR(50)");
+    }
+
+    #[test]
+    fn map_column_type_maps_sqlserver_rowversion_to_binary() {
+        // SQL Server `timestamp` is a rowversion (8 binary bytes), not a date and
+        // time, so its `0x...` values cannot be inserted into a TIMESTAMP column.
+        for source_type in ["timestamp", "rowversion"] {
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::DuckDb), "BLOB");
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::Postgres), "BYTEA");
+            assert_eq!(map_column_type(source_type, &DatabaseType::SqlServer, &DatabaseType::Mysql), "BLOB");
+        }
+        assert_eq!(map_column_type("timestamp", &DatabaseType::Postgres, &DatabaseType::DuckDb), "TIMESTAMP");
     }
 
     #[test]
