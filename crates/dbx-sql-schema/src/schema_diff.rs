@@ -3210,6 +3210,20 @@ fn parse_mysql_integer_type(data_type: &str) -> MysqlIntegerTypeSignature {
     MysqlIntegerTypeSignature { normalized, integer_key, width }
 }
 
+/// PostgreSQL's time types default to precision 6, but `format_type()` only prints the
+/// precision when it was declared: `timestamp` and `timestamp(6)` are the same column type
+/// yet render differently. Dropping an explicit `(6)` lets both spellings compare equal,
+/// while any other explicit precision (e.g. `timestamp(3)`) is still a real difference.
+fn normalize_postgres_temporal_type(data_type: &str) -> String {
+    let normalized = data_type.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase();
+    let base = normalized.split(['(', ' ', '[']).next().unwrap_or_default();
+    if matches!(base, "timestamp" | "timestamptz" | "time" | "timetz" | "interval") {
+        normalized.replacen("(6)", "", 1)
+    } else {
+        normalized
+    }
+}
+
 fn column_types_equal_for_dialects(
     source_type: &str,
     target_type: &str,
@@ -3231,6 +3245,9 @@ fn column_types_equal_for_dialects(
             return true;
         }
         _ => {}
+    }
+    if source_dialect == Some(DialectKind::Postgres) && target_dialect == Some(DialectKind::Postgres) {
+        return normalize_postgres_temporal_type(source_type) == normalize_postgres_temporal_type(target_type);
     }
     if source_dialect != Some(DialectKind::Mysql) || target_dialect != Some(DialectKind::Mysql) {
         return false;
@@ -16249,5 +16266,58 @@ mod tests {
         ));
         assert_eq!(column_type_similarity_score("uniqueidentifier", "uuid"), 1.0);
         assert_eq!(column_type_similarity_score("uuid", "uniqueidentifier"), 1.0);
+    }
+
+    #[test]
+    fn postgres_temporal_default_precision_is_not_a_type_difference() {
+        let pg = Some(DialectKind::Postgres);
+        for (implicit, explicit) in [
+            ("timestamp without time zone", "timestamp(6) without time zone"),
+            ("timestamp with time zone", "timestamp(6) with time zone"),
+            ("time without time zone", "time(6) without time zone"),
+            ("time with time zone", "time(6) with time zone"),
+            ("interval", "interval(6)"),
+            ("interval day to second", "interval day to second(6)"),
+            ("timestamp without time zone[]", "timestamp(6) without time zone[]"),
+        ] {
+            assert!(column_types_equal_for_dialects(implicit, explicit, pg, pg), "{implicit} vs {explicit}");
+            assert!(column_types_equal_for_dialects(explicit, implicit, pg, pg), "{explicit} vs {implicit}");
+        }
+
+        assert!(!column_types_equal_for_dialects(
+            "timestamp without time zone",
+            "timestamp(3) without time zone",
+            pg,
+            pg
+        ));
+        assert!(!column_types_equal_for_dialects(
+            "timestamp(6) without time zone",
+            "timestamp(6) with time zone",
+            pg,
+            pg
+        ));
+        assert!(!column_types_equal_for_dialects("numeric", "numeric(6)", pg, pg));
+    }
+
+    #[test]
+    fn postgres_timestamp_default_precision_produces_no_column_diff() {
+        let column = |data_type: &str| ColumnInfo {
+            name: "created_at".into(),
+            data_type: data_type.into(),
+            is_nullable: false,
+            column_default: Some("now()".into()),
+            ..Default::default()
+        };
+        let diffs = diff_columns_with_dialect_options(
+            &[column("timestamp without time zone")],
+            &[column("timestamp(6) without time zone")],
+            false,
+            false,
+            false,
+            0.5,
+            Some(DialectKind::Postgres),
+            Some(DialectKind::Postgres),
+        );
+        assert!(diffs.is_empty(), "{diffs:?}");
     }
 }
