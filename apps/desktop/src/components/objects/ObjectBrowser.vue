@@ -2675,6 +2675,7 @@ async function buildDropSqlForRow(row: ObjectBrowserRow, options?: { cascade?: b
     objectType: row.type,
     schema: row.schema || selectedSchema.value,
     name: row.name,
+    signature: row.signature,
     identifierQuote: connectionStore.connectionIdentifierQuote?.(props.connection.id),
   });
 }

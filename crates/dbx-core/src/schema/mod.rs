@@ -11434,6 +11434,7 @@ async fn managed_object_source<T: serde::de::DeserializeOwned + Send + 'static>(
     schema: &str,
     name: &str,
     object_type: &db::ObjectSourceKind,
+    signature: Option<&str>,
     relation_name: Option<&str>,
     timeout: Option<Duration>,
 ) -> Result<T, String> {
@@ -11442,23 +11443,22 @@ async fn managed_object_source<T: serde::de::DeserializeOwned + Send + 'static>(
             client
                 .lock()
                 .await
-                .get_object_source_for_relation(database, schema, name, object_type, relation_name, timeout)
+                .get_object_source_with_identity(database, schema, name, object_type, signature, relation_name, timeout)
                 .await
         }
         PoolKind::ExternalDriver { config, session, .. } => {
-            session
-                .invoke_with_timeout(
-                    "getObjectSource",
-                    serde_json::json!({
-                        "connection": config.as_ref(),
-                        "database": database,
-                        "schema": schema,
-                        "name": name,
-                        "object_type": object_type,
-                    }),
-                    timeout,
-                )
-                .await
+            let mut params = serde_json::json!({
+                "connection": config.as_ref(),
+                "database": database,
+                "schema": schema,
+                "name": name,
+                "object_type": object_type,
+            });
+            // An empty signature identifies the zero-argument overload; absence means unknown.
+            if let Some(signature) = signature {
+                params["signature"] = serde_json::Value::String(signature.to_string());
+            }
+            session.invoke_with_timeout("getObjectSource", params, timeout).await
         }
         _ => Err("Managed object source is not supported for this connection".into()),
     }
@@ -11511,6 +11511,7 @@ async fn get_object_source_once(
                 schema,
                 name,
                 &object_type,
+                signature,
                 None,
                 agent_metadata_timeout(Some(config.as_ref())),
             )
@@ -11570,6 +11571,7 @@ async fn get_object_source_once(
                     schema,
                     name,
                     &object_type,
+                    signature,
                     relation_name,
                     agent_metadata_timeout(db_config.as_ref()),
                 )

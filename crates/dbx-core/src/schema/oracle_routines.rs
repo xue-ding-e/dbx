@@ -255,6 +255,7 @@ impl RoutineCatalog for LiveCatalog<'_> {
             &identity.name,
             &identity.kind,
             None,
+            None,
             agent_metadata_timeout(Some(self.config)),
         )
         .await
