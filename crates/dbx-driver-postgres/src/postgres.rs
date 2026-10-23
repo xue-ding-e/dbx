@@ -5411,6 +5411,7 @@ async fn list_indexes_for_relations_with_sql(
         let all_key_options: Vec<i16> = row.try_get::<_, Vec<i16>>(12).unwrap_or_default();
         let key_options = if all_key_options.len() == split_at { all_key_options } else { Vec::new() };
         result.entry(relid).or_default().push(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9965,6 +9966,7 @@ async fn list_indexes_with_sql(
             let all_key_options: Vec<i16> = row.try_get::<_, Vec<i16>>(11).unwrap_or_default();
             let key_options = if all_key_options.len() == split_at { all_key_options } else { Vec::new() };
             IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,

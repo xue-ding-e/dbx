@@ -11,7 +11,7 @@ export function sidebarTreeDisplayLabel(node: TreeNode, t: SidebarTreeTranslate,
   if (node.type === "schema" && node.connectionId) {
     if (databaseType === "xugu") return xuguSchemaDisplayName(node.schema ?? node.label);
   }
-  if (node.type === "load-more") return t(node.label);
+  if (node.type === "load-more") return node.loadMore?.objectType === "INDEX" ? `${t("tree.indexes")} · ${t(node.label)}` : t(node.label);
   if (node.type === "object-browser") return t(node.label, { count: node.objectCount ?? 0 });
   // Use the canonical key for persisted trees created before this label was
   // internationalized; those nodes may still contain the old Chinese text.

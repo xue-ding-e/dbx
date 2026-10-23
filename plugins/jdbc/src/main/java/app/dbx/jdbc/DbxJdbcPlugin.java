@@ -182,6 +182,7 @@ public final class DbxJdbcPlugin {
         new JdbcDriverQuirkRule("jdbc:yasdb:", YASHAN_QUIRKS),
         new JdbcDriverQuirkRule("jdbc:iris:", IRIS_QUIRKS),
         new JdbcDriverQuirkRule("jdbc:oracle:", ORACLE_QUIRKS),
+        new JdbcDriverQuirkRule("jdbc:oceanbase:oracle://", ORACLE_QUIRKS),
         new JdbcDriverQuirkRule("jdbc:dm:", ORACLE_QUIRKS),
         new JdbcDriverQuirkRule("jdbc:taos:", TAOS_QUIRKS),
         new JdbcDriverQuirkRule("jdbc:taos-ws:", TAOS_QUIRKS),
@@ -629,7 +630,9 @@ public final class DbxJdbcPlugin {
             JsonNode params = request.path("params");
             connection = params.path("connection");
             if ("jdbcSessionProtocol".equals(method)) {
-                response.set("result", MAPPER.createObjectNode().put("version", 2));
+                ObjectNode protocol = MAPPER.createObjectNode().put("version", 2);
+                protocol.set("capabilities", MAPPER.createArrayNode().add("exact_metadata_identity_v1"));
+                response.set("result", protocol);
                 return response;
             }
             if (params.hasNonNull("jdbcSessionId")) {
@@ -733,6 +736,10 @@ public final class DbxJdbcPlugin {
 
     private static JsonNode handle(String method, JsonNode params, JsonNode connection) throws Exception {
         String database = optionalText(params, "database");
+        boolean exactIdentity = params.path("exact_identity").asBoolean(false);
+        if (exactIdentity && !driverQuirks(connection).useOracleMetadata()) {
+            throw new SQLException("Exact metadata identity is not supported for this JDBC dialect");
+        }
         if (isPostgresJdbcUrl(optionalText(connection, "connection_string"))) {
             database = postgresDatabase(params);
             if (database != null) {
@@ -797,40 +804,40 @@ public final class DbxJdbcPlugin {
             case "listTables" -> listTables(
                 connection,
                 database,
-                optionalText(params, "schema"),
+                metadataText(params, "schema", exactIdentity),
                 optionalText(params, "filter"),
                 nonNegativeInt(params, "limit", 0),
                 nonNegativeInt(params, "offset", 0),
-                optionalStringList(params, "object_types")
+                optionalStringList(params, "object_types"), exactIdentity
             );
             case "listObjects", "list_objects" -> listObjects(
                 connection,
                 database,
-                optionalText(params, "schema"),
+                metadataText(params, "schema", exactIdentity),
                 optionalText(params, "filter"),
                 nonNegativeInt(params, "limit", 0),
                 nonNegativeInt(params, "offset", 0),
-                optionalStringList(params, "object_types")
+                optionalStringList(params, "object_types"), exactIdentity
             );
             case "listIndexes", "list_indexes" -> listIndexes(
                 connection,
                 database,
-                optionalText(params, "schema"),
-                requireText(params, "table")
+                metadataText(params, "schema", exactIdentity),
+                metadataText(params, "table", exactIdentity), exactIdentity
             );
             case "listDataTypes", "list_data_types" -> listDataTypes(connection, database);
             case "getObjectSource", "get_object_source" -> getObjectSource(
                 connection,
                 database,
-                optionalText(params, "schema"),
-                requireText(params, "name"),
-                requireText(params, "object_type")
+                metadataText(params, "schema", exactIdentity),
+                exactIdentity ? metadataText(params, "name", true) : requireText(params, "name"),
+                requireText(params, "object_type"), exactIdentity
             );
             case "getColumns" -> getColumns(
                 connection,
                 database,
-                optionalText(params, "schema"),
-                requireText(params, "table")
+                metadataText(params, "schema", exactIdentity),
+                metadataText(params, "table", exactIdentity), exactIdentity
             );
             case "getExplainInfo" -> getExplainInfo(
                 connection,
@@ -2700,14 +2707,15 @@ public final class DbxJdbcPlugin {
         String filter,
         int limit,
         int offset,
-        List<String> objectTypes
+        List<String> objectTypes,
+        boolean exactIdentity
     ) throws SQLException {
         ArrayNode result = MAPPER.createArrayNode();
         Connection conn = openConnection(connection);
         JdbcDriverQuirks quirks = driverQuirks(connection);
         if (quirks.useOracleMetadata()) {
             return filterMetadataNodes(
-                (ArrayNode) oracleListTables(conn, oracleEffectiveSchema(conn, schema)),
+                (ArrayNode) oracleListTables(conn, exactIdentity ? schema : oracleEffectiveSchema(conn, schema), exactIdentity),
                 filter,
                 limit,
                 offset,
@@ -2751,13 +2759,21 @@ public final class DbxJdbcPlugin {
         String filter,
         int limit,
         int offset,
-        List<String> objectTypes
+        List<String> objectTypes,
+        boolean exactIdentity
     ) throws SQLException {
         ArrayNode result = MAPPER.createArrayNode();
         Connection conn = openConnection(connection);
         if (driverQuirks(connection).useOracleMetadata()) {
+            String owner = exactIdentity ? schema : oracleEffectiveSchema(conn, schema);
+            Set<String> types = normalizedObjectTypes(objectTypes);
+            boolean indexes = types.contains("INDEX") || (exactIdentity && types.isEmpty());
+            ArrayNode objects = types.size() == 1 && indexes ? MAPPER.createArrayNode() : (ArrayNode) oracleListObjects(conn, owner, schema);
+            if (indexes) {
+                appendOracleSchemaIndexes(conn, owner, objects);
+            }
             return filterMetadataNodes(
-                (ArrayNode) oracleListObjects(conn, oracleEffectiveSchema(conn, schema), schema),
+                objects,
                 filter,
                 limit,
                 offset,
@@ -3012,14 +3028,18 @@ public final class DbxJdbcPlugin {
         return result;
     }
 
-    private static JsonNode listIndexes(JsonNode connection, String database, String schema, String table)
+    private static JsonNode listIndexes(JsonNode connection, String database, String schema, String table) throws SQLException {
+        return listIndexes(connection, database, schema, table, false);
+    }
+
+    private static JsonNode listIndexes(JsonNode connection, String database, String schema, String table, boolean exactIdentity)
         throws SQLException {
         Connection conn = openConnection(connection);
         JdbcDriverQuirks quirks = driverQuirks(connection);
         if (quirks.useOracleMetadata()) {
-            String owner = oracleEffectiveSchema(conn, schema);
-            String resolvedTable = oracleResolveTable(conn, owner, table);
-            return oracleListIndexes(conn, owner, resolvedTable == null ? table : resolvedTable);
+            String owner = exactIdentity ? schema : oracleEffectiveSchema(conn, schema);
+            String resolvedTable = exactIdentity ? table : oracleResolveTable(conn, owner, table);
+            return oracleListIndexes(conn, owner, resolvedTable == null ? table : resolvedTable, exactIdentity);
         }
 
         DatabaseMetaData meta = conn.getMetaData();
@@ -3165,10 +3185,14 @@ public final class DbxJdbcPlugin {
     }
 
     private static JsonNode getColumns(JsonNode connection, String database, String schema, String table) throws SQLException {
+        return getColumns(connection, database, schema, table, false);
+    }
+
+    private static JsonNode getColumns(JsonNode connection, String database, String schema, String table, boolean exactIdentity) throws SQLException {
         ArrayNode result = MAPPER.createArrayNode();
         Connection conn = openConnection(connection);
         if (driverQuirks(connection).useOracleMetadata()) {
-            return oracleGetColumns(conn, oracleEffectiveSchema(conn, schema), table);
+            return oracleGetColumns(conn, exactIdentity ? schema : oracleEffectiveSchema(conn, schema), table, exactIdentity);
         }
         if (isKingbaseUrl(optionalText(connection, "connection_string"))) {
             return kingbaseGetColumns(conn, schema, table);
@@ -4456,6 +4480,10 @@ public final class DbxJdbcPlugin {
     }
 
     private static JsonNode oracleListTables(Connection conn, String owner) throws SQLException {
+        return oracleListTables(conn, owner, false);
+    }
+
+    private static JsonNode oracleListTables(Connection conn, String owner, boolean exactIdentity) throws SQLException {
         ArrayNode result = MAPPER.createArrayNode();
         String sql =
             "SELECT table_name AS name, 'TABLE' AS table_type, comments " +
@@ -4478,6 +4506,7 @@ public final class DbxJdbcPlugin {
                 return result;
             }
         } catch (SQLException e) {
+            if (exactIdentity) throw e;
             result.removeAll();
             try {
                 appendTables(result, conn.getMetaData(), null, owner, new String[]{"TABLE", "VIEW"}, null, 0, 0);
@@ -4598,24 +4627,54 @@ public final class DbxJdbcPlugin {
     }
 
     private static JsonNode oracleListIndexes(Connection conn, String owner, String table) throws SQLException {
+        return oracleListIndexes(conn, owner, table, false);
+    }
+
+    private static void appendOracleSchemaIndexes(Connection conn, String owner, ArrayNode result) throws SQLException {
+        String sql = "SELECT owner, index_name, table_owner, table_name FROM all_indexes WHERE owner = ? ORDER BY index_name";
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setString(1, owner);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    ObjectNode index = MAPPER.createObjectNode();
+                    index.put("name", rows.getString("index_name"));
+                    index.put("object_type", "INDEX");
+                    putNullable(index, "schema", rows.getString("owner"));
+                    putNullable(index, "parent_schema", rows.getString("table_owner"));
+                    putNullable(index, "parent_name", rows.getString("table_name"));
+                    index.putNull("comment");
+                    result.add(index);
+                }
+            }
+        }
+    }
+
+    private static JsonNode oracleListIndexes(Connection conn, String owner, String table, boolean exactIdentity) throws SQLException {
         String sql =
-            "SELECT i.index_name, i.uniqueness, i.index_type, ic.column_name, " +
-            "CASE WHEN pk.index_name IS NULL THEN 0 ELSE 1 END AS is_primary " +
+            "SELECT ie.column_expression, i.index_name, i.uniqueness, i.index_type, ic.column_name, " +
+            "ic.column_position, i.partitioned, i.visibility, ic.descend, " +
+            "CASE WHEN pk.index_name IS NULL THEN 0 ELSE 1 END AS is_primary, i.owner AS index_owner " +
             "FROM all_indexes i " +
             "JOIN all_ind_columns ic ON ic.index_owner = i.owner AND ic.index_name = i.index_name " +
             "AND ic.table_owner = i.table_owner AND ic.table_name = i.table_name " +
-            "LEFT JOIN (SELECT owner, index_name, table_name FROM all_constraints WHERE constraint_type = 'P') pk " +
-            "ON pk.owner = i.owner AND pk.index_name = i.index_name AND pk.table_name = i.table_name " +
+            "LEFT JOIN all_ind_expressions ie ON ie.index_owner = ic.index_owner AND ie.index_name = ic.index_name " +
+            "AND ie.table_owner = ic.table_owner AND ie.table_name = ic.table_name AND ie.column_position = ic.column_position " +
+            "LEFT JOIN (SELECT owner, index_owner, index_name, table_name FROM all_constraints WHERE constraint_type = 'P') pk " +
+            "ON pk.owner = i.table_owner AND pk.index_owner = i.owner AND pk.index_name = i.index_name AND pk.table_name = i.table_name " +
             "WHERE i.table_owner = ? AND i.table_name = ? " +
-            "ORDER BY i.index_name, ic.column_position";
+            "ORDER BY i.owner, i.index_name, ic.column_position";
         LinkedHashMap<String, ObjectNode> indexes = new LinkedHashMap<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, owner);
             ps.setString(2, table);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    // COLUMN_EXPRESSION is LONG on Oracle; read it before the other fields.
+                    String expression = rs.getString("column_expression");
                     String name = rs.getString("index_name");
-                    ObjectNode item = indexes.get(name);
+                    String indexOwner = rs.getString("index_owner");
+                    String identity = MAPPER.createArrayNode().add(indexOwner).add(name).toString();
+                    ObjectNode item = indexes.get(identity);
                     if (item == null) {
                         item = indexNode(
                             name,
@@ -4623,15 +4682,34 @@ public final class DbxJdbcPlugin {
                             rs.getInt("is_primary") != 0,
                             rs.getString("index_type")
                         );
-                        indexes.put(name, item);
+                        item.set("key_is_expression", MAPPER.createArrayNode());
+                        putNullable(item, "owner", indexOwner);
+                        item.set("key_directions", MAPPER.createArrayNode());
+                        putNullable(item, "visibility", rs.getString("visibility"));
+                        item.put("key_metadata_complete", true);
+                        indexes.put(identity, item);
                     }
                     String column = rs.getString("column_name");
-                    if (column != null && !column.isBlank()) {
-                        ((ArrayNode) item.path("columns")).add(column);
+                    boolean isExpression = expression != null && !expression.isBlank();
+                    String direction = rs.getString("descend");
+                    String visibility = rs.getString("visibility");
+                    String indexType = rs.getString("index_type");
+                    if (rs.getInt("column_position") != item.path("columns").size() + 1
+                        || !("ASC".equals(direction) || "DESC".equals(direction))
+                        || !("VISIBLE".equals(visibility) || "INVISIBLE".equals(visibility))
+                        || !java.util.Objects.equals(item.path("visibility").asText(null), visibility)
+                        || !"NO".equals(rs.getString("partitioned"))
+                        || !("NORMAL".equals(indexType) || "FUNCTION-BASED NORMAL".equals(indexType))
+                        || (!isExpression && (column == null || column.isEmpty() || (column.startsWith("SYS_NC") && column.endsWith("$"))))) {
+                        item.put("key_metadata_complete", false);
                     }
+                    ((ArrayNode) item.path("columns")).add(isExpression ? expression : column == null ? "" : column);
+                    ((ArrayNode) item.path("key_is_expression")).add(isExpression);
+                    ((ArrayNode) item.path("key_directions")).add(direction == null ? "" : direction);
                 }
             }
         } catch (SQLException e) {
+            if (exactIdentity) throw e;
             indexes.clear();
             try {
                 DatabaseMetaData meta = conn.getMetaData();
@@ -4664,9 +4742,14 @@ public final class DbxJdbcPlugin {
 
     private static JsonNode getObjectSource(JsonNode connection, String database, String schema, String name, String objectType)
         throws SQLException {
+        return getObjectSource(connection, database, schema, name, objectType, false);
+    }
+
+    private static JsonNode getObjectSource(JsonNode connection, String database, String schema, String name, String objectType, boolean exactIdentity)
+        throws SQLException {
         Connection conn = openConnection(connection);
         if (driverQuirks(connection).useOracleMetadata()) {
-            String owner = oracleEffectiveSchema(conn, schema);
+            String owner = exactIdentity ? schema : oracleEffectiveSchema(conn, schema);
             String metadataType = oracleMetadataObjectType(objectType);
             String sql = "SELECT DBMS_METADATA.GET_DDL(?, ?, ?) FROM DUAL";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -5092,14 +5175,18 @@ public final class DbxJdbcPlugin {
     }
 
     private static JsonNode oracleGetColumns(Connection conn, String owner, String table) throws SQLException {
+        return oracleGetColumns(conn, owner, table, false);
+    }
+
+    private static JsonNode oracleGetColumns(Connection conn, String owner, String table, boolean exactIdentity) throws SQLException {
         ArrayNode result = MAPPER.createArrayNode();
-        String resolvedTable = oracleResolveTable(conn, owner, table);
-        Set<String> pks = oraclePrimaryKeys(conn, owner, resolvedTable);
+        String resolvedTable = exactIdentity ? table : oracleResolveTable(conn, owner, table);
+        Set<String> pks = oraclePrimaryKeys(conn, owner, resolvedTable, exactIdentity);
         // data_default is a LONG column — it must be read first in JDBC, before any other
         // column, otherwise the data is truncated. We put it at position 1 for this reason.
         String sql =
             "SELECT c.data_default, c.column_name, c.data_type, c.nullable, " +
-            "c.data_precision, c.data_scale, c.char_length, cc.comments " +
+            "c.data_precision, c.data_scale, c.char_length, c.data_length, c.char_used, cc.comments " +
             "FROM all_tab_columns c " +
             "LEFT JOIN all_col_comments cc ON cc.owner = c.owner AND cc.table_name = c.table_name AND cc.column_name = c.column_name " +
             "WHERE c.owner = ? AND c.table_name = ? ORDER BY c.column_id";
@@ -5112,7 +5199,7 @@ public final class DbxJdbcPlugin {
                     String dataDefault = rs.getString("data_default");
                     String name = rs.getString("column_name");
                     ObjectNode item = columnNode(result, name);
-                    item.put("data_type", rs.getString("data_type"));
+                    item.put("data_type", oracleColumnDataType(rs));
                     item.put("is_nullable", !"N".equals(rs.getString("nullable")));
                     putNullablePreferValue(item, "column_default", dataDefault);
                     item.put("is_primary_key", pks.contains(name));
@@ -5125,6 +5212,7 @@ public final class DbxJdbcPlugin {
                 return result;
             }
         } catch (SQLException e) {
+            if (exactIdentity) throw e;
             result.removeAll();
             try {
                 DatabaseMetaData meta = conn.getMetaData();
@@ -5136,7 +5224,47 @@ public final class DbxJdbcPlugin {
         }
     }
 
+    private static String oracleColumnDataType(ResultSet rows) throws SQLException {
+        String base = rows.getString("data_type");
+        if (base == null || base.isBlank()) return "";
+        Integer precision = oracleMetadataInteger(rows, "data_precision");
+        Integer scale = oracleMetadataInteger(rows, "data_scale");
+        Integer bytes = oracleMetadataInteger(rows, "data_length");
+        Integer characters = oracleMetadataInteger(rows, "char_length");
+        String unit = rows.getString("char_used");
+        return switch (base.toUpperCase(Locale.ROOT)) {
+            case "VARCHAR2", "CHAR" -> {
+                if ("B".equalsIgnoreCase(unit) && bytes != null) yield base + "(" + bytes + " BYTE)";
+                if ("C".equalsIgnoreCase(unit) && characters != null) yield base + "(" + characters + " CHAR)";
+                Integer length = characters == null ? bytes : characters;
+                yield length == null ? base : base + "(" + length + ")";
+            }
+            case "NVARCHAR2", "NCHAR" -> {
+                Integer length = characters == null ? bytes : characters;
+                yield length == null ? base : base + "(" + length + ")";
+            }
+            case "NUMBER" -> {
+                if (precision == null && scale != null) yield base + "(*," + scale + ")";
+                if (precision != null && scale != null && scale != 0) yield base + "(" + precision + "," + scale + ")";
+                if (precision != null && precision > 0) yield base + "(" + precision + ")";
+                yield base;
+            }
+            case "FLOAT" -> precision != null && precision > 0 ? base + "(" + precision + ")" : base;
+            case "RAW" -> bytes == null ? base : base + "(" + bytes + ")";
+            default -> base;
+        };
+    }
+
+    private static Integer oracleMetadataInteger(ResultSet rows, String column) throws SQLException {
+        Object value = rows.getObject(column);
+        return value instanceof Number number ? number.intValue() : null;
+    }
+
     private static Set<String> oraclePrimaryKeys(Connection conn, String owner, String table) throws SQLException {
+        return oraclePrimaryKeys(conn, owner, table, false);
+    }
+
+    private static Set<String> oraclePrimaryKeys(Connection conn, String owner, String table, boolean exactIdentity) throws SQLException {
         String sql =
             "SELECT cols.column_name FROM all_constraints cons " +
             "JOIN all_cons_columns cols ON cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner " +
@@ -5152,6 +5280,7 @@ public final class DbxJdbcPlugin {
                 return keys;
             }
         } catch (SQLException e) {
+            if (exactIdentity) throw e;
             return safePrimaryKeys(conn.getMetaData(), null, owner, table);
         }
     }
@@ -5547,6 +5676,13 @@ public final class DbxJdbcPlugin {
             throw new IllegalArgumentException(field + " is required.");
         }
         return value;
+    }
+
+    private static String metadataText(JsonNode node, String field, boolean exactIdentity) {
+        if (!exactIdentity) return "table".equals(field) ? requireText(node, field) : optionalText(node, field);
+        JsonNode value = node.path(field);
+        if (!value.isTextual() || value.asText().isEmpty()) throw new IllegalArgumentException(field + " is required for exact metadata identity");
+        return value.asText();
     }
 
     private static String optionalText(JsonNode node, String field) {

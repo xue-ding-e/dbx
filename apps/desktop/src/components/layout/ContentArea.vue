@@ -3676,6 +3676,20 @@ defineExpose({
           :initial-event-open-request-id="activeTab.objectBrowser?.eventOpenRequestId"
           :initial-event-create-request-id="activeTab.objectBrowser?.eventCreateRequestId"
           :initial-object-filter="activeTab.objectBrowser?.initialObjectFilter"
+          :initial-index-create-request-id="activeTab.objectBrowser?.indexCreateRequestId"
+          :initial-view-target="activeTab.objectBrowser?.initialViewTarget"
+          :initial-view-request-id="activeTab.objectBrowser?.initialViewRequestId"
+          @index-request-consumed="
+            (kind) => {
+              if (activeTab.objectBrowser) {
+                if (kind === 'create') activeTab.objectBrowser.indexCreateRequestId = undefined;
+                else {
+                  activeTab.objectBrowser.initialViewTarget = undefined;
+                  activeTab.objectBrowser.initialViewRequestId = undefined;
+                }
+              }
+            }
+          "
           :selected-object-filter="activeTab.objectBrowser?.filter"
           :initial-search-query="activeTab.objectBrowser?.searchQuery"
           :viewport="activeTab.objectBrowser?.viewport"
@@ -3702,6 +3716,7 @@ defineExpose({
           :schema="activeTab.schema"
           :table-name="activeTab.structureTableName || ''"
           :table-type="activeTab.structureTableType"
+          :exact-identity="activeTab.structureExactIdentity"
           :initial-tab="activeTab.structureInitialTab"
           :initial-tab-request-id="activeTab.structureInitialTabRequestId"
           :initial-target="activeTab.structureInitialTarget"

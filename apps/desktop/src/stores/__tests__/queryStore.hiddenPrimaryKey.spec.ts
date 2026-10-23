@@ -9,34 +9,53 @@ vi.stubGlobal("localStorage", {
   removeItem: (key: string) => localStorageValues.delete(key),
 });
 
-const executeMulti = vi.fn();
-const executeQuery = vi.fn();
-const beginManualTransaction = vi.fn();
-const executeInManualTransaction = vi.fn();
-const cancelQuery = vi.fn();
-const analyzeEditableQueryEditability = vi.fn();
-const getColumns = vi.fn();
-const listIndexes = vi.fn();
-const listObjects = vi.fn();
-const listTables = vi.fn();
-const getConnectionConfig = vi.fn();
-const lookupLocalCompletionTables = vi.fn();
-const buildSortedQuerySql = vi.fn();
-const buildDataGridCountSql = vi.fn();
-const prepareQueryPaginationExecutionPlan = vi.fn(async (options) => ({
-  sqlToExecute: options.sql,
-  pageSql: undefined,
-  pageLimit: undefined,
-  pageOffset: undefined,
-  countSql: undefined,
-  useAgentResultSession: false,
+const {
+  executeMulti,
+  executeQuery,
+  beginManualTransaction,
+  executeInManualTransaction,
+  cancelQuery,
+  analyzeEditableQueryEditability,
+  getColumns,
+  listIndexes,
+  listObjects,
+  listTables,
+  getConnectionConfig,
+  lookupLocalCompletionTables,
+  buildSortedQuerySql,
+  buildDataGridCountSql,
+  prepareQueryPaginationExecutionPlan,
+  editorSettings,
+} = vi.hoisted(() => ({
+  executeMulti: vi.fn(),
+  executeQuery: vi.fn(),
+  beginManualTransaction: vi.fn(),
+  executeInManualTransaction: vi.fn(),
+  cancelQuery: vi.fn(),
+  analyzeEditableQueryEditability: vi.fn(),
+  getColumns: vi.fn(),
+  listIndexes: vi.fn(),
+  listObjects: vi.fn(),
+  listTables: vi.fn(),
+  getConnectionConfig: vi.fn(),
+  lookupLocalCompletionTables: vi.fn(),
+  buildSortedQuerySql: vi.fn(),
+  buildDataGridCountSql: vi.fn(),
+  prepareQueryPaginationExecutionPlan: vi.fn(async (options) => ({
+    sqlToExecute: options.sql,
+    pageSql: undefined,
+    pageLimit: undefined,
+    pageOffset: undefined,
+    countSql: undefined,
+    useAgentResultSession: false,
+  })),
+  editorSettings: {
+    pageSize: 100,
+    autoCalculateTotalRows: false,
+    queryResultMaxRowsEnabled: true,
+    queryResultMaxRows: 100_000,
+  },
 }));
-const editorSettings = {
-  pageSize: 100,
-  autoCalculateTotalRows: false,
-  queryResultMaxRowsEnabled: true,
-  queryResultMaxRows: 100_000,
-};
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

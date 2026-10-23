@@ -209,6 +209,47 @@ afterEach(() => {
 });
 
 describe("ConnectionDialog deep-link edit confirmation", () => {
+  it("preserves a protected generic JDBC target when only its name changes", async () => {
+    const saved = savedConnection({
+      db_type: "jdbc",
+      driver_profile: "jdbc",
+      driver_label: "JDBC",
+      host: "db.example.test",
+      port: 2881,
+      username: "saved-user",
+      password: "__DBX_SAVED_CREDENTIAL__:synthetic-password",
+      connection_string: "__DBX_SAVED_CREDENTIAL__:synthetic-url",
+      jdbc_driver_class: "example.Driver",
+      jdbc_driver_paths: ["driver.jar"],
+      jdbc_dialect: "oceanbase-oracle",
+      production_badge_scope: undefined,
+    });
+    await mountDialog(saved, "");
+    const name = [...document.querySelectorAll<HTMLInputElement>("input")].find((input) => input.value === saved.name);
+    expect(name).toBeTruthy();
+    name!.value = "Renamed JDBC";
+    name!.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle();
+    const save = [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Save");
+    save!.click();
+    await settle();
+    expect(store.updateConnection).toHaveBeenCalledTimes(1);
+    const submitted = store.updateConnection.mock.calls[0][0];
+    expect(submitted.name).toBe("Renamed JDBC");
+    expect(submitted.production_badge_scope).toBeUndefined();
+    expect(submitted).toMatchObject({
+      db_type: saved.db_type,
+      driver_profile: saved.driver_profile,
+      host: saved.host,
+      port: saved.port,
+      username: saved.username,
+      password: saved.password,
+      connection_string: saved.connection_string,
+      jdbc_driver_class: saved.jdbc_driver_class,
+      jdbc_driver_paths: saved.jdbc_driver_paths,
+    });
+  });
+
   it("shows the global Redis preview limit in advanced settings and persists it", async () => {
     visibleTab.value = "advanced";
     settings.editorSettings.redisValuePreviewLimitKiB = 64;

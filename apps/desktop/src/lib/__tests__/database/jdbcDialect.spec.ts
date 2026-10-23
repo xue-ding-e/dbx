@@ -66,6 +66,33 @@ describe("Kingbase compatibility mode routing", () => {
 });
 
 describe("jdbc dialect inference", () => {
+  it("uses the explicit OceanBase Oracle URL before MySQL driver metadata", () => {
+    const connection = {
+      db_type: "jdbc" as const,
+      connection_string: "jdbc:oceanbase:oracle://example.test:2881/APP",
+      driver_label: "OceanBase MySQL",
+      jdbc_driver_class: "com.oceanbase.jdbc.Driver",
+    };
+    expect(inferJdbcDialect(connection)).toBe("oceanbase-oracle");
+    expect(effectiveDatabaseTypeForConnection(connection)).toBe("oceanbase-oracle");
+    expect(connectionUsesConnectionRootSchemaMode(connection)).toBe(true);
+  });
+
+  it("does not infer Oracle mode for an ordinary OceanBase JDBC URL", () => {
+    const connection = { db_type: "jdbc" as const, connection_string: "jdbc:oceanbase://example.test:2881/APP", driver_label: "OceanBase MySQL" };
+    expect(inferJdbcDialect(connection)).toBe("mysql");
+    expect(connectionUsesConnectionRootSchemaMode(connection)).toBe(false);
+  });
+
+  it("uses an approved dialect hint only for protected saved JDBC URLs", () => {
+    const protectedConnection = { db_type: "jdbc" as const, connection_string: "__DBX_SAVED_CREDENTIAL__:opaque", jdbc_dialect: "oceanbase-oracle" as const };
+    expect(effectiveDatabaseTypeForConnection(protectedConnection)).toBe("oceanbase-oracle");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, connection_string: "jdbc:mysql://host/db" })).toBe("mysql");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, connection_string: "" })).toBe("jdbc");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, db_type: "oracle" })).toBe("oracle");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, jdbc_dialect: "oracle" as never })).toBe("jdbc");
+  });
+
   it("detects InterSystems IRIS and Caché JDBC connections", () => {
     expect(
       inferJdbcDialect({

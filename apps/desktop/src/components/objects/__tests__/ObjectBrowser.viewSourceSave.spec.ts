@@ -341,8 +341,9 @@ describe("ObjectBrowser view source save", () => {
       if (prefix === ddlPrefix) await new Promise<void>((resolve) => (release = resolve));
     });
     const { host } = await mountOracleBrowserWithSchema();
-    const scope = { connectionId: oracleConnection.id, database: "ORCL", schema: "APP_A" };
+    const scope = { connectionId: oracleConnection.id, database: "ORCL", schema: "APP_A", exactIdentity: true };
     expect(getCachedObjectBrowserRows(scope)).toBeDefined();
+    expect(getCachedObjectBrowserRows({ ...scope, exactIdentity: false })).toBeUndefined();
     const listCalls = mocks.listObjects.mock.calls.length;
     [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("processList.oracleInvalidObjects.title"))?.click();
     await nextTick();

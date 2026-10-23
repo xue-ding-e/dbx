@@ -1722,6 +1722,7 @@ function onKeydown(event: KeyboardEvent) {
                   node.type === 'group-udf-functions' ||
                   node.type === 'group-columns' ||
                   node.type === 'group-indexes' ||
+                  node.type === 'group-database-indexes' ||
                   node.type === 'group-fkeys' ||
                   node.type === 'group-triggers' ||
                   node.type === 'group-events' ||

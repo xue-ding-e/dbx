@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  copyNameForTreeNode,
   isDirectNavigationTreeNode,
   isRepeatableNavigationTreeNode,
   objectSourceKindForTreeNode,
@@ -13,6 +14,9 @@ import {
 } from "@/lib/sidebar/treeNodeClick";
 
 describe("treeNodeClick", () => {
+  it("copies the raw Schema index name rather than its decorated tree label", () => {
+    expect(copyNameForTreeNode({ id: "index", type: "index", objectScope: "schema", objectName: ' Ix (a)" ', label: ' Ix (a)"  (TABLE)', connectionId: "ob", database: "service" })).toBe(' Ix (a)" ');
+  });
   it("opens DynamoDB tables in the document browser on single or double activation", () => {
     expect(treeNodeRowAction("dynamodb-table", false, "single", "dynamodb")).toBe("toggle");
     expect(treeNodeRowDoubleClickAction("dynamodb-table", false, "double", false, "dynamodb")).toBe("toggle");

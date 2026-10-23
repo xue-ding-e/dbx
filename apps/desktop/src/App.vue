@@ -5592,6 +5592,7 @@ onUnmounted(() => {
                             schema: tab.schema,
                             catalog: tab.catalog,
                             tableName: tab.structureTableName || '',
+                            exactIdentity: tab.structureExactIdentity,
                           },
                           commentChanged,
                           !!createdTableName,

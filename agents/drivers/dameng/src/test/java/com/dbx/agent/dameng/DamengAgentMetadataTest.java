@@ -235,14 +235,15 @@ class DamengAgentMetadataTest {
         DamengAgent agent = new DamengAgent();
         TestSupport.setPrivateConnection(agent, indexMetadataConnection(List.of(
             // UNIQUE constraint (虚索引) / standalone CREATE UNIQUE INDEX (实索引) / plain index.
-            Arrays.asList("UX_USERS_EMAIL", "EMAIL", "Y", "0", "BT", "1", 0),
-            Arrays.asList("UX_USERS_CODE", "CODE", "Y", "0", "BT", "0", 0),
-            Arrays.asList("IDX_USERS_NAME", "NAME", "N", "0", "BT", "0", 0),
-            Arrays.asList("PK_USERS", "ID", "Y", "1", "BT", "1", 4)
+            Arrays.asList("UX_USERS_EMAIL", "EMAIL", "Y", "0", "BT", "1", 0, " Index Owner "),
+            Arrays.asList("UX_USERS_CODE", "CODE", "Y", "0", "BT", "0", 0, " Index Owner "),
+            Arrays.asList("IDX_USERS_NAME", "NAME", "N", "0", "BT", "0", 0, " Index Owner "),
+            Arrays.asList("PK_USERS", "ID", "Y", "1", "BT", "1", 4, " Index Owner ")
         )));
 
         List<IndexInfo> indexes = agent.listIndexes("APP", "USERS");
 
+        Assertions.assertTrue(indexes.stream().allMatch(index -> " Index Owner ".equals(index.getOwner())));
         Assertions.assertEquals(
             List.of("UX_USERS_EMAIL", "UX_USERS_CODE", "IDX_USERS_NAME", "PK_USERS"),
             indexes.stream().map(IndexInfo::getName).toList()
@@ -275,12 +276,13 @@ class DamengAgentMetadataTest {
             List.of(),
             new SQLException("no SYS index catalog privilege"),
             "FROM ALL_INDEXES i",
-            List.of(Arrays.asList("IDX_USERS_NAME", "NAME", "NONUNIQUE", "0", "NORMAL", "0"))
+            List.of(Arrays.asList("IDX_USERS_NAME", "NAME", "NONUNIQUE", "0", "NORMAL", "0", " Index Owner "))
         ));
 
         List<IndexInfo> indexes = agent.listIndexes("APP", "USERS");
 
         Assertions.assertEquals(List.of("IDX_USERS_NAME"), indexes.stream().map(IndexInfo::getName).toList());
+        Assertions.assertEquals(" Index Owner ", indexes.get(0).getOwner());
         Assertions.assertTrue(indexOfSql(sqls, "SYS.SYSINDEXES") >= 0, String.join("\n", sqls));
         Assertions.assertTrue(
             indexOfSql(sqls, "ALL_INDEXES") > indexOfSql(sqls, "SYS.SYSINDEXES"),
@@ -2464,7 +2466,7 @@ class DamengAgentMetadataTest {
                 indexRow("IDX_USERS_NAME", "NAME", "N", "BT", 0),
                 indexRow("UX_USERS_EMAIL", "EMAIL", "Y", "BT", 0),
                 indexRow("IDX_USERS_GEO", "GEO", "N", "ST", 0),
-                Arrays.asList("PK_USERS", "ID", "Y", "1", "BT", "1", 4)
+                Arrays.asList("PK_USERS", "ID", "Y", "1", "BT", "1", 4, "APP")
             ),
             sqls
         );
@@ -2766,7 +2768,7 @@ class DamengAgentMetadataTest {
     }
 
     private static List<Object> indexRow(String name, String columns, String uniqueness, String indexType, int flags) {
-        return List.of(name, columns, uniqueness, "0", indexType, "0", flags);
+        return List.of(name, columns, uniqueness, "0", indexType, "0", flags, "APP");
     }
 
     private static List<List<Object>> dictionaryIndexRows(List<List<Object>> systemRows) {
@@ -2776,7 +2778,7 @@ class DamengAgentMetadataTest {
             "Y".equals(row.get(2)) ? "UNIQUE" : "NONUNIQUE",
             row.get(3),
             "ST".equals(row.get(4)) ? "SPATIAL" : "NORMAL",
-            row.get(5)
+            row.get(5), row.get(7)
         )).toList();
     }
 

@@ -23,6 +23,16 @@ const context = {
 };
 
 describe("case-sensitive database objects", () => {
+  it.each(["oracle", "oceanbase-oracle", "dameng"] as const)("preserves schema index identities in both %s layouts", (databaseType) => {
+    const objects: ObjectInfo[] = [{ name: " Ix (a) ", object_type: "INDEX", schema: " Index Owner ", parent_schema: "Table Owner", parent_name: " T(a) " }];
+    const simple = buildSimpleObjectTreeNodes({ ...context, databaseType, objects });
+    const grouped = buildGroupedObjectTreeNodes({ ...context, databaseType, objects }).find((group) => group.type === "group-database-indexes")?.children;
+    for (const nodes of [simple, grouped]) {
+      expect(nodes).toHaveLength(1);
+      expect(nodes?.[0]).toMatchObject({ type: "index", objectScope: "schema", objectName: " Ix (a) ", schema: " Index Owner ", parentSchema: "Table Owner", parentName: " T(a) " });
+    }
+  });
+
   it("publishes each changed partition group once per page while retaining exact identities", () => {
     const current = buildTableTreeNodes({
       ...context,

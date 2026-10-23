@@ -68,6 +68,7 @@ export interface SavedOpenTab {
   nacosNamespace?: string;
   nacosNamespaceName?: string;
   structureTableName?: string;
+  structureExactIdentity?: boolean;
   structureDraft?: QueryTab["structureDraft"];
   databaseSearchState?: QueryTab["databaseSearchState"];
   objectBrowser?: QueryTab["objectBrowser"];
@@ -219,6 +220,7 @@ export function serializeOpenTabs(tabs: QueryTab[]): SavedOpenTab[] {
     ...(tab.nacosNamespace !== undefined ? { nacosNamespace: tab.nacosNamespace } : {}),
     ...(tab.nacosNamespaceName !== undefined ? { nacosNamespaceName: tab.nacosNamespaceName } : {}),
     ...(tab.structureTableName !== undefined ? { structureTableName: tab.structureTableName } : {}),
+    ...(tab.structureExactIdentity ? { structureExactIdentity: true } : {}),
     ...(tab.structureDraft ? { structureDraft: JSON.parse(JSON.stringify(tab.structureDraft)) } : {}),
     ...(tab.databaseSearchState ? { databaseSearchState: tab.databaseSearchState } : {}),
     objectBrowser: tab.objectBrowser,

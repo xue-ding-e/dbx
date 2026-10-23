@@ -197,7 +197,16 @@ export default withEnglishFallback({
   },
   sidebarMenu,
   oracleIndex: { mixedDraft: "請將 Oracle 系索引修改與其他資料表結構修改分開套用。" },
+  schemaIndex: {
+    crossOwnerReadOnly: "索引「{owner}.{name}」在此編輯器中為唯讀。",
+    editIndividually: "索引需逐項管理",
+    parentUnavailable: "缺少父資料表資訊，可複製名稱或重新整理清單。",
+    focusUnavailable: "無法精確定位所選索引；以下為父資料表可讀取的索引。",
+    targetMissing: "無法精確定位索引「{name}」。請重新整理後重試。",
+  },
   oracleStructureResult: {
+    appliedRefreshPending: "已套用，重新整理未完成",
+    refreshPending: "中繼資料重新整理未完成。重試重新整理不會再次執行 DDL。",
     resultTitle: "操作結果",
     executionFailed: "操作未完整完成，請核對逐條結果和資料庫狀態。",
     readbackFailed: "讀回失敗或與預期結果不一致",

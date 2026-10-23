@@ -689,6 +689,45 @@ pub enum ProxyType {
 
 include!(concat!(env!("OUT_DIR"), "/database_type.rs"));
 
+/// A dialect fact that is safe to retain on a connection response after its URL is redacted.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum JdbcDialectHint {
+    OceanbaseOracle,
+}
+
+/// Connection data returned to a client, with response-only metadata flattened into the JSON.
+/// This type is never used for persistence, runtime configuration, or request deserialization.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ConnectionResponse {
+    #[serde(flatten)]
+    pub config: ConnectionConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jdbc_dialect: Option<JdbcDialectHint>,
+}
+
+impl ConnectionResponse {
+    pub fn from_config(config: ConnectionConfig) -> Self {
+        let jdbc_dialect = jdbc_dialect_hint(&config);
+        Self { config, jdbc_dialect }
+    }
+
+    pub fn with_jdbc_dialect(config: ConnectionConfig, jdbc_dialect: Option<JdbcDialectHint>) -> Self {
+        Self { config, jdbc_dialect }
+    }
+}
+
+/// Derive only the approved non-sensitive mode identity from an explicit JDBC URL.
+pub fn jdbc_dialect_hint(config: &ConnectionConfig) -> Option<JdbcDialectHint> {
+    if config.db_type != DatabaseType::Jdbc {
+        return None;
+    }
+    let url = config.connection_string.as_deref()?.trim();
+    url.get(.."jdbc:oceanbase:oracle://".len())
+        .filter(|prefix| prefix.eq_ignore_ascii_case("jdbc:oceanbase:oracle://"))
+        .map(|_| JdbcDialectHint::OceanbaseOracle)
+}
+
 #[derive(Deserialize)]
 struct ConnectionConfigData {
     pub id: String,
@@ -3182,9 +3221,36 @@ mod tests {
     use super::{
         database_info_from_protocol_value, default_query_timeout_secs, default_redis_key_separator,
         default_ssh_connect_timeout_secs, sqlserver_legacy_compatibility_param,
-        without_sqlserver_legacy_compatibility_param, ConnectionConfig, ConnectionTestResult, DatabaseConnectionInfo,
-        DatabaseType, IdentifierCase, ProductionBadgeScope, ProxyTunnelConfig, ProxyType, TransportLayerConfig,
+        without_sqlserver_legacy_compatibility_param, ConnectionConfig, ConnectionResponse, ConnectionTestResult,
+        DatabaseConnectionInfo, DatabaseType, IdentifierCase, ProductionBadgeScope, ProxyTunnelConfig, ProxyType,
+        TransportLayerConfig,
     };
+
+    #[test]
+    fn connection_response_derives_only_oceanbase_oracle_from_explicit_jdbc_url() {
+        let mut config = mysql_config("root", "", None);
+        config.db_type = DatabaseType::Jdbc;
+        config.connection_string = Some(" JDBC:OCEANBASE:ORACLE://host/service ".into());
+        let response = ConnectionResponse::from_config(config.clone());
+        let value = serde_json::to_value(&response).unwrap();
+        assert_eq!(value["jdbc_dialect"], "oceanbase-oracle");
+        assert_eq!(value["db_type"], "jdbc");
+        assert_eq!(response.config, config);
+
+        config.connection_string = Some("jdbc:oracle:thin:@host/service".into());
+        assert!(serde_json::to_value(ConnectionResponse::from_config(config.clone()))
+            .unwrap()
+            .get("jdbc_dialect")
+            .is_none());
+        config.connection_string = Some("jdbc:oceanbase:oracle://host/service".into());
+        config.db_type = DatabaseType::Oracle;
+        assert!(serde_json::to_value(ConnectionResponse::from_config(config)).unwrap().get("jdbc_dialect").is_none());
+
+        let mut legacy = serde_json::to_value(&response.config).unwrap();
+        legacy["jdbc_dialect"] = serde_json::json!("oceanbase-oracle");
+        let restored: ConnectionConfig = serde_json::from_value(legacy).unwrap();
+        assert!(serde_json::to_value(restored).unwrap().get("jdbc_dialect").is_none());
+    }
 
     #[test]
     fn default_query_timeout_is_sixty_seconds() {

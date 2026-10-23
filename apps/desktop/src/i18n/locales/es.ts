@@ -198,7 +198,16 @@ export default withEnglishFallback({
   },
   sidebarMenu,
   oracleIndex: { mixedDraft: "Aplica los cambios de índices Oracle por separado de los demás cambios de estructura de tabla." },
+  schemaIndex: {
+    crossOwnerReadOnly: "El índice «{owner}.{name}» es de solo lectura en este editor.",
+    editIndividually: "Gestionar los índices por separado",
+    parentUnavailable: "No hay información de la tabla principal. Copie el nombre o actualice la lista.",
+    focusUnavailable: "No se puede localizar exactamente el índice seleccionado. Se muestran los índices accesibles de su tabla principal.",
+    targetMissing: "No se puede localizar exactamente el índice «{name}». Actualice e inténtelo de nuevo.",
+  },
   oracleStructureResult: {
+    appliedRefreshPending: "Aplicado; actualización incompleta",
+    refreshPending: "La actualización de metadatos está incompleta. Reintentar la actualización no vuelve a ejecutar DDL.",
     resultTitle: "Resultado de la operación",
     executionFailed: "La operación no se completó por completo. Revisa cada sentencia y el estado de la base de datos.",
     readbackFailed: "La lectura de vuelta falló o no coincide con el resultado previsto",

@@ -197,7 +197,16 @@ export default withEnglishFallback({
   },
   sidebarMenu,
   oracleIndex: { mixedDraft: "Oracle 系インデックスの変更は、他のテーブル構造の変更と分けて適用してください。" },
+  schemaIndex: {
+    crossOwnerReadOnly: "インデックス「{owner}.{name}」はこのエディターでは読み取り専用です。",
+    editIndividually: "インデックスは個別に管理してください",
+    parentUnavailable: "親テーブルの情報がありません。名前をコピーするか一覧を更新してください。",
+    focusUnavailable: "選択したインデックスを正確に特定できません。親テーブルの読み取り可能なインデックスを表示しています。",
+    targetMissing: "インデックス「{name}」を正確に特定できません。更新して再試行してください。",
+  },
   oracleStructureResult: {
+    appliedRefreshPending: "適用済み・更新未完了",
+    refreshPending: "メタデータの更新が完了していません。更新の再試行で DDL は再実行されません。",
     resultTitle: "操作結果",
     executionFailed: "操作が完全には完了しませんでした。各ステートメントとデータベースの状態を確認してください。",
     readbackFailed: "読み戻しに失敗したか、想定した結果と一致しません",

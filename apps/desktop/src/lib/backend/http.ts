@@ -1231,19 +1231,31 @@ export async function listSchemaInfos(connectionId: string, database: string): P
   return schemas.map((name) => ({ name, comment: null }));
 }
 
-export async function listTables(connectionId: string, database: string, schema: string, filter?: string, limit?: number, offset?: number, objectTypes?: SidebarObjectKind[], catalog?: string, tableNameFilter?: TableNameFilter): Promise<TableInfo[]> {
-  return get(`/api/schema/tables?${qs({ connection_id: connectionId, database, schema, filter, limit, offset, object_types: objectTypes?.join(","), catalog, table_name_filter: tableNameFilter ? JSON.stringify(tableNameFilter) : undefined })}`);
+export async function listTables(connectionId: string, database: string, schema: string, filter?: string, limit?: number, offset?: number, objectTypes?: SidebarObjectKind[], catalog?: string, tableNameFilter?: TableNameFilter, exactIdentity?: boolean): Promise<TableInfo[]> {
+  return get(`/api/schema/tables?${qs({ connection_id: connectionId, database, schema, filter, limit, offset, object_types: objectTypes?.join(","), catalog, table_name_filter: tableNameFilter ? JSON.stringify(tableNameFilter) : undefined, exact_identity: exactIdentity || undefined })}`);
 }
 
-export async function getTableComment(_connectionId: string, _database: string, _schema: string, _table: string, _catalog?: string): Promise<string | null> {
-  throw new Error("Table comment lookup is not available in the web backend");
+export async function getTableComment(connectionId: string, database: string, schema: string, table: string, catalog?: string, exactIdentity?: boolean): Promise<string | null> {
+  return get(`/api/schema/table-comment?${qs({ connection_id: connectionId, database, schema, table, catalog, exact_identity: exactIdentity || undefined })}`);
 }
 
 export async function getMysqlTableAutoIncrement(connectionId: string, database: string, table: string): Promise<string | null> {
   return get(`/api/schema/mysql/auto-increment?${qs({ connection_id: connectionId, database, table })}`);
 }
 
-export async function listObjects(connectionId: string, database: string, schema: string, objectTypes?: (SidebarObjectKind | "EVENT")[], filter?: string, limit?: number, offset?: number, catalog?: string, tableNameFilter?: TableNameFilter, executionId?: string): Promise<ObjectInfo[]> {
+export async function listObjects(
+  connectionId: string,
+  database: string,
+  schema: string,
+  objectTypes?: (SidebarObjectKind | "EVENT")[],
+  filter?: string,
+  limit?: number,
+  offset?: number,
+  catalog?: string,
+  tableNameFilter?: TableNameFilter,
+  executionId?: string,
+  exactIdentity?: boolean,
+): Promise<ObjectInfo[]> {
   return get(
     `/api/schema/objects?${qs({
       connection_id: connectionId,
@@ -1256,6 +1268,7 @@ export async function listObjects(connectionId: string, database: string, schema
       catalog,
       table_name_filter: tableNameFilter ? JSON.stringify(tableNameFilter) : undefined,
       execution_id: executionId,
+      exact_identity: exactIdentity || undefined,
     })}`,
   );
 }
@@ -1284,8 +1297,8 @@ export async function getCustomTypeDetails(connectionId: string, database: strin
   return get(`/api/schema/custom-type-details?${qs({ connection_id: connectionId, database, schema, table: name })}`);
 }
 
-export async function getColumns(connectionId: string, database: string, schema: string, table: string, catalog?: string, clientSessionId?: string, currentSchema?: string): Promise<ColumnInfo[]> {
-  return get(`/api/schema/columns?${qs({ connection_id: connectionId, database, schema, table, catalog, client_session_id: clientSessionId, current_schema: currentSchema })}`);
+export async function getColumns(connectionId: string, database: string, schema: string, table: string, catalog?: string, clientSessionId?: string, currentSchema?: string, exactIdentity?: boolean): Promise<ColumnInfo[]> {
+  return get(`/api/schema/columns?${qs({ connection_id: connectionId, database, schema, table, catalog, client_session_id: clientSessionId, current_schema: currentSchema, exact_identity: exactIdentity || undefined })}`);
 }
 
 export async function getPluginTableMetadata(request: PluginTableMetadataRequest): Promise<PluginTableMetadata> {
@@ -1310,8 +1323,8 @@ export async function listDataTypes(connectionId: string, database: string): Pro
   return get(`/api/schema/data-types?${qs({ connection_id: connectionId, database })}`);
 }
 
-export async function listIndexes(connectionId: string, database: string, schema: string, table: string, catalog?: string): Promise<IndexInfo[]> {
-  return get(`/api/schema/indexes?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
+export async function listIndexes(connectionId: string, database: string, schema: string, table: string, catalog?: string, exactIdentity?: boolean): Promise<IndexInfo[]> {
+  return get(`/api/schema/indexes?${qs({ connection_id: connectionId, database, schema, table, catalog, exact_identity: exactIdentity || undefined })}`);
 }
 
 export async function listReferenceKeyColumns(connectionId: string, database: string, schema: string, table: string, catalog?: string): Promise<string[]> {
@@ -1322,20 +1335,20 @@ export async function listReferenceKeys(connectionId: string, database: string, 
   return get(`/api/schema/reference-keys?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
 }
 
-export async function listForeignKeys(connectionId: string, database: string, schema: string, table: string, catalog?: string): Promise<ForeignKeyInfo[]> {
-  return get(`/api/schema/foreign-keys?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
+export async function listForeignKeys(connectionId: string, database: string, schema: string, table: string, catalog?: string, exactIdentity?: boolean): Promise<ForeignKeyInfo[]> {
+  return get(`/api/schema/foreign-keys?${qs({ connection_id: connectionId, database, schema, table, catalog, exact_identity: exactIdentity || undefined })}`);
 }
 
 export async function listForeignKeysForDatabase(connectionId: string, database: string, schema: string, catalog?: string, executionId?: string): Promise<Record<string, ForeignKeyInfo[]>> {
   return get(`/api/schema/foreign-keys-for-database?${qs({ connection_id: connectionId, database, schema, catalog, execution_id: executionId })}`);
 }
 
-export async function listTriggers(connectionId: string, database: string, schema: string, table: string, catalog?: string): Promise<TriggerInfo[]> {
-  return get(`/api/schema/triggers?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
+export async function listTriggers(connectionId: string, database: string, schema: string, table: string, catalog?: string, exactIdentity?: boolean): Promise<TriggerInfo[]> {
+  return get(`/api/schema/triggers?${qs({ connection_id: connectionId, database, schema, table, catalog, exact_identity: exactIdentity || undefined })}`);
 }
 
-export async function listConstraints(connectionId: string, database: string, schema: string, table: string, catalog?: string): Promise<ConstraintInfo[]> {
-  return get(`/api/schema/constraints?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
+export async function listConstraints(connectionId: string, database: string, schema: string, table: string, catalog?: string, exactIdentity?: boolean): Promise<ConstraintInfo[]> {
+  return get(`/api/schema/constraints?${qs({ connection_id: connectionId, database, schema, table, catalog, exact_identity: exactIdentity || undefined })}`);
 }
 
 export async function listPartitions(connectionId: string, database: string, schema: string, table: string, catalog?: string): Promise<PartitionInfo[]> {
@@ -1364,8 +1377,8 @@ export async function listSubpartitions(connectionId: string, database: string, 
   return get(`/api/schema/subpartitions?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
 }
 
-export async function getTableDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, portable = false): Promise<string> {
-  return get(`/api/schema/ddl?${qs({ connection_id: connectionId, database, schema, table, object_type: objectType, catalog, portable })}`);
+export async function getTableDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, portable = false, exactIdentity?: boolean): Promise<string> {
+  return get(`/api/schema/ddl?${qs({ connection_id: connectionId, database, schema, table, object_type: objectType, catalog, portable, exact_identity: exactIdentity || undefined })}`);
 }
 
 export async function getTableDisplayDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string): Promise<string> {

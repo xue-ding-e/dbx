@@ -163,7 +163,8 @@ import {
   treeNodeRowDoubleClickAction,
 } from "@/lib/sidebar/treeNodeClick";
 import { qualifiedNameForSidebarNode } from "@/lib/sidebar/sidebarTableNameCopy";
-import { customTypeCapabilities, supportsTypeObjectSource } from "@/lib/database/databaseObjectCapabilities";
+import { customTypeCapabilities, supportsTypeObjectSource, supportsSchemaIndexManagement } from "@/lib/database/databaseObjectCapabilities";
+import { schemaIndexIsSameOwner, schemaIndexNodeIdentity } from "@/lib/table/schemaIndexNavigation";
 import { mongoCollectionTableTypeFromNode, mongoCreateDatabasePreview, mongoDropIndexFailureCount } from "@/lib/sidebar/mongoCollectionMutation";
 import { dataTabOpenModeFromTreeClick, type DataTabOpenMode } from "@/lib/sidebar/dataTabOpenPolicy";
 import { isCopySidebarSelectionShortcut, isDisconnectSidebarConnectionShortcut, isEditSidebarConnectionShortcut, isEditSidebarTableStructureShortcut, isModRShortcut, isPasteSidebarSelectionShortcut, isRefreshDataShortcut } from "@/lib/editor/keyboardShortcuts";
@@ -824,6 +825,7 @@ function hasNodeDatabaseContext(node: TreeNode): node is TreeNode & { connection
 const groupTypes: Set<TreeNodeType> = new Set([
   "group-columns",
   "group-indexes",
+  "group-database-indexes",
   "group-fkeys",
   "group-triggers",
   "group-events",
@@ -1987,6 +1989,47 @@ async function openObjectBrowser(eventReadOnly = false, openEventEditor: boolean
   }
 }
 
+function isSchemaIndexNode(node: TreeNode): boolean {
+  return node.type === "index" && node.objectScope === "schema";
+}
+
+function canEditSchemaIndex(node: TreeNode): boolean {
+  return !!node.connectionId && !!node.database && supportsSchemaIndexManagement(databaseTypeForNode(node)) && schemaIndexIsSameOwner(schemaIndexNodeIdentity(node)) && !connectionIsEffectivelyReadOnly(connectionStore.getConfig(node.connectionId));
+}
+
+function openSchemaIndexInfo(node: TreeNode) {
+  const target = schemaIndexNodeIdentity(node);
+  if (!target || !node.connectionId || !node.database || !supportsSchemaIndexManagement(databaseTypeForNode(node))) return;
+  queryStore.openObjectBrowser(node.connectionId, node.database, target.schema, node.catalog, undefined, false, "indexes", undefined, { view: target });
+}
+
+async function openSchemaIndexCreate() {
+  const node = activeNode.value;
+  if (node.type !== "group-database-indexes" || !node.connectionId || !node.database || !supportsSchemaIndexManagement(databaseTypeForNode(node)) || connectionIsEffectivelyReadOnly(connectionStore.getConfig(node.connectionId))) return;
+  try {
+    await connectionStore.ensureConnected(node.connectionId);
+    queryStore.openObjectBrowser(node.connectionId, node.database, node.schema, node.catalog, undefined, false, "indexes", undefined, { create: true });
+  } catch (error) {
+    toast(translateBackendError(t, error), 5000);
+  }
+}
+
+function requestSchemaIndexDelete(node: TreeNode): boolean {
+  const target = schemaIndexNodeIdentity(node);
+  if (!canEditSchemaIndex(node) || !target || !node.connectionId || !node.database) return false;
+  queryStore.openTableStructure(node.connectionId, node.database, target.parentSchema, target.parentName, "indexes", { kind: "index", name: target.name, owner: target.schema, action: "delete" }, node.catalog, "table", true);
+  return true;
+}
+
+function hasSchemaIndexBatchSelection(): boolean {
+  const selected = selectedTreeNodesInVisibleOrder();
+  return selected.length > 1 && selected.some((node) => node.id === activeNode.value.id) && selected.some(isSchemaIndexNode);
+}
+
+function explainIndividualIndexEditing() {
+  toast(t("schemaIndex.editIndividually"), 4000);
+}
+
 // 每次"新建事件"菜单点击都会分配一个单调递增的请求号，保证同一个
 // ObjectBrowser tab 被复用时也能重新进入 MySQL Event 的 CREATE 编辑器。
 let mysqlEventCreateRequestSeq = 0;
@@ -2916,6 +2959,8 @@ function dropTableChildObjectSqlOptions(): DropTableChildObjectSqlOptions | null
 }
 
 function dropTableChildObjectSqlOptionsForNode(node: TreeNode): DropTableChildObjectSqlOptions | null {
+  // Schema indexes must use the structure editor's preflight and readback.
+  if (isSchemaIndexNode(node)) return null;
   const objectType = tableChildDropObjectType(node.type);
   if (!objectType || !node.tableName) return null;
   const name = tableChildDropObjectName(node).trim();
@@ -3232,6 +3277,10 @@ function requestDropObject() {
 }
 
 function requestDropTableChildObject() {
+  if (isSchemaIndexNode(activeNode.value)) {
+    requestSchemaIndexDelete(activeNode.value);
+    return;
+  }
   if (!canDropTableChildObject.value) return;
   void refreshDropTableChildObjectPreviewSql();
   showDropTableChildObjectConfirm.value = true;
@@ -3455,6 +3504,10 @@ async function refreshBatchEmptyPreviewSql(targets: TreeNode[]) {
 }
 
 function requestBatchDrop() {
+  if (hasSchemaIndexBatchSelection()) {
+    explainIndividualIndexEditing();
+    return;
+  }
   const targets = selectedBatchDropTargets();
   if (!targets.length) return;
   batchDropTargets.value = targets.slice();
@@ -3571,6 +3624,10 @@ async function confirmBatchMysqlAutoIncrement() {
 }
 
 function requestDropSelectedNodes(): boolean {
+  if (hasSchemaIndexBatchSelection()) {
+    explainIndividualIndexEditing();
+    return true;
+  }
   const selected = selectedTreeNodesInVisibleOrder();
   if (selected.length > 1 && selected.some((node) => node.id === activeNode.value.id)) {
     if (!selectedBatchDropTargets().length) return false;
@@ -3581,6 +3638,7 @@ function requestDropSelectedNodes(): boolean {
 }
 
 function requestDropSelectedNode(): boolean {
+  if (isSchemaIndexNode(activeNode.value)) return requestSchemaIndexDelete(activeNode.value);
   if (["neo4j", "nebula"].includes(currentDatabaseType() || "")) return false;
   if (activeNode.value.type === "table") {
     dropTable();
@@ -4312,6 +4370,11 @@ async function confirmDropTableChildObject() {
 async function confirmBatchDrop() {
   const targets = batchDropTargets.value.slice();
   if (!targets.length) return;
+  if (targets.some(isSchemaIndexNode)) {
+    showBatchDropConfirm.value = false;
+    explainIndividualIndexEditing();
+    return;
+  }
   try {
     const mongoIndexTargets = targets.filter(canDropMongoIndexNode);
     if (mongoIndexTargets.length) {
@@ -5839,6 +5902,7 @@ const canOpenTableImport = computed(() => {
 });
 
 const canOpenStructureEditor = computed(() => {
+  if (isSchemaIndexNode(activeNode.value)) return supportsSchemaIndexManagement(currentDatabaseType()) && !!schemaIndexNodeIdentity(activeNode.value);
   return sidebarNodeSupportsStructureEdit(activeNode.value, currentTableStructureDatabaseType());
 });
 
@@ -7671,6 +7735,20 @@ function buildObjectSidebarMenu(context: SidebarMenuFactoryContext): boolean {
     return true;
   }
 
+  if (isSchemaIndexNode(node)) {
+    items.push({ label: t("contextMenu.copyName"), action: copyName, icon: Copy, shortcut: shortcutCopyName.value });
+    if (!schemaIndexNodeIdentity(node)) items.push({ label: t("schemaIndex.parentUnavailable"), disabled: true });
+    if (schemaIndexNodeIdentity(node) && supportsSchemaIndexManagement(currentDatabaseType())) {
+      items.push({ label: t("contextMenu.viewObject"), action: () => openSchemaIndexInfo(node), icon: Eye });
+    }
+    if (canEditSchemaIndex(node)) {
+      items.push({ label: t("contextMenu.editIndex"), action: openStructureEditor, icon: PencilRuler });
+      items.push({ label: deleteMenuLabel(t("contextMenu.dropIndex")), action: deleteMenuAction(() => requestSchemaIndexDelete(node)), icon: Trash2, shortcut: shortcutDelete, variant: "destructive" as const });
+    }
+    items.push({ label: t("contextMenu.refreshChildren"), action: refresh, icon: RefreshCw, shortcut: shortcutRefresh.value });
+    return true;
+  }
+
   if (node.type === "index" || node.type === "fkey" || (node.type === "trigger" && !!node.tableName)) {
     items.push(node.type === "trigger" || node.type === "index" ? copyNameMenuItem() : { label: t("contextMenu.copyName"), action: copyName, icon: Copy, shortcut: shortcutCopyName.value });
     if (node.type === "trigger") {
@@ -7881,13 +7959,17 @@ function buildObjectGroupSidebarMenu(context: SidebarMenuFactoryContext): boolea
     const hasMongoDropAllIndexesAction = node.type === "group-indexes" && canDropAllMongoIndexes.value;
     const canCreateGroupView = node.type === "group-views" && !!node.connectionId && !!node.database && !["neo4j", "nebula"].includes(currentDatabaseType() || "");
     const canCreateTableGroup = isTableVGroupContainerNode(node);
-    const hasGroupAction = (node.type === "group-tables" && canCreateTable.value) || canCreateTableGroup || canCreateGroupView || !!objectTemplate || hasMongoCreateIndexAction || hasMongoDropAllIndexesAction;
+    const canCreateSchemaIndex = node.type === "group-database-indexes" && supportsSchemaIndexManagement(currentDatabaseType()) && !connectionIsEffectivelyReadOnly(connectionStore.getConfig(node.connectionId || ""));
+    const hasGroupAction = (node.type === "group-tables" && canCreateTable.value) || canCreateTableGroup || canCreateGroupView || !!objectTemplate || hasMongoCreateIndexAction || hasMongoDropAllIndexesAction || canCreateSchemaIndex;
     const canLoadAllObjectGroup = node.type === "group-tables" || node.type === "group-dolt-system-tables" || node.type === "group-views" || node.type === "group-materialized-views";
     if (node.type === "group-tables" && canCreateTable.value) {
       items.push({ label: t("contextMenu.createTable"), action: createTable, icon: Plus });
     }
     if (canCreateGroupView) {
       items.push({ label: t("contextMenu.createView"), action: createView, icon: Plus });
+    }
+    if (canCreateSchemaIndex) {
+      items.push({ label: t("structureEditor.addIndex"), action: openSchemaIndexCreate, icon: Plus });
     }
     if (node.type === "group-events" && node.connectionId && node.database) {
       items.push({ label: t("contextMenu.createEvent"), action: openMysqlEventCreateEditor, icon: Plus });
@@ -8049,8 +8131,9 @@ function treeItemMenuItems(): ContextMenuItem[] {
   const batchEmptyCount = selectedBatchEmptyTargets().length;
   const batchTruncateCount = selectedBatchTruncateTargets().length;
   const batchAutoIncrementCount = selectedBatchMysqlAutoIncrementTargets().length;
-  const deleteMenuLabel = (singleLabel: string) => (batchDropCount > 1 ? batchDropMenuLabel() : singleLabel);
-  const deleteMenuAction = (singleAction: () => void) => (batchDropCount > 1 ? requestBatchDrop : singleAction);
+  const individualIndexes = hasSchemaIndexBatchSelection();
+  const deleteMenuLabel = (singleLabel: string) => (individualIndexes ? t("schemaIndex.editIndividually") : batchDropCount > 1 ? batchDropMenuLabel() : singleLabel);
+  const deleteMenuAction = (singleAction: () => void) => (individualIndexes ? explainIndividualIndexEditing : batchDropCount > 1 ? requestBatchDrop : singleAction);
   const truncateMenuLabel = (singleLabel: string) => (batchTruncateCount > 1 ? batchTruncateMenuLabel() : singleLabel);
   const truncateMenuAction = (singleAction: () => void) => (batchTruncateCount > 1 ? requestBatchTruncate : singleAction);
   const emptyMenuLabel = (singleLabel: string) => (batchEmptyCount > 1 ? batchEmptyMenuLabel() : singleLabel);

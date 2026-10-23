@@ -98,8 +98,9 @@ import { queryTimeoutSecsForConcurrentIndex, queryTimeoutSecsForConnection } fro
 import { isMacOS } from "@/lib/backend/platform";
 import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/backend/safeStorage";
 import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
-import { invalidateObjectDdl, loadObjectDdl } from "@/lib/metadata/objectDdlCache";
+import { invalidateObjectDdl, invalidateObjectDdlCache, loadObjectDdl } from "@/lib/metadata/objectDdlCache";
 import { invalidateObjectMetadataCache, loadObjectMetadataFacet, type ObjectMetadataFacet } from "@/lib/metadata/objectMetadataCache";
+import { invalidateObjectBrowserRowsCache } from "@/lib/table/objectBrowserRowsCache";
 import { invalidateTableMetadataCache } from "@/lib/metadata/tableMetadataCache";
 import {
   type BuildTableStructureChangeSqlOptions,
@@ -260,6 +261,7 @@ const props = defineProps<{
   initialTab?: TableInfoTab;
   initialTabRequestId?: number;
   initialTarget?: TableStructureEditorTarget;
+  exactIdentity?: boolean;
   draft?: TableStructureEditorDraft;
 }>();
 
@@ -304,6 +306,7 @@ const rawDdlContent = ref("");
 const ddlStorageExcluded = ref(settingsStore.editorSettings.excludeDdlStorage);
 const ddlContent = computed(() => applyDdlStoragePreference(rawDdlContent.value, databaseType.value, ddlStorageExcluded.value));
 const ddlLoading = ref(false);
+let ddlLoadRequestId = 0;
 const ddlEditorContainer = ref<HTMLDivElement>();
 const ddlSearchPanelRef = ref<InstanceType<typeof EditorSearchPanel>>();
 const ddlSearchOpen = ref(false);
@@ -520,6 +523,7 @@ type StructureDdlRequest = {
   tableName: string;
   catalog?: string;
   objectType?: "VIEW";
+  exactIdentity?: boolean;
 };
 
 function ddlRequest(): StructureDdlRequest {
@@ -531,22 +535,35 @@ function ddlRequest(): StructureDdlRequest {
     tableName: props.tableName,
     catalog: props.catalog,
     objectType: props.tableType === "view" ? "VIEW" : undefined,
+    ...(props.exactIdentity ? { exactIdentity: true } : {}),
   };
+}
+
+function getStructureColumns(request: StructureDdlRequest) {
+  return request.exactIdentity ? api.getColumns(request.connectionId, request.database, request.schema, request.tableName, request.catalog, undefined, undefined, true) : api.getColumns(request.connectionId, request.database, request.schema, request.tableName, request.catalog);
 }
 
 async function fetchDdl(force = false) {
   if (!props.connectionId || !props.database || !props.tableName || (!force && ddlFetched.value) || !tableMetadataCapabilities.value.ddl) return;
   if (force) destroyDdlEditor();
+  const request = ddlRequest();
+  const requestId = ++ddlLoadRequestId;
+  const revision = store.connectionStateRevision(request.connectionId);
+  const fingerprint = connection.value ? connectionConfigFingerprint(connection.value) : "";
+  const current = () => !primaryKeyUnmounted && requestId === ddlLoadRequestId && JSON.stringify(request) === JSON.stringify(ddlRequest()) && store.connectionStateRevision(request.connectionId) === revision && (connection.value ? connectionConfigFingerprint(connection.value) : "") === fingerprint;
   ddlLoading.value = true;
   try {
-    const { ddl } = await loadObjectDdl(ddlRequest(), { force });
-    rawDdlContent.value = await formatStructureDdl(ddl);
+    const { ddl } = await loadObjectDdl(request, { force });
+    const formatted = await formatStructureDdl(ddl);
+    if (!current()) return;
+    rawDdlContent.value = formatted;
     ddlFetched.value = true;
   } catch (e: any) {
+    if (!current()) return;
     rawDdlContent.value = `-- Error: ${e?.message || e}`;
     ddlFetched.value = true;
   } finally {
-    ddlLoading.value = false;
+    if (current()) ddlLoading.value = false;
   }
 }
 const errorMessage = ref("");
@@ -1521,7 +1538,7 @@ const usesNativeMysqlIndexNames = computed(() => {
 const supportsCharacterLengthUnits = computed(() => databaseType.value === "dameng" || databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle");
 const usesMysql8SafeDefaults = computed(() => databaseType.value === "mysql" && connection.value?.db_type === "mysql" && connection.value.driver_profile === "mysql");
 const structureCapabilities = computed(() => getTableStructureCapabilities(databaseType.value, connection.value?.db_type, connection.value?.database_info?.productVersion, starrocksAlterContext.value?.model));
-const tableMetadataCapabilities = computed(() => getTableMetadataCapabilities(databaseType.value));
+const tableMetadataCapabilities = computed(() => getTableMetadataCapabilities(databaseType.value, { connectionType: connection.value?.db_type, exactIdentity: props.exactIdentity }));
 const structureDialect = computed(() => structureCapabilities.value.dialect);
 const isTableCommentDisabled = computed(() => !structureCapabilities.value.comment || (!isCreateMode.value && databaseType.value === "starrocks" && !getStarRocksCapabilities(connection.value?.database_info?.productVersion).tableComment));
 const dynamicDataTypeOptions = ref<string[]>([]);
@@ -2085,8 +2102,8 @@ const indexSearchMatchCount = computed(() => (indexSearchText.value.trim() ? fil
 const foreignKeyActionOptions = computed(() => (structureDialect.value === "sqlserver" ? ["", "CASCADE", "SET NULL", "NO ACTION"] : ["", "CASCADE", "SET NULL", "RESTRICT", "NO ACTION"]));
 const triggerTimingOptions = computed(() => (databaseType.value === "sqlserver" ? ["AFTER", "INSTEAD OF"] : ["BEFORE", "AFTER"]));
 const triggerEventOptions = ["INSERT", "UPDATE", "DELETE"];
-const metadataSchema = computed(() => connectionObjectTreeQuerySchema(connection.value, props.database, props.schema));
-const refreshVersion = computed(() => (props.connectionId && props.tableName ? queryStore.tableStructureRefreshVersion(props.connectionId, props.database, props.schema, props.tableName) : 0));
+const metadataSchema = computed(() => (props.exactIdentity ? (props.schema ?? "") : connectionObjectTreeQuerySchema(connection.value, props.database, props.schema)));
+const refreshVersion = computed(() => (props.connectionId && props.tableName ? queryStore.tableStructureRefreshVersion(props.connectionId, props.database, props.schema, props.tableName, props.exactIdentity === true, props.catalog) : 0));
 const isCreateMode = computed(() => !props.tableName);
 // Hidden for an existing table that is not partitioned: the tab could only ever
 // render an empty state. Create mode keeps it so partitioning can be declared.
@@ -2163,6 +2180,7 @@ const oracleIndexBusy = ref(false);
 const oracleIndexEpoch = ref(0);
 const oracleIndexReady = shallowRef<OracleIndexLoadBaseline>();
 const oracleIndexRefreshGuard = ref<{ target: string; afterRequestId: number; completedCreates: OracleIndexDefinition[] }>();
+const oracleIndexRefreshError = ref("");
 const oracleIndexConfirmationScope = `structure-oracle-index:${uuid()}`;
 const oracleConstraintConfirmationScope = `structure-oracle-constraint:${uuid()}`;
 const oracleConstraintChanged = computed(() => !!oracleConstraintDraft.value && JSON.stringify(oracleConstraintDraft.value.original) !== JSON.stringify(oracleConstraintDraft.value.target));
@@ -2184,8 +2202,12 @@ onBeforeUnmount(() => {
   if (saving.value) productionSafetyStore.cancelScope(oracleIndexConfirmationScope);
 });
 watch(
-  () => [props.connectionId, props.database, props.schema, props.tableName, props.catalog],
+  () => [props.connectionId, props.database, props.schema, props.tableName, props.catalog, props.exactIdentity],
   () => {
+    ddlLoadRequestId += 1;
+    ddlLoading.value = false;
+    tableCommentLoadRequestId += 1;
+    tableCommentLoadPromise = null;
     invalidateOracleIndexReady();
     if (primaryKeyBusy.value) productionSafetyStore.cancelScope(primaryKeyConfirmationScope);
     if (saving.value) productionSafetyStore.cancelScope(oracleForeignKeyConfirmationScope);
@@ -2202,6 +2224,8 @@ watch(
     oracleConstraintPlan.value = undefined;
     oracleConstraintSession.value = undefined;
     oracleIndexPlan.value = undefined;
+    oracleIndexRefreshGuard.value = undefined;
+    oracleIndexRefreshError.value = "";
     if (primaryKeyBusy.value) saving.value = false;
   },
 );
@@ -2224,11 +2248,11 @@ function primaryKeyTarget(): PrimaryKeyTarget {
 }
 
 function oracleConstraintTarget(): OracleConstraintTarget {
-  return { ...primaryKeyTarget(), schema: metadataSchema.value, databaseType: databaseType.value === "oracle" ? "oracle" : "oceanbase-oracle" };
+  return { ...primaryKeyTarget(), schema: metadataSchema.value, databaseType: databaseType.value === "oracle" ? "oracle" : "oceanbase-oracle", ...(props.exactIdentity ? { exactIdentity: true } : {}) };
 }
 
 function oracleIndexTargetIdentity(target: OracleConstraintTarget): string {
-  return JSON.stringify({ connectionId: target.connectionId, database: target.database, schema: target.schema, tableName: target.tableName, catalog: target.catalog });
+  return JSON.stringify({ connectionId: target.connectionId, database: target.database, schema: target.schema, tableName: target.tableName, catalog: target.catalog, ...(target.exactIdentity ? { exactIdentity: true } : {}) });
 }
 
 function invalidateOracleIndexReady() {
@@ -2331,7 +2355,7 @@ function addOracleUniqueColumn(name: string) {
 }
 
 function canOpenPairedOracleConstraint(index: EditableStructureIndex): boolean {
-  return isOracleConstraintEditor.value && index.isUnique && !!index.original;
+  return isOracleConstraintEditor.value && tableMetadataCapabilities.value.constraints && index.isUnique && !!index.original;
 }
 
 async function editOracleUniqueConstraintForIndex(index: EditableStructureIndex) {
@@ -2339,7 +2363,7 @@ async function editOracleUniqueConstraintForIndex(index: EditableStructureIndex)
   const target = oracleConstraintTarget();
   const identity = JSON.stringify(target);
   try {
-    const fresh = await api.listConstraints(target.connectionId, target.database, target.schema, target.tableName, target.catalog);
+    const fresh = await api.listConstraints(target.connectionId, target.database, target.schema, target.tableName, target.catalog, ...(target.exactIdentity ? ([true] as const) : []));
     if (primaryKeyUnmounted || identity !== JSON.stringify(oracleConstraintTarget())) return;
     const constraint = fresh.find((item) => item.constraint_type === "UNIQUE" && item.oracle_metadata?.metadataComplete && item.oracle_metadata.owner === target.schema && item.oracle_metadata.indexOwner === target.schema && item.oracle_metadata.indexName === index.original?.name);
     if (!constraint) throw new Error("This unique index has no uniquely paired constraint metadata.");
@@ -2535,6 +2559,8 @@ let structureHorizontalScrollbarDragState: {
 // and row scrolling are tracked separately for each request.
 let appliedInitialTargetSearchKey = "";
 let appliedInitialTargetScrollKey = "";
+let lastAppliedInitialTargetRequestId: number | undefined;
+let initialIndexTargetError: { key: string; message: string } | undefined;
 
 function cloneDraftValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -2797,6 +2823,8 @@ function createCurrentDraft(initialized = true): TableStructureEditorDraft {
     loadedMetadataFacets: [...loadedMetadataFacets],
     scrollPositions: cloneDraftValue(structureScrollPositions),
     appliedInitialTabRequestId: lastAppliedInitialTabRequestId,
+    appliedInitialTargetRequestId: lastAppliedInitialTargetRequestId,
+    oracleIndexRecovery: oracleIndexRefreshGuard.value ? { target: oracleIndexRefreshGuard.value.target, completedCreates: cloneDraftValue(oracleIndexRefreshGuard.value.completedCreates), refreshError: oracleIndexRefreshError.value || undefined } : undefined,
     initialized,
   };
 }
@@ -2839,6 +2867,11 @@ function restoreDraft(draft: TableStructureEditorDraft) {
   restoringDraft = true;
   draftHydrated = false;
   lastAppliedInitialTabRequestId = draft.appliedInitialTabRequestId;
+  lastAppliedInitialTargetRequestId = draft.appliedInitialTargetRequestId;
+  if (draft.oracleIndexRecovery?.target === oracleIndexTargetIdentity(oracleConstraintTarget())) {
+    oracleIndexRefreshGuard.value = { ...cloneDraftValue(draft.oracleIndexRecovery), afterRequestId: -1 };
+    oracleIndexRefreshError.value = draft.oracleIndexRecovery.refreshError ?? "";
+  }
   activeTab.value = draft.activeTab || "columns";
   // Restore the DDL baseline alongside the edit, otherwise the restored script
   // would read as dirty (or clean) against the wrong reference text.
@@ -2941,7 +2974,8 @@ async function hydrateRestoredDraftFromDatabase() {
   let shouldRefreshPreview = false;
   try {
     await store.ensureConnected(connectionId);
-    let { value: nextColumns } = await loadObjectMetadataFacet({ connectionId, database, schema, tableName, catalog, queryTimeoutSecs: store.getConfig(connectionId)?.query_timeout_secs }, "columns", () => api.getColumns(connectionId, database, schema, tableName, catalog));
+    const request = ddlRequest();
+    let { value: nextColumns } = await loadObjectMetadataFacet(request, "columns", () => getStructureColumns(request));
     if (databaseType.value === "manticoresearch" && tableMetadataCapabilities.value.ddl) {
       try {
         const { ddl } = await loadObjectDdl({ connectionId, database, schema, tableName, catalog, queryTimeoutSecs: store.getConfig(connectionId)?.query_timeout_secs });
@@ -3215,6 +3249,14 @@ async function refreshSqlPreview() {
   existingOracleForeignKeySession.value = undefined;
   newOracleForeignKeyPlan.value = undefined;
   newOracleForeignKeySession.value = undefined;
+  const indexWriteWarning = schemaIndexWriteWarning();
+  if (indexWriteWarning) {
+    pendingStatements.value = [];
+    warnings.value = [indexWriteWarning];
+    sqlPreviewLoading.value = false;
+    sqlPreviewPending.value = false;
+    return;
+  }
   if (concurrentAvailabilityInvalidated.value) {
     // Availability gap in effect: never regenerate SQL here — doing so would
     // turn a lost Concurrent request into a silent blocking CREATE INDEX. Keep
@@ -3496,6 +3538,7 @@ const canApply = computed(
     !oracleConstraintBusy.value &&
     (databaseType.value !== "starrocks" || !starrocksStatusBusy.value) &&
     !postSaveRefreshing.value &&
+    !oracleIndexRefreshError.value &&
     !secondaryMetadataLoading.value &&
     !mysqlTableEngineLoading.value &&
     !sqlPreviewLoading.value &&
@@ -3528,6 +3571,9 @@ function resetState() {
   partitionsLoading.value = false;
   partitionsError.value = "";
   errorMessage.value = "";
+  oracleIndexRefreshError.value = "";
+  oracleIndexRefreshGuard.value = undefined;
+  lastAppliedInitialTargetRequestId = undefined;
   secondaryMetadataErrors.value = {};
   isPartitionedParent.value = false;
   isTablePartition.value = false;
@@ -3605,11 +3651,13 @@ function resetState() {
   highlightedIndexId.value = null;
   appliedInitialTargetSearchKey = "";
   appliedInitialTargetScrollKey = "";
+  initialIndexTargetError = undefined;
   localColumnOrderNoticeShown.value = false;
 }
 
 async function reloadStructureFromDatabase() {
   if (isCreateMode.value) return;
+  if (oracleIndexRefreshError.value) return retryOracleIndexRefresh();
   draftHydrated = false;
   if (activeTab.value !== "triggers") {
     triggers.value = [];
@@ -3670,7 +3718,7 @@ async function fetchTableCommentValue(connectionId: string, database: string, sc
     try {
       const tables = await api.listTables(connectionId, database, schema, undefined, undefined, undefined, undefined, catalog);
       const table = tables.find((t) => t.name.toLowerCase() === tableName.toLowerCase() && t.table_type !== "VIEW");
-      return table?.comment || "";
+      return table ? table.comment || "" : undefined;
     } catch {
       return undefined;
     }
@@ -3678,7 +3726,12 @@ async function fetchTableCommentValue(connectionId: string, database: string, sc
 }
 
 function loadCachedTableComment(request: StructureDdlRequest, force = false): Promise<{ value: string | undefined; cacheStatus: "memory" | "disk" | "remote" }> {
-  return loadObjectMetadataFacet(request, "comment", () => fetchTableCommentValue(request.connectionId, request.database, request.schema, request.tableName, request.catalog), { force });
+  return loadObjectMetadataFacet(
+    request,
+    "comment",
+    () => (request.exactIdentity ? api.getTableComment(request.connectionId, request.database, request.schema, request.tableName, request.catalog, true).then((value) => value ?? "") : fetchTableCommentValue(request.connectionId, request.database, request.schema, request.tableName, request.catalog)),
+    { force },
+  );
 }
 
 async function loadVisibleTableComment(force = false, preserveDraft = false) {
@@ -3687,6 +3740,7 @@ async function loadVisibleTableComment(force = false, preserveDraft = false) {
   const schema = metadataSchema.value;
   const tableName = props.tableName;
   const catalog = props.catalog;
+  const exactIdentity = props.exactIdentity === true;
   if (!structureCapabilities.value.comment || !connectionId || !database || !tableName) return;
   if (!force && loadedMetadataFacets.has("comment")) return;
   if (!force && tableCommentLoadPromise) return tableCommentLoadPromise;
@@ -3695,8 +3749,11 @@ async function loadVisibleTableComment(force = false, preserveDraft = false) {
   const loadPromise = (async () => {
     try {
       await store.ensureConnected(connectionId);
-      const { value } = await loadCachedTableComment({ connectionId, database, schema, tableName, catalog, queryTimeoutSecs: store.getConfig(connectionId)?.query_timeout_secs }, force);
+      const revision = store.connectionStateRevision(connectionId);
+      const fingerprint = store.getConfig(connectionId) ? connectionConfigFingerprint(store.getConfig(connectionId)!) : "";
+      const { value } = await loadCachedTableComment({ connectionId, database, schema, tableName, catalog, queryTimeoutSecs: store.getConfig(connectionId)?.query_timeout_secs, ...(exactIdentity ? { exactIdentity: true } : {}) }, force);
       if (requestId !== tableCommentLoadRequestId) return;
+      if (exactIdentity !== (props.exactIdentity === true) || revision !== store.connectionStateRevision(connectionId) || fingerprint !== (store.getConfig(connectionId) ? connectionConfigFingerprint(store.getConfig(connectionId)!) : "")) return;
       if (connectionId !== props.connectionId || database !== props.database || schema !== metadataSchema.value || tableName !== props.tableName || (catalog || "") !== (props.catalog || "")) return;
       if (value === undefined) return;
       const hasCommentDraft = tableComment.value !== originalTableComment.value;
@@ -3848,7 +3905,7 @@ async function loadStructure(
   if (!connectionId || !database || !tableName) return;
   const oracleIndexContext = !isCreateMode.value && (databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle");
   const needsOracleIndexBaseline = oracleIndexContext && scope.indexes;
-  const effectiveScope = withRequiredPostgresPrimaryKeyMetadata(needsOracleIndexBaseline ? { ...scope, columns: true, indexes: true } : scope);
+  const effectiveScope = withRequiredPostgresPrimaryKeyMetadata(needsOracleIndexBaseline || (props.exactIdentity && scope.indexes) ? { ...scope, columns: true, indexes: true } : scope);
   if (oracleIndexContext && (scope.columns || scope.indexes)) invalidateOracleIndexReady();
   let loadEpoch = oracleIndexEpoch.value;
   const requestId = ++structureLoadRequestId;
@@ -3887,7 +3944,7 @@ async function loadStructure(
             .then((status) => ({ known: true, status }))
             .catch(() => ({ known: false, status: { isPartitionedParent: false, isPartition: false, isForeign: false } }))
         : Promise.resolve({ known: true, status: { isPartitionedParent: false, isPartition: false, isForeign: false } });
-    const columnsLoad = effectiveScope.columns ? loadObjectMetadataFacet(metadataRequest, "columns", () => api.getColumns(connectionId, database, schema, tableName, catalog), { force: forceMetadata }) : undefined;
+    const columnsLoad = effectiveScope.columns ? loadObjectMetadataFacet(metadataRequest, "columns", () => getStructureColumns(metadataRequest), { force: forceMetadata }) : undefined;
     const columnsPromise = columnsLoad
       ? columnsLoad.then((result) => {
           columnsServedFromCache = result.cacheStatus !== "remote";
@@ -3896,22 +3953,22 @@ async function loadStructure(
       : Promise.resolve(undefined);
     const indexesPromise = effectiveScope.indexes
       ? tableMetadataCapabilities.value.indexes
-        ? loadObjectMetadataFacet(metadataRequest, "indexes", () => api.listIndexes(connectionId, database, schema, tableName, catalog), { force: forceMetadata }).then((result) => result.value)
+        ? loadObjectMetadataFacet(metadataRequest, "indexes", () => api.listIndexes(connectionId, database, schema, tableName, catalog, ...(metadataRequest.exactIdentity ? ([true] as const) : [])), { force: forceMetadata }).then((result) => result.value)
         : Promise.resolve([])
       : Promise.resolve(undefined);
     const foreignKeysPromise = effectiveScope.foreignKeys
       ? tableMetadataCapabilities.value.foreignKeys
-        ? loadObjectMetadataFacet(metadataRequest, "foreign-keys", () => api.listForeignKeys(connectionId, database, schema, tableName, catalog), { force: forceMetadata }).then((result) => result.value)
+        ? loadObjectMetadataFacet(metadataRequest, "foreign-keys", () => api.listForeignKeys(connectionId, database, schema, tableName, catalog, ...(metadataRequest.exactIdentity ? ([true] as const) : [])), { force: forceMetadata }).then((result) => result.value)
         : Promise.resolve([])
       : Promise.resolve(undefined);
     const constraintsPromise = effectiveScope.constraints
       ? tableMetadataCapabilities.value.constraints
-        ? loadObjectMetadataFacet(metadataRequest, "constraints", () => api.listConstraints(connectionId, database, schema, tableName, catalog), { force: forceMetadata }).then((result) => result.value)
+        ? loadObjectMetadataFacet(metadataRequest, "constraints", () => api.listConstraints(connectionId, database, schema, tableName, catalog, ...(metadataRequest.exactIdentity ? ([true] as const) : [])), { force: forceMetadata }).then((result) => result.value)
         : Promise.resolve([])
       : Promise.resolve(undefined);
     const triggersPromise = effectiveScope.triggers
       ? tableMetadataCapabilities.value.triggers
-        ? loadObjectMetadataFacet(metadataRequest, "triggers", () => api.listTriggers(connectionId, database, schema, tableName, catalog), { force: forceMetadata }).then((result) => result.value)
+        ? loadObjectMetadataFacet(metadataRequest, "triggers", () => api.listTriggers(connectionId, database, schema, tableName, catalog, ...(metadataRequest.exactIdentity ? ([true] as const) : [])), { force: forceMetadata }).then((result) => result.value)
         : Promise.resolve([])
       : Promise.resolve(undefined);
     // Partition metadata is a live catalog read (not persisted), so it is
@@ -3946,7 +4003,7 @@ async function loadStructure(
       // editor shows the correct options for the server version.
       void loadCharsetMetadata();
       void loadMysqlTableDefaultCollation();
-      const retainOracleColumns = oracleIndexContext && options.preserveDraft === true && !scope.columns;
+      const retainOracleColumns = (oracleIndexContext || props.exactIdentity) && options.preserveDraft === true && !scope.columns;
       if (!retainOracleColumns) {
         const nextColumnDrafts = createColumnDrafts(nextColumns, databaseType.value);
         const hydratedColumnDrafts = supportsCharacterLengthUnits.value && options.characterLengthUnitsAfterSave ? restoreCharacterLengthUnitsAfterSave(databaseType.value, nextColumnDrafts, options.characterLengthUnitsAfterSave) : nextColumnDrafts;
@@ -3962,8 +4019,9 @@ async function loadStructure(
 
     const nextTableComment = await tableCommentPromise;
     if (nextTableComment !== undefined) {
+      const retainCommentDraft = options.preserveDraft && tableComment.value !== originalTableComment.value;
       originalTableComment.value = nextTableComment;
-      tableComment.value = nextTableComment;
+      if (!retainCommentDraft) tableComment.value = nextTableComment;
       loadedMetadataFacets.add("comment");
     }
     const partitionStatus = await partitionStatusPromise;
@@ -4011,13 +4069,10 @@ async function loadStructure(
       if (nextIndexes) {
         // An empty lazy load changes no draft data and should not trigger another save.
         const indexRefreshGuard = oracleIndexRefreshGuard.value;
-        if (options.preserveDraft && indexRefreshGuard?.target === JSON.stringify({ connectionId, database, schema, tableName, catalog })) {
-          indexes.value = mergeOracleIndexDraftsAfterRefresh(indexes.value, nextIndexes, indexRefreshGuard.completedCreates);
+        if (options.preserveDraft && (props.exactIdentity || indexRefreshGuard?.target === loadTargetIdentity)) {
+          indexes.value = mergeOracleIndexDraftsAfterRefresh(indexes.value, nextIndexes, indexRefreshGuard?.target === loadTargetIdentity ? indexRefreshGuard.completedCreates : []);
         } else if (nextIndexes.length || indexes.value.length) {
           indexes.value = createIndexDrafts(nextIndexes);
-        }
-        if (oracleIndexRefreshGuard.value?.target === JSON.stringify({ connectionId, database, schema, tableName, catalog }) && requestId > oracleIndexRefreshGuard.value.afterRequestId) {
-          oracleIndexRefreshGuard.value = undefined;
         }
         loadedMetadataFacets.add("indexes");
       }
@@ -4084,7 +4139,7 @@ async function loadStructure(
         const target = oracleConstraintTarget();
         const snapshot = await readOracleIndexSnapshot(target);
         if (oracleIndexLoadIsCurrent(requestId, loadTargetIdentity, loadConnectionRevision, loadConfigFingerprint) && oracleIndexEpoch.value === loadEpoch) {
-          const loadedColumns = columns.value.flatMap((column) => (column.original ? [column.original] : []));
+          const loadedColumns = nextColumns ?? columns.value.flatMap((column) => (column.original ? [column.original] : []));
           if (oracleIndexSnapshotMatchesLoaded(snapshot, target, indexes.value) && oracleIndexSnapshotMatchesLoadedColumns(snapshot, loadedColumns)) {
             oracleIndexReady.value = {
               snapshot,
@@ -4096,6 +4151,7 @@ async function loadStructure(
               columnsFingerprint: JSON.stringify(columns.value),
               indexesFingerprint: JSON.stringify(snapshot.indexes),
             };
+            if (oracleIndexRefreshGuard.value?.target === loadTargetIdentity && requestId > oracleIndexRefreshGuard.value.afterRequestId) oracleIndexRefreshGuard.value = undefined;
           }
         }
       } catch (error) {
@@ -4146,7 +4202,8 @@ async function revalidateCachedStructureMetadata(loadRequestId: number, scope: {
   if (!connectionId || !database || !tableName) return;
   if (scope.columns && (databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle")) invalidateOracleIndexReady();
   const revalidationId = ++structureMetadataRevalidationId;
-  const metadataRequest = { connectionId, database, schema, tableName, catalog, queryTimeoutSecs: store.getConfig(connectionId)?.query_timeout_secs };
+  const exactIdentity = props.exactIdentity === true;
+  const metadataRequest = { connectionId, database, schema, tableName, catalog, queryTimeoutSecs: store.getConfig(connectionId)?.query_timeout_secs, ...(exactIdentity ? { exactIdentity: true } : {}) };
   let revalidationConnectionRevision: number | undefined;
   let revalidationConfigFingerprint = "";
   const isCurrent = () =>
@@ -4155,6 +4212,7 @@ async function revalidateCachedStructureMetadata(loadRequestId: number, scope: {
     connectionId === props.connectionId &&
     database === props.database &&
     schema === metadataSchema.value &&
+    exactIdentity === (props.exactIdentity === true) &&
     tableName === props.tableName &&
     (catalog || "") === (props.catalog || "") &&
     (revalidationConnectionRevision === undefined ||
@@ -4172,7 +4230,7 @@ async function revalidateCachedStructureMetadata(loadRequestId: number, scope: {
     // first, the same thing an explicit "Refresh Structure" does.
     await invalidateObjectMetadataCache({ connectionId, database, schema, tableName });
     if (!isCurrent()) return;
-    const columnsPromise = scope.columns ? loadObjectMetadataFacet(metadataRequest, "columns", () => api.getColumns(connectionId, database, schema, tableName, catalog), { force: true }) : Promise.resolve(undefined);
+    const columnsPromise = scope.columns ? loadObjectMetadataFacet(metadataRequest, "columns", () => getStructureColumns(metadataRequest), { force: true }) : Promise.resolve(undefined);
     const commentPromise = scope.tableComment ? loadCachedTableComment(metadataRequest, true) : Promise.resolve(undefined);
     // allSettled so a failing comment re-fetch cannot swallow a valid columns
     // fix (and vice versa); each failure is logged on its own.
@@ -5566,6 +5624,7 @@ function addIndex() {
     input?.focus();
     input?.select();
   });
+  return draft;
 }
 
 function structureIndexTableName(): string {
@@ -5705,6 +5764,7 @@ function toggleDropIndex(index: EditableStructureIndex) {
 
 function canEditIndexDraft(index: EditableStructureIndex): boolean {
   if (indexesLoading.value) return false;
+  if (schemaIndexDraftIsReadOnly(index)) return false;
   if (index.markedForDrop || index.isPrimary) return false;
   if (!index.original) return structureCapabilities.value.createIndex;
   return structureCapabilities.value.rebuildIndex && structureCapabilities.value.createIndex && structureCapabilities.value.dropIndex;
@@ -5803,7 +5863,18 @@ function canEditIndexComment(index: EditableStructureIndex): boolean {
 
 function canDropIndex(index: EditableStructureIndex): boolean {
   if (indexesLoading.value) return false;
+  if (schemaIndexDraftIsReadOnly(index)) return false;
   return !!index.original && !index.isPrimary && structureCapabilities.value.dropIndex;
+}
+
+function schemaIndexDraftIsReadOnly(index: EditableStructureIndex): boolean {
+  return props.exactIdentity === true && !!index.original && (index.original.owner == null || index.original.owner !== metadataSchema.value);
+}
+
+function schemaIndexWriteWarning(): string | undefined {
+  const blocked = indexes.value.find((index) => schemaIndexDraftIsReadOnly(index) && indexChanged(index));
+  if (!blocked) return undefined;
+  return blocked.original?.owner == null ? t("schemaIndex.targetMissing", { name: blocked.original?.name }) : t("schemaIndex.crossOwnerReadOnly", { owner: blocked.original.owner, name: blocked.original.name });
 }
 
 const isOracleForeignKeyEditor = computed(() => databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle");
@@ -6010,20 +6081,20 @@ function primarySqlOperation(sql: string): string {
   return statement?.match(/^([a-z]+)/i)?.[1]?.toUpperCase() || "SQL";
 }
 
-async function recordStructureHistory(sql: string, start: number, success: boolean, result?: { affected_rows?: number }, error?: string) {
-  const connection = store.getConfig(props.connectionId);
+async function recordStructureHistory(sql: string, start: number, success: boolean, result?: { affected_rows?: number }, error?: string, target?: StructureDdlRequest) {
+  const connection = store.getConfig(target?.connectionId ?? props.connectionId);
   try {
     await historyStore.add({
-      connection_id: props.connectionId,
+      connection_id: target?.connectionId ?? props.connectionId,
       connection_name: connection?.name || "",
-      database: props.database,
+      database: target?.database ?? props.database,
       sql,
       execution_time_ms: Date.now() - start,
       success,
       error,
       activity_kind: "schema_change",
-      operation: hasSqliteTypeChange.value ? "ALTER TABLE" : primarySqlOperation(sql),
-      target: isCreateMode.value ? newTableName.value.trim() : props.tableName,
+      operation: !target && hasSqliteTypeChange.value ? "ALTER TABLE" : primarySqlOperation(sql),
+      target: target?.tableName ?? (isCreateMode.value ? newTableName.value.trim() : props.tableName),
       affected_rows: success ? result?.affected_rows : undefined,
     });
   } catch (e) {
@@ -6498,76 +6569,55 @@ async function applyOracleIndexPlan(): Promise<boolean> {
         console.warn("[DBX][structure-history:save-failed]", error);
       }
     }
-    if (result.steps.some((step) => step.state !== "notExecuted")) {
+    const complete = result.steps.length > 0 && result.steps.every((step) => step.state === "committed") && !result.readbackError;
+    let refreshError = "";
+    const contextStillCurrent = () =>
+      !primaryKeyUnmounted &&
+      JSON.stringify(target) === JSON.stringify(oracleConstraintTarget()) &&
+      store.connectionStateRevision(target.connectionId) === revision &&
+      (store.getConfig(target.connectionId) ? connectionConfigFingerprint(store.getConfig(target.connectionId)!) : "") === configFingerprint;
+    if (attemptedSteps) {
       const completedCreates = plan.mutations.flatMap((mutation, index) => {
         if (mutation.operation !== "CREATE" || result.steps[index]?.state !== "committed") return [];
         const created = mutation.expectedAfter.find((item) => item.name === mutation.name);
         return created ? [created] : [];
       });
-      oracleIndexRefreshGuard.value = { target: oracleIndexTargetIdentity(target), afterRequestId: structureLoadRequestId, completedCreates };
-      invalidateTableMetadataCache(target);
-      await invalidateObjectMetadataCache(target);
-      await invalidateObjectDdl(target);
-      loadedMetadataFacets.clear();
-    }
-    const complete = result.steps.length > 0 && result.steps.every((step) => step.state === "committed") && !result.readbackError;
-    if (saveSessionCurrent()) {
-      // Never leave a DROP in the Apply queue after partial or unknown execution.
-      pendingStatements.value = [];
-      oracleIndexPlan.value = undefined;
-      if (complete) {
-        const columnsBeforeReadback = cloneDraftValue(columns.value);
-        const indexesBeforeReadback = cloneDraftValue(indexes.value);
-        const expectedReadbackRequestId = structureLoadRequestId + 1;
-        const refresh = await loadStructure(true, { columns: false, indexes: true, constraints: false, foreignKeys: false, triggers: false, partitions: false, tableComment: true }, true, { forceMetadata: true, blockSecondaryMetadata: true });
-        if (!refresh?.error && !oracleIndexReady.value && secondaryMetadataLoading.value) {
-          await new Promise<void>((resolve) => {
-            const stop = watch(secondaryMetadataLoading, (loading) => {
-              if (!loading) {
-                stop();
-                resolve();
-              }
-            });
-            if (!secondaryMetadataLoading.value) {
-              stop();
-              resolve();
-            }
-          });
-        }
-        const readback = oracleIndexReady.value;
-        const currentConfig = store.getConfig(target.connectionId);
-        const contextStillCurrent = !primaryKeyUnmounted && JSON.stringify(target) === JSON.stringify(oracleConstraintTarget()) && store.connectionStateRevision(target.connectionId) === revision && (currentConfig ? connectionConfigFingerprint(currentConfig) : "") === configFingerprint;
-        const readbackReady =
-          !!readback &&
-          contextStillCurrent &&
-          !refresh?.error &&
-          !secondaryMetadataErrors.value.indexes &&
-          !errorMessage.value &&
-          readback.requestId === structureLoadRequestId &&
-          readback.requestId >= expectedReadbackRequestId &&
-          readback.epoch === oracleIndexEpoch.value &&
-          readback.targetIdentity === oracleIndexTargetIdentity(target) &&
-          readback.connectionRevision === store.connectionStateRevision(target.connectionId) &&
-          readback.configFingerprint === (currentConfig ? connectionConfigFingerprint(currentConfig) : "");
-        if (readbackReady) {
-          emit("saved", false);
-        } else {
-          if (structureLoadRequestId === expectedReadbackRequestId && contextStillCurrent) {
-            columns.value = columnsBeforeReadback;
-            indexes.value = indexesBeforeReadback;
-          }
-          result.readbackError = refresh?.error || secondaryMetadataErrors.value.indexes || errorMessage.value || "Index refresh did not publish a current complete baseline after DDL.";
+      const recovery = { target: oracleIndexTargetIdentity(target), afterRequestId: structureLoadRequestId, completedCreates };
+      if (contextStillCurrent()) {
+        oracleIndexRefreshGuard.value = recovery;
+        // Already attempted SQL is never left queued for another Apply.
+        pendingStatements.value = [];
+        oracleIndexPlan.value = undefined;
+      }
+      if (complete && contextStillCurrent()) {
+        refreshError = await refreshOracleIndexMetadata(target, recovery);
+      } else {
+        refreshError = await refreshSchemaIndexLists(target);
+        invalidateTableMetadataCache(target);
+        try {
+          await invalidateObjectDdlCache(target);
+        } catch (error) {
+          refreshError = [refreshError, error instanceof Error ? error.message : String(error)].filter(Boolean).join("\n");
         }
       }
+      if (complete && contextStillCurrent()) {
+        skipNextRefreshVersion = true;
+        emit("saved", false);
+        void nextTick(() => {
+          skipNextRefreshVersion = false;
+        });
+      }
+      if (contextStillCurrent()) syncDraftToParent();
     }
-    if ((!complete || result.readbackError) && !primaryKeyUnmounted) {
+    if ((!complete || refreshError) && !primaryKeyUnmounted) {
       primaryKeyResultTitle.value = "oracleStructureResult.resultTitle";
-      primaryKeyResultMessage.value = `${target.schema}.${target.tableName}: ${t("oracleStructureResult.executionFailed")}`;
+      primaryKeyResultMessage.value = `${target.schema}.${target.tableName}: ${t(complete ? "oracleStructureResult.appliedRefreshPending" : "oracleStructureResult.executionFailed")}`;
       primaryKeyResultDetails.value = result.steps.map((step, index) => `${index + 1}. ${step.state}\n${step.sql}${step.error ? `\n${step.error}` : ""}`).join("\n\n");
       if (result.readbackError) primaryKeyResultDetails.value += `\n\n${t("oracleStructureResult.readbackFailed")}: ${result.readbackError}`;
+      if (refreshError) primaryKeyResultDetails.value += `\n\n${t("oracleStructureResult.refreshPending")}: ${refreshError}`;
       if (!primaryKeyUnmounted) primaryKeyResultOpen.value = true;
     }
-    return complete && !result.readbackError;
+    return complete;
   } catch (error) {
     if (saveSessionCurrent()) {
       pendingStatements.value = [];
@@ -6578,6 +6628,73 @@ async function applyOracleIndexPlan(): Promise<boolean> {
   } finally {
     oracleIndexBusy.value = false;
     saving.value = false;
+  }
+}
+
+async function refreshSchemaIndexLists(target: Pick<StructureDdlRequest, "connectionId" | "database" | "schema" | "catalog">): Promise<string> {
+  const scope = { connectionId: target.connectionId, database: target.database, schema: target.schema, catalog: target.catalog };
+  invalidateObjectBrowserRowsCache({ connectionId: target.connectionId, database: target.database, schema: target.schema });
+  let error = "";
+  try {
+    await store.refreshObjectListTreeNode(target.connectionId, target.database, target.schema, target.catalog, true);
+  } catch (caught) {
+    error = caught instanceof Error ? caught.message : String(caught);
+  }
+  window.dispatchEvent(new CustomEvent("dbx-refresh-object-browser", { detail: scope }));
+  return error;
+}
+
+async function refreshOracleIndexMetadata(target: OracleConstraintTarget, recovery: NonNullable<typeof oracleIndexRefreshGuard.value>): Promise<string> {
+  const revision = store.connectionStateRevision(target.connectionId);
+  const config = store.getConfig(target.connectionId);
+  const fingerprint = config ? connectionConfigFingerprint(config) : "";
+  const current = () =>
+    !primaryKeyUnmounted && recovery.target === oracleIndexTargetIdentity(oracleConstraintTarget()) && store.connectionStateRevision(target.connectionId) === revision && (store.getConfig(target.connectionId) ? connectionConfigFingerprint(store.getConfig(target.connectionId)!) : "") === fingerprint;
+  const errors: string[] = [];
+  try {
+    invalidateTableMetadataCache(target);
+    await invalidateObjectDdlCache(target, { strict: true });
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  const listError = await refreshSchemaIndexLists(target);
+  if (listError) errors.push(listError);
+  if (!current()) return errors.join("\n");
+  const expectedRequestId = structureLoadRequestId + 1;
+  loadedMetadataFacets.clear();
+  const refresh = await loadStructure(true, { columns: false, indexes: true, constraints: false, foreignKeys: false, triggers: false, partitions: false, tableComment: true }, true, { forceMetadata: true, blockSecondaryMetadata: true, preserveDraft: true });
+  if (!current()) return errors.join("\n");
+  const baseline = oracleIndexReady.value;
+  if (
+    !baseline ||
+    baseline.requestId !== structureLoadRequestId ||
+    baseline.requestId < expectedRequestId ||
+    baseline.epoch !== oracleIndexEpoch.value ||
+    baseline.targetIdentity !== recovery.target ||
+    baseline.connectionRevision !== revision ||
+    baseline.configFingerprint !== fingerprint ||
+    secondaryMetadataErrors.value.indexes ||
+    errorMessage.value ||
+    (structureCapabilities.value.comment && !loadedMetadataFacets.has("comment"))
+  ) {
+    errors.push(refresh?.error || secondaryMetadataErrors.value.indexes || errorMessage.value || "Index refresh did not publish a current complete baseline after DDL.");
+  }
+  oracleIndexRefreshError.value = errors.join("\n");
+  oracleIndexRefreshGuard.value = errors.length ? recovery : undefined;
+  if (errors.length) errorMessage.value = "";
+  markDraftHydratedAndSync();
+  await refreshSqlPreview();
+  return oracleIndexRefreshError.value;
+}
+
+async function retryOracleIndexRefresh() {
+  const recovery = oracleIndexRefreshGuard.value;
+  if (!recovery || recovery.target !== oracleIndexTargetIdentity(oracleConstraintTarget()) || saving.value || postSaveRefreshing.value) return;
+  postSaveRefreshing.value = true;
+  try {
+    await refreshOracleIndexMetadata(oracleConstraintTarget(), recovery);
+  } finally {
+    postSaveRefreshing.value = false;
   }
 }
 
@@ -6774,6 +6891,11 @@ async function applyOracleForeignKeyCreatePlan(): Promise<boolean> {
 }
 
 async function applyChanges() {
+  const indexWriteWarning = schemaIndexWriteWarning();
+  if (indexWriteWarning) {
+    errorMessage.value = indexWriteWarning;
+    return false;
+  }
   if (!canApply.value || !props.connectionId || !props.database) return false;
   if (oracleIndexRefreshGuard.value?.target === oracleIndexTargetIdentity(oracleConstraintTarget())) {
     errorMessage.value = "Index execution may have changed the database. Refresh index metadata before applying again.";
@@ -6800,6 +6922,18 @@ async function applyChanges() {
   const sql = previewSqlText.value;
   const submittedStarRocksTarget = starrocksStatusTarget.value;
   const connection = store.getConfig(props.connectionId);
+  const exactTarget = props.exactIdentity ? ddlRequest() : undefined;
+  const exactRevision = store.connectionStateRevision(props.connectionId);
+  const exactConfig = connection ? connectionConfigFingerprint(connection) : "";
+  const exactDraft = JSON.stringify(structureChangeOptions());
+  const submittedStatements = [...pendingStatements.value];
+  const exactContextCurrent = () =>
+    !exactTarget ||
+    (!primaryKeyUnmounted &&
+      JSON.stringify(ddlRequest()) === JSON.stringify(exactTarget) &&
+      store.connectionStateRevision(exactTarget.connectionId) === exactRevision &&
+      (store.getConfig(exactTarget.connectionId) ? connectionConfigFingerprint(store.getConfig(exactTarget.connectionId)!) : "") === exactConfig);
+  const exactDraftCurrent = () => exactContextCurrent() && (!exactTarget || (sql === previewSqlText.value && exactDraft === JSON.stringify(structureChangeOptions())));
   const productionContext = productionContextForDatabase(connection, props.database);
   if (productionContext.active) {
     const confirmed = await productionSafetyStore.requestConfirmation({
@@ -6811,6 +6945,7 @@ async function applyChanges() {
     });
     if (!confirmed) return false;
   }
+  if (!exactDraftCurrent()) return false;
   saving.value = true;
   if (databaseType.value === "starrocks") starrocksSubmittedSql.value = undefined;
   errorMessage.value = "";
@@ -6862,15 +6997,19 @@ async function applyChanges() {
   // non-concurrent batches keep the configured timeout unchanged.
   const configuredTimeoutSecs = queryTimeoutSecsForConnection(connection, settingsStore.editorSettings.globalQueryTimeoutSecs);
   const executionTimeoutSecs = queryTimeoutSecsForConcurrentIndex(configuredTimeoutSecs, hasConcurrentIndexBuild);
+  let exactIndexSubmitted = false;
   try {
     // An edited DDL script is always executed as the batch it previews as; the
     // SQLite rebuild path would rebuild from the structure draft instead.
+    if (!exactDraftCurrent()) return false;
+    exactIndexSubmitted = !!exactTarget && refreshScope.indexes;
     const result =
       hasSqliteTypeChange.value && !ddlDirty.value
         ? await api.applySqliteTableStructureChange(props.connectionId, props.database, structureChangeOptions(), sqliteSchemaRevision.value!)
-        : await api.executeBatch(props.connectionId, props.database, pendingStatements.value, props.schema, executionTimeoutSecs, useTransaction);
+        : await api.executeBatch(exactTarget?.connectionId ?? props.connectionId, exactTarget?.database ?? props.database, exactTarget ? submittedStatements : pendingStatements.value, exactTarget?.schema ?? props.schema, executionTimeoutSecs, useTransaction);
     if (databaseType.value === "starrocks") starrocksSubmittedSql.value = { target: submittedStarRocksTarget, sql };
-    await recordStructureHistory(sql, startedAt, true, result);
+    await recordStructureHistory(sql, startedAt, true, result, undefined, exactTarget);
+    if (!exactContextCurrent()) return true;
     if (!isCreateMode.value && props.tableName) {
       const metadataMatch = { connectionId: props.connectionId, database: props.database, schema: metadataSchema.value, tableName: props.tableName };
       invalidateTableMetadataCache(metadataMatch);
@@ -6919,15 +7058,23 @@ async function applyChanges() {
     return true;
   } catch (e: any) {
     const rawMessage = e?.message || String(e);
+    if (!exactContextCurrent()) {
+      await recordStructureHistory(sql, startedAt, false, undefined, rawMessage, exactTarget);
+      return false;
+    }
     // A cancelled/errored concurrent build leaves a same-name INVALID index
     // behind; surface that so retries are not silently doomed.
     const invalidIndexHint = hasConcurrentIndexBuild && /already exists/i.test(rawMessage) ? `\n\n${t("structureEditor.invalidIndexRetryHint")}` : "";
     const starrocksSchemaChangeBusy = databaseType.value === "starrocks" && /a schema change operation is in progress on the table\b/i.test(rawMessage);
     errorMessage.value = starrocksSchemaChangeBusy ? t("starrocksLayout.schemaChangeBusy", { table: props.tableName }) : `${rawMessage}${invalidIndexHint}`;
-    await recordStructureHistory(sql, startedAt, false, undefined, starrocksSchemaChangeBusy ? rawMessage : errorMessage.value);
+    await recordStructureHistory(sql, startedAt, false, undefined, starrocksSchemaChangeBusy ? rawMessage : errorMessage.value, exactTarget);
     return false;
   } finally {
     saving.value = false;
+    if (exactIndexSubmitted && exactTarget) {
+      const error = await refreshSchemaIndexLists(exactTarget);
+      if (error && exactContextCurrent()) toast(error, 5000);
+    }
     if (databaseType.value === "starrocks") starrocksStatusRevision.value++;
   }
 }
@@ -7127,6 +7274,11 @@ onMounted(() => {
     void hydrateRestoredDraftFromDatabase().then(async () => {
       applyInitialStructureTarget();
       void loadMysqlAutoIncrementCounter(true);
+      if (oracleIndexRefreshError.value) {
+        await retryOracleIndexRefresh();
+      } else if ((props.exactIdentity || oracleIndexRefreshGuard.value) && !isCreateMode.value) {
+        await loadStructure(true, { columns: false, indexes: true, constraints: false, foreignKeys: false, triggers: false, partitions: false, tableComment: false }, true, { blockSecondaryMetadata: true, preserveDraft: true, forceMetadata: true });
+      }
       await loadActiveTableStructureMetadataIfNeeded();
       if (revalidateRestoredColumns) {
         // The existing revalidation checks again for edits made while loading.
@@ -7234,11 +7386,50 @@ function applyPendingInitialStructureTab() {
 }
 
 function initialTargetKey(target: TableStructureEditorTarget): string {
-  return `${props.initialTabRequestId ?? 0}:${target.kind}:${target.name}`;
+  return JSON.stringify([props.initialTabRequestId ?? 0, props.exactIdentity === true, target.kind, target.owner, target.name, target.action]);
 }
 
 function applyInitialStructureTarget() {
   const target = props.initialTarget;
+  if (props.exactIdentity && target?.kind === "index") {
+    const key = initialTargetKey(target);
+    if (initialIndexTargetError && initialIndexTargetError.key !== key) {
+      if (errorMessage.value === initialIndexTargetError.message) errorMessage.value = "";
+      initialIndexTargetError = undefined;
+    }
+    if (appliedInitialTargetScrollKey === key || (target.action && props.initialTabRequestId !== undefined && props.initialTabRequestId === lastAppliedInitialTargetRequestId)) return;
+    activeTab.value = resolveStructureMetadataTab("indexes");
+    if (loading.value || indexesLoading.value || !loadedMetadataFacets.has("columns") || !loadedMetadataFacets.has("indexes") || errorMessage.value || secondaryMetadataErrors.value.indexes) return;
+    if (target.action === "create") {
+      if (!structureCapabilities.value.createIndex) return;
+      if (isOracleConstraintEditor.value && !oracleIndexReady.value) return;
+      appliedInitialTargetScrollKey = key;
+      lastAppliedInitialTargetRequestId = props.initialTabRequestId;
+      addIndex();
+      syncDraftToParent();
+      return;
+    }
+    const matches = typeof target.owner === "string" ? indexes.value.filter((index) => index.original?.owner === target.owner && index.original?.name === target.name) : [];
+    if (matches.length !== 1) {
+      initialIndexTargetError = { key, message: t("schemaIndex.targetMissing", { name: target.name }) };
+      errorMessage.value = initialIndexTargetError.message;
+      return;
+    }
+    initialIndexTargetError = undefined;
+    const index = matches[0]!;
+    appliedInitialTargetScrollKey = key;
+    lastAppliedInitialTargetRequestId = props.initialTabRequestId;
+    indexSearchText.value = "";
+    highlightedIndexId.value = index.id;
+    if (target.action === "delete" && canDropIndex(index)) index.markedForDrop = true;
+    syncDraftToParent();
+    void nextTick(() => {
+      if (!props.initialTarget || initialTargetKey(props.initialTarget) !== key) return;
+      const row = Array.from(rootRef.value?.querySelectorAll<HTMLElement>("[data-index-row-id]") ?? []).find((candidate) => candidate.dataset.indexRowId === index.id);
+      row?.scrollIntoView({ block: "nearest" });
+    });
+    return;
+  }
   const targetName = target?.name.trim();
   if (!target || !targetName) return;
 
@@ -7294,7 +7485,7 @@ watch([() => props.initialTab, () => props.initialTabRequestId, () => props.init
   applyInitialStructureTarget();
 });
 
-watch([columns, indexes], () => {
+watch([columns, indexes, indexesLoading, loading, oracleIndexReady], () => {
   applyInitialStructureTarget();
 });
 
@@ -7424,7 +7615,7 @@ watch(refreshVersion, (version, previous) => {
     partitioning.value = null;
     loadedMetadataFacets.delete("partitions");
   }
-  void loadStructure(true, visibleTableStructureRefreshScope(activeTab.value));
+  void loadStructure(true, visibleTableStructureRefreshScope(activeTab.value), true, { preserveDraft: props.exactIdentity === true });
 });
 
 async function loadActiveTableStructureMetadataIfNeeded() {
@@ -9209,6 +9400,13 @@ watch(
       </div>
     </div>
 
+    <div v-if="oracleIndexRefreshError" data-oracle-index-refresh-warning role="status" class="flex shrink-0 items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-[var(--structure-cell-px)] py-[var(--structure-header-py)] text-[length:var(--structure-font-size)]">
+      <div class="min-w-0 flex-1">
+        <p>{{ t("oracleStructureResult.appliedRefreshPending") }}</p>
+        <p class="break-words text-muted-foreground">{{ oracleIndexRefreshError }}</p>
+      </div>
+      <Button data-retry-oracle-index-refresh variant="outline" size="sm" :disabled="saving || postSaveRefreshing" @click="retryOracleIndexRefresh">{{ t("common.retry") }}</Button>
+    </div>
     <div v-if="errorMessage" class="shrink-0 rounded-md border border-destructive/30 bg-destructive/10 px-[var(--structure-cell-px)] py-[var(--structure-header-py)] text-[length:var(--structure-font-size)] text-destructive">
       {{ errorMessage }}
     </div>

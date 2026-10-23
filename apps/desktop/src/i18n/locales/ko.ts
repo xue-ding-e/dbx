@@ -195,7 +195,16 @@ export default withEnglishFallback({
   },
   sidebarMenu,
   oracleIndex: { mixedDraft: "Oracle 계열 인덱스 변경은 다른 테이블 구조 변경과 분리해 적용하세요." },
+  schemaIndex: {
+    crossOwnerReadOnly: "이 편집기에서 인덱스 ‘{owner}.{name}’은 읽기 전용입니다.",
+    editIndividually: "인덱스를 개별적으로 관리하세요",
+    parentUnavailable: "상위 테이블 정보가 없습니다. 이름을 복사하거나 목록을 새로 고치세요.",
+    focusUnavailable: "선택한 인덱스를 정확히 식별할 수 없습니다. 상위 테이블에서 읽을 수 있는 인덱스를 표시합니다.",
+    targetMissing: "인덱스 ‘{name}’을 정확히 찾을 수 없습니다. 새로 고친 후 다시 시도하세요.",
+  },
   oracleStructureResult: {
+    appliedRefreshPending: "적용됨; 새로 고침 미완료",
+    refreshPending: "메타데이터 새로 고침이 완료되지 않았습니다. 새로 고침을 다시 시도해도 DDL은 재실행되지 않습니다.",
     resultTitle: "작업 결과",
     executionFailed: "작업이 완전히 완료되지 않았습니다. 각 문과 데이터베이스 상태를 확인하세요.",
     readbackFailed: "다시 읽기에 실패했거나 예상한 결과와 일치하지 않습니다",

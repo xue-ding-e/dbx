@@ -871,6 +871,9 @@ fn canonical_decimal(value: &str) -> Option<CanonicalDecimal> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexInfo {
+    /// Dictionary-derived index owner, independent of the parent table owner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
     pub name: String,
     pub columns: Vec<String>,
     pub is_unique: bool,

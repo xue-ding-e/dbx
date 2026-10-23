@@ -1,3 +1,4 @@
+pub mod exact_metadata;
 pub mod table_structure_sql;
 
 pub use dbx_drivers::metadata::sqlite_ddl;
@@ -3256,6 +3257,7 @@ mod tests {
     #[test]
     fn reference_keys_require_effective_unfiltered_plain_unique_columns() {
         let index = |name: &str, columns: &[&str], is_unique: bool, is_primary: bool| db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -6814,13 +6816,6 @@ pub async fn list_objects_core(
             return Ok(vec![]);
         }
     }
-    let filter_locally_after_oracle_comments = db_config.as_ref().is_some_and(|config| {
-        config.db_type == DatabaseType::Oracle && filter.is_some_and(|filter| !filter.trim().is_empty())
-    });
-    let force_local_table_name_filter = table_name_filter.is_some_and(|filter| !filter.is_empty());
-    let use_oracle_agent_paging = db_config.as_ref().is_some_and(is_default_oracle_agent_config)
-        && !filter_locally_after_oracle_comments
-        && !force_local_table_name_filter;
     let metadata_session = EphemeralAgentMetadataSession::open(state, connection_id, Some(database), "objects").await;
     let result = retry_metadata_connection_for_session(
         state,
@@ -6842,13 +6837,7 @@ pub async fn list_objects_core(
             )
             .await
             .map(|outcome| {
-                let final_offset = if outcome.paging_applied
-                    || agent_paging_likely_applied(use_oracle_agent_paging, limit, outcome.objects.len())
-                {
-                    Some(0)
-                } else {
-                    offset
-                };
+                let final_offset = if outcome.paging_applied { Some(0) } else { offset };
                 filter_object_infos(outcome.objects, filter, limit, final_offset, object_types, table_name_filter)
             })?;
             Ok(objects)
@@ -7516,14 +7505,28 @@ async fn list_objects_once(
             let is_oceanbase = db_config.as_ref().is_some_and(|config| config.db_type == DatabaseType::OceanbaseOracle);
             let use_oracle_agent_paging = db_config.as_ref().is_some_and(is_default_oracle_agent_config);
             let use_agent_paging = use_oracle_agent_paging || is_oceanbase;
-            let filter_locally_after_oracle_comments =
-                is_oracle && filter.is_some_and(|filter| !filter.trim().is_empty());
+            let filter_locally_after_oracle_comments = is_oracle
+                && !object_types.is_some_and(|types| types.len() == 1 && types[0].eq_ignore_ascii_case("INDEX"))
+                && filter.is_some_and(|filter| !filter.trim().is_empty());
             let timeout_duration = agent_metadata_timeout(db_config.as_ref());
             let fallback_config = db_config.clone();
             if is_oracle && !use_oracle_agent_paging {
-                return oracle_agent_list_objects(agent_client, database, schema, timeout_duration)
-                    .await
-                    .map(unpaged_object_list);
+                return oracle_agent_list_objects(
+                    agent_client,
+                    database,
+                    schema,
+                    filter,
+                    if force_local_table_name_filter { None } else { limit },
+                    if force_local_table_name_filter { None } else { offset },
+                    object_types,
+                    false,
+                    timeout_duration,
+                )
+                .await
+                .map(|mut outcome| {
+                    outcome.paging_applied &= !force_local_table_name_filter;
+                    outcome
+                });
             }
             // KingbaseES/Vastbase agents list relations, routines and types but
             // never sequences, so their pg_class-backed sequence list is merged
@@ -7577,7 +7580,12 @@ async fn list_objects_once(
                         )
                         .await?;
                     }
-                    return Ok(unpaged_object_list(with_agent_pg_sequence_objects(objects, &sequence_objects)));
+                    return Ok(ObjectListOutcome {
+                        objects: with_agent_pg_sequence_objects(objects, &sequence_objects),
+                        paging_applied: use_agent_paging
+                            && !filter_locally_after_oracle_comments
+                            && !force_local_table_name_filter,
+                    });
                 }
                 Ok(objects) => {
                     if object_types_only_custom_types(object_types) {
@@ -7758,7 +7766,22 @@ async fn list_completion_objects_once(
         let is_oracle = db_config.as_ref().is_some_and(|config| config.db_type == DatabaseType::Oracle);
         let fallback_config = db_config.clone();
         let objects = if is_oracle {
-            oracle_agent_list_objects(client, database, schema, agent_metadata_timeout(db_config.as_ref())).await?
+            oracle_agent_list_objects(
+                client,
+                database,
+                schema,
+                None,
+                None,
+                None,
+                None,
+                false,
+                agent_metadata_timeout(db_config.as_ref()),
+            )
+            .await?
+            .objects
+            .into_iter()
+            .filter(|object| object.object_type != "INDEX")
+            .collect()
         } else {
             let mut client = client.lock().await;
             match client
@@ -10475,6 +10498,7 @@ async fn external_driver_gaussdb_m_indexes(
                 let is_primary =
                     current_name.to_lowercase().ends_with("_pkey") || current_name.eq_ignore_ascii_case("primary");
                 indexes.push(db::IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -10550,6 +10574,7 @@ async fn external_driver_gaussdb_m_indexes(
     if !current_name.is_empty() {
         let is_primary = current_name.to_lowercase().ends_with("_pkey") || current_name.eq_ignore_ascii_case("primary");
         indexes.push(db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -11699,12 +11724,17 @@ fn oracle_owner_filter(schema: &str) -> String {
 }
 
 pub fn oracle_list_objects_sql(schema: &str) -> String {
+    oracle_list_objects_sql_for_owner(&oracle_owner_filter(schema))
+}
+
+fn oracle_list_objects_sql_for_owner(owner: &str) -> String {
     format!(
-        "SELECT object_name, CASE object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY' ELSE object_type END AS object_type, owner \
-         FROM all_objects \
-         WHERE owner = {} AND object_type IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY') \
-         ORDER BY CASE object_type WHEN 'TABLE' THEN 0 WHEN 'VIEW' THEN 1 WHEN 'PROCEDURE' THEN 2 WHEN 'FUNCTION' THEN 3 WHEN 'SEQUENCE' THEN 4 WHEN 'PACKAGE' THEN 5 ELSE 6 END, object_name",
-        oracle_owner_filter(schema)
+        "SELECT o.object_name, CASE o.object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY' ELSE o.object_type END AS object_type, o.owner, \
+         i.table_owner AS parent_schema, i.table_name AS parent_name \
+         FROM all_objects o LEFT JOIN all_indexes i ON o.object_type = 'INDEX' AND i.owner = o.owner AND i.index_name = o.object_name \
+         WHERE o.owner = {owner} AND o.object_type IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX') \
+         AND (o.object_type <> 'INDEX' OR i.generated = 'N' OR i.generated IS NULL) \
+         ORDER BY CASE o.object_type WHEN 'TABLE' THEN 0 WHEN 'VIEW' THEN 1 WHEN 'PROCEDURE' THEN 2 WHEN 'FUNCTION' THEN 3 WHEN 'SEQUENCE' THEN 4 WHEN 'PACKAGE' THEN 5 WHEN 'PACKAGE BODY' THEN 6 ELSE 7 END, o.object_name"
     )
 }
 
@@ -11758,25 +11788,52 @@ fn oracle_completion_like_pattern(mask: &str, match_mode: Option<&db::Completion
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn oracle_agent_list_objects(
     client: Arc<db::agent_driver::PooledAgentClient>,
     database: &str,
     schema: &str,
+    filter: Option<&str>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+    object_types: Option<&[String]>,
+    exact_identity: bool,
     timeout_duration: Option<Duration>,
-) -> Result<Vec<db::ObjectInfo>, String> {
-    let sql = oracle_list_objects_sql(schema);
-    let params = agent_execute_query_params(
-        &sql,
-        if database.is_empty() { None } else { Some(database) },
-        if schema.is_empty() { None } else { Some(schema) },
-        QueryExecutionOptions { max_rows: Some(10_000), ..Default::default() },
-    );
+) -> Result<ObjectListOutcome, String> {
+    let index_only = object_types.is_some_and(|types| types.len() == 1 && types[0].eq_ignore_ascii_case("INDEX"));
+    let mut sql = if exact_identity {
+        oracle_list_objects_sql_for_owner(&sql_string(schema))
+    } else {
+        oracle_list_objects_sql(schema)
+    };
+    if index_only {
+        sql = format!("SELECT object_name, object_type, owner, parent_schema, parent_name FROM ({sql}) WHERE object_type = 'INDEX'");
+        if let Some(filter) = filter.map(str::trim).filter(|value| !value.is_empty()) {
+            let pattern = crate::sql::fuzzy_like_pattern_with_escape(&filter.to_lowercase(), |value| {
+                value.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+            });
+            sql.push_str(&format!(" AND LOWER(object_name) LIKE {} ESCAPE '\\'", sql_string(&pattern)));
+        }
+        sql.push_str(" ORDER BY object_name, owner");
+    }
+    const PAGE_SIZE: usize = 1_000;
+    let mut start = if index_only { offset.unwrap_or(0) } else { 0 };
+    let requested = if index_only { limit.unwrap_or(usize::MAX) } else { usize::MAX };
+    let mut objects = Vec::new();
     let mut client = client.lock().await;
-    let result: db::QueryResult = client.execute_query_with_timeout(params, timeout_duration).await?;
-    let mut objects: Vec<db::ObjectInfo> = result
-        .rows
-        .into_iter()
-        .filter_map(|row| {
+    while objects.len() < requested {
+        let page_size = PAGE_SIZE.min(requested - objects.len());
+        let end = start.checked_add(page_size).ok_or("Oracle metadata page overflow")?;
+        let page_sql = format!("SELECT object_name, object_type, owner, parent_schema, parent_name FROM (SELECT dbx_objects.*, ROWNUM dbx_row_number FROM ({sql}) dbx_objects WHERE ROWNUM <= {end}) WHERE dbx_row_number > {start}");
+        let params = agent_execute_query_params(
+            &page_sql,
+            (!database.is_empty()).then_some(database),
+            None,
+            QueryExecutionOptions { max_rows: Some(page_size), ..Default::default() },
+        );
+        let result: db::QueryResult = client.execute_query_with_timeout(params, timeout_duration).await?;
+        let row_count = result.rows.len();
+        objects.extend(result.rows.into_iter().filter_map(|row| {
             let name = row.first()?.as_str()?.to_string();
             let object_type = row.get(1)?.as_str()?.to_string();
             let schema = row.get(2).and_then(|value| value.as_str()).map(str::to_string);
@@ -11791,15 +11848,19 @@ async fn oracle_agent_list_objects(
                 comment: None,
                 created_at: None,
                 updated_at: None,
-                parent_schema: None,
-                parent_name: None,
+                parent_schema: row.get(3).and_then(|value| value.as_str()).map(str::to_owned),
+                parent_name: row.get(4).and_then(|value| value.as_str()).map(str::to_owned),
                 trigger: None,
                 xugu_type_members_expandable: None,
             })
-        })
-        .collect();
+        }));
+        if row_count < page_size {
+            break;
+        }
+        start = end;
+    }
     load_oracle_table_comments_for_objects(&mut client, database, schema, &mut objects, timeout_duration).await?;
-    Ok(objects)
+    Ok(ObjectListOutcome { objects, paging_applied: index_only })
 }
 
 async fn oracle_agent_object_source(
@@ -12875,8 +12936,10 @@ mod object_source_tests {
         assert!(sql.contains("'PACKAGE'"));
         assert!(sql.contains("'PACKAGE BODY'"));
         assert!(sql.contains("'SEQUENCE'"));
-        assert!(sql.contains("CASE object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY'"));
+        assert!(sql.contains("CASE o.object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY'"));
         assert!(sql.contains("owner = 'HR'"));
+        assert!(sql.contains("'INDEX'"));
+        assert!(sql.contains("i.table_owner AS parent_schema, i.table_name AS parent_name"));
     }
 
     #[test]
@@ -13283,6 +13346,7 @@ mod ddl_tests {
         id.is_primary_key = true;
         let indexes = vec![
             db::IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13300,6 +13364,7 @@ mod ddl_tests {
                 constraint_backed: true,
             },
             db::IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13317,6 +13382,7 @@ mod ddl_tests {
                 constraint_backed: true,
             },
             db::IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13544,6 +13610,7 @@ mod ddl_tests {
         // expression key just like a real column.
         let id = column("id", "integer");
         let indexes = vec![db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -13573,6 +13640,7 @@ mod ddl_tests {
     fn postgres_table_ddl_preserves_btree_key_order_and_nulls_position() {
         let id = column("id", "bigint");
         let indexes = vec![db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -13600,6 +13668,7 @@ mod ddl_tests {
 
     fn postgres_primary_index(keys: &[&str]) -> db::IndexInfo {
         db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -13844,6 +13913,7 @@ mod ddl_tests {
         let mut id = column("id", "integer");
         id.is_primary_key = true;
         let indexes = vec![db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -13898,6 +13968,7 @@ mod ddl_tests {
     #[test]
     fn postgres_partition_ddl_preserves_local_unique_without_local_primary_key() {
         let indexes = vec![db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -13966,6 +14037,7 @@ mod ddl_tests {
         let mut id = column("id", "integer");
         id.is_primary_key = true;
         let indexes = vec![db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,

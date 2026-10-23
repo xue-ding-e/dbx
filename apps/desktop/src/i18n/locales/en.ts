@@ -196,7 +196,16 @@ export default {
   },
   sidebarMenu,
   oracleIndex: { mixedDraft: "Apply Oracle-family index changes separately from other table structure changes." },
+  schemaIndex: {
+    crossOwnerReadOnly: "Index “{owner}.{name}” is read-only in this editor.",
+    editIndividually: "Manage indexes individually",
+    parentUnavailable: "Parent table information is unavailable. Copy the name or refresh the list.",
+    focusUnavailable: "The selected index cannot be located exactly. The readable indexes of its parent table are shown below.",
+    targetMissing: "Cannot locate index “{name}” exactly. Refresh and try again.",
+  },
   oracleStructureResult: {
+    appliedRefreshPending: "Applied; refresh incomplete",
+    refreshPending: "Metadata refresh is incomplete. Retrying refresh will not execute DDL again.",
     resultTitle: "Operation result",
     executionFailed: "The operation did not complete cleanly. Check each statement and the database state.",
     readbackFailed: "Readback failed or did not match the intended result",

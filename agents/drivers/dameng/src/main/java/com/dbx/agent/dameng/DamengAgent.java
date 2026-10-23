@@ -575,6 +575,9 @@ public final class DamengAgent extends AbstractJdbcAgent {
     }
 
     @Override
+    public boolean supportsExactMetadataIdentity() { return !legacyJdbcMetadata; }
+
+    @Override
     public List<TableInfo> listTables(String schema, List<String> objectTypes) {
         return queryConstrainedTables(schema, new MetadataListConstraints(null, null, null, objectTypes));
     }
@@ -586,6 +589,10 @@ public final class DamengAgent extends AbstractJdbcAgent {
 
     private List<TableInfo> queryConstrainedTables(String rawSchema, MetadataListConstraints constraints) {
         final String schema = normalizeSchema(rawSchema);
+        if (constraints.isExactIdentity()) {
+            if (legacyJdbcMetadata) throw new UnsupportedOperationException("Legacy DM metadata does not support exact_metadata_identity_v1");
+            return withViewValidity(executeConstrainedTables(buildAccessibleConstrainedTablesQuery(schema, constraints), constraints), schema);
+        }
         if (legacyJdbcMetadata) {
             return withViewValidity(executeJdbcMetadataTables(schema, constraints), schema);
         }
@@ -1176,12 +1183,53 @@ public final class DamengAgent extends AbstractJdbcAgent {
 
     private List<ObjectInfo> queryConstrainedObjects(String rawSchema, MetadataListConstraints constraints) {
         final String schema = normalizeSchema(rawSchema);
-        List<ObjectInfo> objects = queryConstrainedObjectsWithoutValidity(schema, constraints);
+        List<ObjectInfo> objects;
+        if (constraints.objectTypeAllowed("INDEX") && (constraints.hasObjectTypes() || constraints.isExactIdentity())) {
+            // Merge before paging: separate dictionary sources must not each consume the offset.
+            objects = new ArrayList<>();
+            List<String> otherTypes = damengObjectTypes(constraints);
+            if (!otherTypes.isEmpty()) {
+                objects.addAll(queryConstrainedObjectsWithoutValidity(schema,
+                    new MetadataListConstraints(constraints.getFilter(), null, null, otherTypes, constraints.isExactIdentity())));
+            }
+            objects.addAll(querySchemaIndexes(schema, constraints.withoutPaging()));
+            objects.sort(java.util.Comparator.comparing(ObjectInfo::getName).thenComparing(ObjectInfo::getObject_type));
+            objects = constraints.filterObjects(objects);
+        } else {
+            objects = queryConstrainedObjectsWithoutValidity(schema, constraints);
+        }
         applyViewValidity(objects, schema);
         return objects;
     }
 
+    private List<ObjectInfo> querySchemaIndexes(String schema, MetadataListConstraints constraints) {
+        return unchecked(() -> {
+            List<Object> args = new ArrayList<>();
+            args.add(schema);
+            StringBuilder sql = new StringBuilder("SELECT OWNER, INDEX_NAME, TABLE_OWNER, TABLE_NAME FROM ALL_INDEXES i WHERE i.OWNER = ?");
+            appendNameFilter(sql, args, "i.INDEX_NAME", constraints);
+            sql.append(" ORDER BY i.INDEX_NAME");
+            List<ObjectInfo> objects = new ArrayList<>();
+            try (PreparedStatement statement = requireConnected().prepareStatement(sql.toString())) {
+                bind(statement, args);
+                try (ResultSet rows = statement.executeQuery()) {
+                    while (rows.next()) {
+                        ObjectInfo index = new ObjectInfo(rows.getString(2), "INDEX", rows.getString(1), null);
+                        index.setParent_schema(rows.getString(3));
+                        index.setParent_name(rows.getString(4));
+                        objects.add(index);
+                    }
+                }
+            }
+            return constraints.filterObjects(objects);
+        });
+    }
+
     private List<ObjectInfo> queryConstrainedObjectsWithoutValidity(String schema, MetadataListConstraints constraints) {
+        if (constraints.isExactIdentity()) {
+            if (legacyJdbcMetadata) throw new UnsupportedOperationException("Legacy DM metadata does not support exact_metadata_identity_v1");
+            return executeConstrainedObjects(schema, buildAccessibleConstrainedObjectsQuery(schema, constraints), constraints);
+        }
         if (legacyJdbcMetadata) {
             return executeJdbcMetadataObjects(schema, constraints);
         }
@@ -1875,8 +1923,14 @@ public final class DamengAgent extends AbstractJdbcAgent {
 
     @Override
     public String getTableDdl(String rawSchema, String table) {
+        return getTableDdl(rawSchema, table, false);
+    }
+
+    @Override
+    public String getTableDdl(String rawSchema, String table, boolean exactIdentity) {
         final String schema = normalizeSchema(rawSchema);
         if (legacyJdbcMetadata) {
+            if (exactIdentity) throw new UnsupportedOperationException("Legacy DM metadata does not support exact_metadata_identity_v1");
             return super.getTableDdl(schema, table);
         }
         try {
@@ -1900,6 +1954,7 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 throw new IllegalArgumentException("Table not found: " + schema + "." + table);
             });
         } catch (RuntimeException error) {
+            if (exactIdentity) throw error;
             if (!isDamengMetadataUnavailableError(error)) {
                 throw error;
             }
@@ -2331,12 +2386,14 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 MAX(CASE WHEN constraint_metadata.TYPE$ = 'P' THEN 1 ELSE 0 END) AS IS_PK,
                 index_metadata.TYPE$,
                 MAX(CASE WHEN constraint_metadata.TYPE$ IN ('P', 'U') THEN 1 ELSE 0 END) AS CONSTRAINT_BACKED,
-                index_metadata.FLAG
+                index_metadata.FLAG, index_schema_object.NAME AS INDEX_OWNER
             FROM SYS.SYSOBJECTS schema_object
             JOIN SYS.SYSOBJECTS table_object ON table_object.SCHID = schema_object.ID
                 AND table_object.TYPE$ = 'SCHOBJ' AND table_object.SUBTYPE$ = 'UTAB'
             JOIN SYS.SYSOBJECTS index_object ON index_object.PID = table_object.ID
                 AND index_object.SUBTYPE$ = 'INDEX'
+            JOIN SYS.SYSOBJECTS index_schema_object ON index_schema_object.ID = index_object.SCHID
+                AND index_schema_object.TYPE$ = 'SCH'
             JOIN SYS.SYSINDEXES index_metadata ON index_metadata.ID = index_object.ID
             JOIN SYS.SYSCOLUMNS column_object ON column_object.ID = table_object.ID
                 AND SF_COL_IS_IDX_KEY(
@@ -2348,8 +2405,8 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 AND constraint_metadata.INDEXID = index_metadata.ID
                 AND constraint_metadata.TYPE$ IN ('P', 'U')
             WHERE schema_object.TYPE$ = 'SCH' AND schema_object.NAME = ? AND table_object.NAME = ?
-            GROUP BY index_object.NAME, index_metadata.ISUNIQUE, index_metadata.TYPE$, index_metadata.FLAG
-            ORDER BY index_object.NAME
+            GROUP BY index_schema_object.NAME, index_object.NAME, index_metadata.ISUNIQUE, index_metadata.TYPE$, index_metadata.FLAG
+            ORDER BY index_schema_object.NAME, index_object.NAME
             """.stripIndent().trim();
         try (PreparedStatement stmt = requireConnected().prepareStatement(sql)) {
             stmt.setString(1, schema);
@@ -2369,6 +2426,7 @@ public final class DamengAgent extends AbstractJdbcAgent {
                         null
                     );
                     index.setConstraint_backed(constraintBacked);
+                    index.setOwner(rs.getString(8));
                     result.add(index);
                 }
             }
@@ -2386,14 +2444,14 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 i.UNIQUENESS,
                 CASE WHEN c.CONSTRAINT_TYPE = 'P' THEN 1 ELSE 0 END AS IS_PK,
                 i.INDEX_TYPE,
-                CASE WHEN c.CONSTRAINT_TYPE IN ('P', 'U') THEN 1 ELSE 0 END AS CONSTRAINT_BACKED
+                CASE WHEN c.CONSTRAINT_TYPE IN ('P', 'U') THEN 1 ELSE 0 END AS CONSTRAINT_BACKED, i.OWNER AS INDEX_OWNER
             FROM ALL_INDEXES i
             JOIN ALL_IND_COLUMNS ic ON i.INDEX_NAME = ic.INDEX_NAME AND i.OWNER = ic.INDEX_OWNER AND i.TABLE_OWNER = ic.TABLE_OWNER
             LEFT JOIN ALL_CONSTRAINTS c ON i.INDEX_NAME = c.INDEX_NAME AND i.TABLE_OWNER = c.OWNER
                 AND c.CONSTRAINT_TYPE IN ('P', 'U')
             WHERE i.TABLE_OWNER = ? AND i.TABLE_NAME = ?
-            GROUP BY i.INDEX_NAME, i.UNIQUENESS, c.CONSTRAINT_TYPE, i.INDEX_TYPE
-            ORDER BY i.INDEX_NAME
+            GROUP BY i.OWNER, i.INDEX_NAME, i.UNIQUENESS, c.CONSTRAINT_TYPE, i.INDEX_TYPE
+            ORDER BY i.OWNER, i.INDEX_NAME
             """.stripIndent().trim();
         try (PreparedStatement stmt = requireConnected().prepareStatement(sql)) {
             stmt.setString(1, schema);
@@ -2411,6 +2469,7 @@ public final class DamengAgent extends AbstractJdbcAgent {
                         null
                     );
                     index.setConstraint_backed("1".equals(rs.getString(6)));
+                    index.setOwner(rs.getString(7));
                     result.add(index);
                 }
             }
@@ -3441,6 +3500,6 @@ public final class DamengAgent extends AbstractJdbcAgent {
     }
 
     public static void main(String[] args) {
-        new MultiSessionJsonRpcServer(DamengAgent::new).run();
+        new MultiSessionJsonRpcServer(DamengAgent::new).withExactMetadataIdentity().run();
     }
 }

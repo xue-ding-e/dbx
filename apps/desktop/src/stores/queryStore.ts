@@ -1642,13 +1642,14 @@ export const useQueryStore = defineStore("query", () => {
   let resultCacheTrimRequested = false;
   let detachedHandoffRevision = 0;
 
-  function tableStructureKey(connectionId: string, database: string, schema: string | undefined, tableName: string): string {
+  function tableStructureKey(connectionId: string, database: string, schema: string | undefined, tableName: string, exactIdentity = false, catalog?: string): string {
+    if (exactIdentity) return JSON.stringify(["exact-v1", connectionId, database, schema ?? "", tableName, catalog ?? ""]);
     return [connectionId, database, schema || "", tableName].map((part) => part.toLowerCase()).join("\u0000");
   }
 
-  function invalidateTableStructure(connectionId: string, database: string, schema: string | undefined, tableName: string) {
+  function invalidateTableStructure(connectionId: string, database: string, schema: string | undefined, tableName: string, exactIdentity = false, catalog?: string) {
     if (!tableName) return;
-    const key = tableStructureKey(connectionId, database, schema, tableName);
+    const key = tableStructureKey(connectionId, database, schema, tableName, exactIdentity, catalog);
     tableStructureRefreshVersions.value = {
       ...tableStructureRefreshVersions.value,
       [key]: (tableStructureRefreshVersions.value[key] ?? 0) + 1,
@@ -1659,8 +1660,8 @@ export const useQueryStore = defineStore("query", () => {
     }
   }
 
-  function tableStructureRefreshVersion(connectionId: string, database: string, schema: string | undefined, tableName: string): number {
-    return tableStructureRefreshVersions.value[tableStructureKey(connectionId, database, schema, tableName)] ?? 0;
+  function tableStructureRefreshVersion(connectionId: string, database: string, schema: string | undefined, tableName: string, exactIdentity = false, catalog?: string): number {
+    return tableStructureRefreshVersions.value[tableStructureKey(connectionId, database, schema, tableName, exactIdentity, catalog)] ?? 0;
   }
   const MAX_CACHED_RESULTS = 5;
   const MAX_CACHED_RESULT_BYTES = 128 * 1024 * 1024;
@@ -2857,6 +2858,7 @@ export const useQueryStore = defineStore("query", () => {
       resultAutoSave: t.resultAutoSave,
       uiState: t.uiState,
       structureTableName: t.structureTableName,
+      structureExactIdentity: t.structureExactIdentity,
       structureTableType: t.structureTableType,
       structureDraft: t.structureDraft,
       objectBrowser: t.objectBrowser,
@@ -3558,7 +3560,17 @@ export const useQueryStore = defineStore("query", () => {
     return id;
   }
 
-  function openObjectBrowser(connectionId: string, database: string, schema?: string, catalog?: string, eventName?: string, eventReadOnly = false, initialObjectFilter?: "tables" | "events", eventCreateRequestId?: number) {
+  function openObjectBrowser(
+    connectionId: string,
+    database: string,
+    schema?: string,
+    catalog?: string,
+    eventName?: string,
+    eventReadOnly = false,
+    initialObjectFilter?: "tables" | "events" | "indexes",
+    eventCreateRequestId?: number,
+    indexRequest?: { create?: boolean; view?: import("@/types/database").SchemaIndexIdentity },
+  ) {
     const title = catalog ? `${catalog}.${database} objects` : schema ? `${schema} objects` : `${database} objects`;
     const existing = tabs.value.find((tab) => tab.mode === "objects" && tab.connectionId === connectionId && tab.database === database && (tab.objectBrowser?.catalog || "") === (catalog || "") && (tab.objectBrowser?.schema || "") === (schema || ""));
     if (existing) {
@@ -3581,6 +3593,17 @@ export const useQueryStore = defineStore("query", () => {
           eventCreateRequestId: undefined,
           initialObjectFilter: initialObjectFilter ?? (eventName ? "events" : existing.objectBrowser?.initialObjectFilter),
           eventOpenRequestId: (existing.objectBrowser?.eventOpenRequestId ?? 0) + 1,
+        };
+      }
+      if (initialObjectFilter === "indexes" || indexRequest) {
+        const requestId = Math.max(existing.objectBrowser?.indexRequestSequence ?? 0, existing.objectBrowser?.indexCreateRequestId ?? 0, existing.objectBrowser?.initialViewRequestId ?? 0) + 1;
+        existing.objectBrowser = {
+          ...existing.objectBrowser,
+          initialObjectFilter: "indexes",
+          filter: "indexes",
+          ...(indexRequest?.create || indexRequest?.view ? { indexRequestSequence: requestId } : {}),
+          ...(indexRequest?.create ? { indexCreateRequestId: requestId, initialViewTarget: undefined, initialViewRequestId: undefined } : {}),
+          ...(indexRequest?.view ? { initialViewTarget: indexRequest.view, initialViewRequestId: requestId, indexCreateRequestId: undefined } : {}),
         };
       }
       switchTab(existing.id);
@@ -3608,6 +3631,9 @@ export const useQueryStore = defineStore("query", () => {
         initialObjectFilter: initialObjectFilter ?? (eventName || eventCreateRequestId !== undefined ? "events" : undefined),
         eventOpenRequestId: eventName ? 1 : undefined,
         eventCreateRequestId,
+        ...(indexRequest?.create || indexRequest?.view ? { indexRequestSequence: 1 } : {}),
+        ...(indexRequest?.create ? { indexCreateRequestId: 1 } : {}),
+        ...(indexRequest?.view ? { initialViewTarget: indexRequest.view, initialViewRequestId: 1 } : {}),
       },
     };
     return registerOpenTab(tab);
@@ -4377,16 +4403,20 @@ export const useQueryStore = defineStore("query", () => {
   }
 
   function applyTableStructureInitialTab(tab: QueryTab, initialTab?: TableInfoTab, initialTarget?: TableStructureEditorTarget) {
-    if (!initialTab && !initialTarget?.name) return;
+    const hasTarget = !!initialTarget?.name || initialTarget?.action === "create";
+    if (!initialTab && !hasTarget) return;
     if (initialTab) tab.structureInitialTab = initialTab;
-    tab.structureInitialTarget = initialTarget?.name ? initialTarget : undefined;
+    tab.structureInitialTarget = hasTarget ? initialTarget : undefined;
     tab.structureInitialTabRequestId = (tab.structureInitialTabRequestId ?? 0) + 1;
   }
 
-  function openTableStructure(connectionId: string, database: string, schema?: string, tableName?: string, initialTab?: TableInfoTab, initialTarget?: TableStructureEditorTarget, catalog?: string, tableType?: "table" | "view") {
+  function openTableStructure(connectionId: string, database: string, schema?: string, tableName?: string, initialTab?: TableInfoTab, initialTarget?: TableStructureEditorTarget, catalog?: string, tableType?: "table" | "view", exactIdentity = false) {
     const resolvedTableName = tableName || "";
     if (resolvedTableName) {
-      const existing = tabs.value.find((tab) => tab.mode === "structure" && tab.connectionId === connectionId && tab.database === database && (tab.catalog || "") === (catalog || "") && (tab.schema || "") === (schema || "") && (tab.structureTableName || "") === resolvedTableName);
+      const existing = tabs.value.find(
+        (tab) =>
+          tab.mode === "structure" && tab.connectionId === connectionId && tab.database === database && (tab.catalog || "") === (catalog || "") && (tab.schema || "") === (schema || "") && (tab.structureTableName || "") === resolvedTableName && (tab.structureExactIdentity === true) === exactIdentity,
+      );
       if (existing) {
         applyTableStructureInitialTab(existing, initialTab, initialTarget);
         switchTab(existing.id);
@@ -4409,10 +4439,11 @@ export const useQueryStore = defineStore("query", () => {
       isExplaining: false,
       mode: "structure",
       structureTableName: resolvedTableName,
+      ...(exactIdentity ? { structureExactIdentity: true } : {}),
       structureTableType: tableType,
       structureInitialTab: initialTab,
-      structureInitialTabRequestId: initialTab || initialTarget?.name ? 1 : undefined,
-      structureInitialTarget: initialTarget?.name ? initialTarget : undefined,
+      structureInitialTabRequestId: initialTab || initialTarget?.name || initialTarget?.action === "create" ? 1 : undefined,
+      structureInitialTarget: initialTarget?.name || initialTarget?.action === "create" ? initialTarget : undefined,
     };
     return registerOpenTab(tab);
   }
@@ -5211,6 +5242,7 @@ export const useQueryStore = defineStore("query", () => {
       nacosNamespace: original.nacosNamespace,
       nacosNamespaceName: original.nacosNamespaceName,
       structureTableName: original.structureTableName,
+      structureExactIdentity: original.structureExactIdentity,
       structureTableType: original.structureTableType,
       structureDraft: original.structureDraft ? cloneTabDraft(original.structureDraft) : undefined,
       objectBrowser: original.objectBrowser ? { ...original.objectBrowser } : undefined,

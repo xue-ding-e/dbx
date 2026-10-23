@@ -32,6 +32,7 @@ pub struct SchemaQuery {
     pub include_postgres_access: Option<bool>,
     pub portable: Option<bool>,
     pub execution_id: Option<String>,
+    pub exact_identity: Option<bool>,
 }
 
 async fn run_cancellable<T, F>(state: &Arc<WebState>, execution_id: Option<String>, future: F) -> Result<T, AppError>
@@ -244,6 +245,22 @@ pub async fn list_tables(
         .table_name_filter
         .as_deref()
         .and_then(|value| serde_json::from_str::<dbx_core::schema::TableNameFilter>(value).ok());
+    if q.exact_identity.unwrap_or(false) {
+        let result = dbx_core::schema::exact_metadata::tables(
+            &state.app,
+            &q.connection_id,
+            database,
+            schema,
+            q.filter.as_deref(),
+            q.limit,
+            q.offset,
+            object_types.as_deref(),
+            table_name_filter.as_ref(),
+        )
+        .await
+        .map_err(AppError::from)?;
+        return Ok(Json(serde_json::to_value(result).map_err(|error| AppError::from(error.to_string()))?));
+    }
     let result = if let Some(catalog) = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await {
         dbx_core::schema::list_doris_catalog_tables_core(
             &state.app,
@@ -294,6 +311,20 @@ pub async fn list_objects(
         .as_deref()
         .and_then(|value| serde_json::from_str::<dbx_core::schema::TableNameFilter>(value).ok());
     let result = run_cancellable(&state, execution_id, async {
+        if q.exact_identity.unwrap_or(false) {
+            return dbx_core::schema::exact_metadata::objects(
+                &state.app,
+                &connection_id,
+                &database,
+                &schema,
+                filter.as_deref(),
+                q.limit,
+                q.offset,
+                object_types.as_deref(),
+                table_name_filter.as_ref(),
+            )
+            .await;
+        }
         if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
             let tables = dbx_core::schema::list_doris_catalog_tables_core(
                 &state.app,
@@ -506,6 +537,21 @@ pub async fn list_columns(
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
     let table = q.table.as_deref().unwrap_or("");
+    // Exact reads revalidate the current process contract and never reuse a
+    // persisted ordinary/synonym-resolved snapshot as an editing baseline.
+    if q.exact_identity.unwrap_or(false) {
+        let result = dbx_core::schema::exact_metadata::columns(
+            &state.app,
+            &q.connection_id,
+            database,
+            schema,
+            table,
+            q.client_session_id.as_deref(),
+        )
+        .await
+        .map_err(AppError::from)?;
+        return Ok(Json(serde_json::to_value(result).map_err(|error| AppError::from(error.to_string()))?));
+    }
     let catalog = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await;
     let load_columns = || async {
         if let Some(catalog) = catalog.as_deref() {
@@ -573,6 +619,12 @@ pub async fn list_indexes(
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
     let table = q.table.as_deref().unwrap_or("");
+    if q.exact_identity.unwrap_or(false) {
+        let result = dbx_core::schema::exact_metadata::indexes(&state.app, &q.connection_id, database, schema, table)
+            .await
+            .map_err(AppError::from)?;
+        return Ok(Json(serde_json::to_value(result).map_err(|error| AppError::from(error.to_string()))?));
+    }
     let catalog = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await;
     let result = cached_metadata(
         &state.app,
@@ -651,6 +703,13 @@ pub async fn list_foreign_keys(
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
     let table = q.table.as_deref().unwrap_or("");
+    if q.exact_identity.unwrap_or(false) {
+        let result =
+            dbx_core::schema::exact_metadata::foreign_keys(&state.app, &q.connection_id, database, schema, table)
+                .await
+                .map_err(AppError::from)?;
+        return Ok(Json(serde_json::to_value(result).map_err(|error| AppError::from(error.to_string()))?));
+    }
     let catalog = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await;
     let result = cached_metadata(
         &state.app,
@@ -697,6 +756,25 @@ pub async fn list_foreign_keys_for_database(
     Ok(Json(serde_json::to_value(result).map_err(|e| AppError::from(e.to_string()))?))
 }
 
+pub async fn get_table_comment(
+    State(state): State<Arc<WebState>>,
+    Query(q): Query<SchemaQuery>,
+) -> Result<Json<Option<String>>, AppError> {
+    let database = q.database.as_deref().unwrap_or("");
+    let schema = q.schema.as_deref().unwrap_or("");
+    let table = q.table.as_deref().unwrap_or("");
+    let result = if q.exact_identity.unwrap_or(false) {
+        dbx_core::schema::exact_metadata::comment(&state.app, &q.connection_id, database, schema, table).await
+    } else if let Some(catalog) = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await {
+        dbx_core::schema::get_doris_catalog_table_comment_core(&state.app, &q.connection_id, &catalog, database, table)
+            .await
+    } else {
+        dbx_core::schema::get_table_comment_core(&state.app, &q.connection_id, database, schema, table).await
+    }
+    .map_err(AppError::from)?;
+    Ok(Json(result))
+}
+
 pub async fn list_triggers(
     State(state): State<Arc<WebState>>,
     Query(q): Query<SchemaQuery>,
@@ -704,7 +782,11 @@ pub async fn list_triggers(
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
     let table = q.table.as_deref().unwrap_or("");
-    let result = if let Some(catalog) = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await {
+    let result = if q.exact_identity.unwrap_or(false) {
+        dbx_core::schema::exact_metadata::triggers(&state.app, &q.connection_id, database, schema, table)
+            .await
+            .map_err(AppError::from)?
+    } else if let Some(catalog) = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await {
         dbx_core::schema::list_doris_catalog_triggers_core(&state.app, &q.connection_id, &catalog, database, table)
             .await
             .map_err(AppError::from)?
@@ -724,9 +806,12 @@ pub async fn list_constraints(
     let schema = q.schema.as_deref().unwrap_or("");
     let table = q.table.as_deref().unwrap_or("");
     let _ = q.catalog.as_deref();
-    let result = dbx_core::schema::list_constraints_core(&state.app, &q.connection_id, database, schema, table)
-        .await
-        .map_err(AppError::from)?;
+    let result = if q.exact_identity.unwrap_or(false) {
+        dbx_core::schema::exact_metadata::constraints(&state.app, &q.connection_id, database, schema, table).await
+    } else {
+        dbx_core::schema::list_constraints_core(&state.app, &q.connection_id, database, schema, table).await
+    }
+    .map_err(AppError::from)?;
     Ok(Json(serde_json::to_value(result).map_err(|e| AppError::from(e.to_string()))?))
 }
 
@@ -802,7 +887,19 @@ pub async fn get_ddl(
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
     let table = q.table.as_deref().unwrap_or("");
-    let result = if let Some(catalog) = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await {
+    let result = if q.exact_identity.unwrap_or(false) {
+        dbx_core::schema::exact_metadata::ddl(
+            &state.app,
+            &q.connection_id,
+            database,
+            schema,
+            table,
+            q.object_type,
+            q.portable.unwrap_or(false),
+        )
+        .await
+        .map_err(AppError::from)?
+    } else if let Some(catalog) = external_doris_catalog(&state, &q.connection_id, q.catalog.as_deref()).await {
         dbx_core::schema::get_doris_catalog_table_ddl_core(&state.app, &q.connection_id, &catalog, database, table)
             .await
             .map_err(AppError::from)?

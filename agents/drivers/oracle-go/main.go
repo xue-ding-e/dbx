@@ -155,11 +155,13 @@ FROM USER_MVIEWS mv
 const oracleListTablesOrderSQL = `ORDER BY OBJECT_NAME`
 const oracleListTablesSQL = oracleListTablesBaseSQL + "\n" + oracleListTablesOrderSQL
 const oracleListObjectsBaseSQL = `
-SELECT OBJECT_NAME, OBJECT_TYPE, COMMENTS
+SELECT OBJECT_NAME, OBJECT_TYPE, COMMENTS, PARENT_SCHEMA, PARENT_NAME
 FROM (
 SELECT t.TABLE_NAME AS OBJECT_NAME,
        'TABLE' AS OBJECT_TYPE,
-       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_SCHEMA,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_NAME
 FROM ALL_TABLES t
 WHERE t.OWNER = :1
   AND t.NESTED = 'NO'
@@ -177,23 +179,31 @@ SELECT o.OBJECT_NAME,
          WHEN 'MATERIALIZED VIEW' THEN 'MATERIALIZED_VIEW'
          ELSE o.OBJECT_TYPE
        END AS OBJECT_TYPE,
-       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       i.TABLE_OWNER AS PARENT_SCHEMA,
+       i.TABLE_NAME AS PARENT_NAME
 FROM ALL_OBJECTS o
+LEFT JOIN ALL_INDEXES i
+  ON o.OBJECT_TYPE = 'INDEX' AND i.OWNER = o.OWNER AND i.INDEX_NAME = o.OBJECT_NAME
 WHERE o.OWNER = :2
-  AND o.OBJECT_TYPE IN ('VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY')
+  AND o.OBJECT_TYPE IN ('VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX')
 UNION ALL
 SELECT s.SYNONYM_NAME AS OBJECT_NAME,
        'SYNONYM' AS OBJECT_TYPE,
-       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_SCHEMA,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_NAME
 FROM ALL_SYNONYMS s
 WHERE s.OWNER = :3
 )`
 const oracleListObjectsSessionUserBaseSQL = `
-SELECT OBJECT_NAME, OBJECT_TYPE, COMMENTS
+SELECT OBJECT_NAME, OBJECT_TYPE, COMMENTS, PARENT_SCHEMA, PARENT_NAME
 FROM (
 SELECT t.TABLE_NAME AS OBJECT_NAME,
        'TABLE' AS OBJECT_TYPE,
-       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_SCHEMA,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_NAME
 FROM USER_TABLES t
 WHERE t.NESTED = 'NO'
   AND NOT EXISTS (
@@ -209,13 +219,18 @@ SELECT o.OBJECT_NAME,
          WHEN 'MATERIALIZED VIEW' THEN 'MATERIALIZED_VIEW'
          ELSE o.OBJECT_TYPE
        END AS OBJECT_TYPE,
-       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       i.TABLE_OWNER AS PARENT_SCHEMA,
+       i.TABLE_NAME AS PARENT_NAME
 FROM USER_OBJECTS o
-WHERE o.OBJECT_TYPE IN ('VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY')
+LEFT JOIN USER_INDEXES i ON o.OBJECT_TYPE = 'INDEX' AND i.INDEX_NAME = o.OBJECT_NAME
+WHERE o.OBJECT_TYPE IN ('VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX')
 UNION ALL
 SELECT s.SYNONYM_NAME AS OBJECT_NAME,
        'SYNONYM' AS OBJECT_TYPE,
-       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_SCHEMA,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_NAME
 FROM USER_SYNONYMS s
 )`
 const oracleListObjectsOrderSQL = `ORDER BY CASE OBJECT_TYPE
@@ -462,17 +477,20 @@ type tableInfo struct {
 }
 
 type metadataListConstraints struct {
-	Filter      string
-	Limit       int
-	Offset      int
-	ObjectTypes []string
+	Filter        string
+	Limit         int
+	Offset        int
+	ObjectTypes   []string
+	ExactIdentity bool
 }
 
 type objectInfo struct {
-	Name       string  `json:"name"`
-	ObjectType string  `json:"object_type"`
-	Schema     string  `json:"schema"`
-	Comment    *string `json:"comment"`
+	Name         string  `json:"name"`
+	ObjectType   string  `json:"object_type"`
+	Schema       string  `json:"schema"`
+	Comment      *string `json:"comment"`
+	ParentSchema *string `json:"parent_schema,omitempty"`
+	ParentName   *string `json:"parent_name,omitempty"`
 }
 
 type columnInfo struct {
@@ -491,6 +509,7 @@ type columnInfo struct {
 }
 
 type indexInfo struct {
+	Owner               *string  `json:"owner,omitempty"`
 	Name                string   `json:"name"`
 	Columns             []string `json:"columns"`
 	IsUnique            bool     `json:"is_unique"`
@@ -725,7 +744,7 @@ func (r *runtimeServer) dispatch(method string, params map[string]json.RawMessag
 		return map[string]any{
 			"protocolVersion":      multiSessionProtocolVersion,
 			"agentProtocolVersion": multiSessionProtocolVersion,
-			"capabilities":         []string{"connect", "test_connection", "metadata", "query", "transaction", "ddl", "multi_session"},
+			"capabilities":         []string{"connect", "test_connection", "metadata", "query", "transaction", "ddl", "multi_session", "exact_metadata_identity_v1"},
 		}, false, nil
 	case "open_session":
 		agentSessionID := stringParam(params, "agentSessionId")
@@ -911,7 +930,7 @@ func (s *server) dispatch(method string, params map[string]json.RawMessage) (any
 		return map[string]any{
 			"protocolVersion":      protocolVersion,
 			"agentProtocolVersion": protocolVersion,
-			"capabilities":         []string{"connect", "test_connection", "metadata", "query", "transaction", "ddl"},
+			"capabilities":         []string{"connect", "test_connection", "metadata", "query", "transaction", "ddl", "exact_metadata_identity_v1"},
 		}, false, nil
 	case "connect":
 		var cp connectParams
@@ -959,12 +978,12 @@ func (s *server) dispatch(method string, params map[string]json.RawMessage) (any
 	case "get_columns":
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
-		result, err := s.getColumns(schema, table)
+		result, err := s.getColumnsWithIdentity(schema, table, boolParam(params, "exact_identity"))
 		return result, false, err
 	case "get_table_comment":
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
-		result, err := s.getTableComment(schema, table)
+		result, err := s.getTableCommentWithIdentity(schema, table, boolParam(params, "exact_identity"))
 		return result, false, err
 	case "get_object_source":
 		schema := stringParam(params, "schema")
@@ -976,7 +995,7 @@ func (s *server) dispatch(method string, params map[string]json.RawMessage) (any
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
 		objectType := stringParam(params, "object_type")
-		ddl, err := s.getTableDDLWithOptions(schema, table, objectType, boolParam(params, "portable"))
+		ddl, err := s.getTableDDLWithIdentity(schema, table, objectType, boolParam(params, "portable"), boolParam(params, "exact_identity"))
 		return ddl, false, err
 	case "execute_query":
 		var opts queryOptions
@@ -1012,22 +1031,22 @@ func (s *server) dispatch(method string, params map[string]json.RawMessage) (any
 	case "list_indexes":
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
-		result, err := s.listIndexes(schema, table)
+		result, err := s.listIndexesWithIdentity(schema, table, boolParam(params, "exact_identity"))
 		return result, false, err
 	case "list_foreign_keys":
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
-		result, err := s.listForeignKeys(schema, table)
+		result, err := s.listForeignKeysWithIdentity(schema, table, boolParam(params, "exact_identity"))
 		return result, false, err
 	case "list_constraints":
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
-		result, err := s.listConstraints(schema, table)
+		result, err := s.listConstraintsWithIdentity(schema, table, boolParam(params, "exact_identity"))
 		return result, false, err
 	case "list_triggers":
 		schema := stringParam(params, "schema")
 		table := stringParam(params, "table")
-		result, err := s.listTriggers(schema, table)
+		result, err := s.listTriggersWithIdentity(schema, table, boolParam(params, "exact_identity"))
 		return result, false, err
 	case "get_explain_info":
 		sqlText := stringParam(params, "sql")
@@ -1772,6 +1791,16 @@ func (s *server) normalizeSchema(schema string) (string, error) {
 	return resolveOracleSchema(schema, s.currentSchema, s.sessionUser)
 }
 
+func (s *server) metadataSchema(schema string, exactIdentity bool) (string, error) {
+	if !exactIdentity {
+		return s.normalizeSchema(schema)
+	}
+	if schema == "" {
+		return "", errors.New("schema is required for exact metadata identity")
+	}
+	return schema, nil
+}
+
 func resolveOracleSchema(schema string, currentSchema, sessionUser func() (string, error)) (string, error) {
 	if schema = strings.TrimSpace(schema); schema != "" {
 		return strings.ToUpper(schema), nil
@@ -1783,6 +1812,11 @@ func resolveOracleSchema(schema string, currentSchema, sessionUser func() (strin
 }
 
 func (s *server) sessionUser() (string, error) {
+	username, err := s.rawSessionUser()
+	return strings.ToUpper(username), err
+}
+
+func (s *server) rawSessionUser() (string, error) {
 	db, err := s.requireDB()
 	if err != nil {
 		return "", err
@@ -1791,12 +1825,20 @@ func (s *server) sessionUser() (string, error) {
 	if err := db.QueryRow("SELECT SYS_CONTEXT('USERENV', 'SESSION_USER') FROM DUAL").Scan(&username); err != nil {
 		return "", err
 	}
-	return strings.ToUpper(username), nil
+	return username, nil
 }
 
 func (s *server) schemaIsSessionUser(schema string) bool {
 	username, err := s.sessionUser()
 	return err == nil && strings.EqualFold(schema, username)
+}
+
+func (s *server) metadataSchemaIsSessionUser(schema string, exactIdentity bool) bool {
+	if !exactIdentity {
+		return s.schemaIsSessionUser(schema)
+	}
+	username, err := s.rawSessionUser()
+	return err == nil && schema == username
 }
 
 type oracleMetadataListQuery struct {
@@ -1818,10 +1860,11 @@ func metadataListConstraintsFromParams(params map[string]json.RawMessage) metada
 		offset = 0
 	}
 	return metadataListConstraints{
-		Filter:      stringParam(params, "filter"),
-		Limit:       limit,
-		Offset:      offset,
-		ObjectTypes: objectTypes,
+		Filter:        stringParam(params, "filter"),
+		Limit:         limit,
+		Offset:        offset,
+		ObjectTypes:   objectTypes,
+		ExactIdentity: boolParam(params, "exact_identity"),
 	}
 }
 
@@ -1850,7 +1893,7 @@ func oracleListSessionUserTablesQuery(constraints metadataListConstraints) oracl
 func oracleListObjectsQuery(schema string, constraints metadataListConstraints) oracleMetadataListQuery {
 	return oracleConstrainedMetadataListQuery(
 		oracleListObjectsBaseSQL,
-		"OBJECT_NAME, OBJECT_TYPE, COMMENTS",
+		"OBJECT_NAME, OBJECT_TYPE, COMMENTS, PARENT_SCHEMA, PARENT_NAME",
 		"OBJECT_TYPE",
 		oracleListObjectsOrderSQL,
 		[]any{schema, schema, schema},
@@ -1861,7 +1904,7 @@ func oracleListObjectsQuery(schema string, constraints metadataListConstraints) 
 func oracleListSessionUserObjectsQuery(constraints metadataListConstraints) oracleMetadataListQuery {
 	return oracleConstrainedMetadataListQuery(
 		oracleListObjectsSessionUserBaseSQL,
-		"OBJECT_NAME, OBJECT_TYPE, COMMENTS",
+		"OBJECT_NAME, OBJECT_TYPE, COMMENTS, PARENT_SCHEMA, PARENT_NAME",
 		"OBJECT_TYPE",
 		oracleListObjectsOrderSQL,
 		nil,
@@ -1954,17 +1997,17 @@ func oracleFuzzyLikePattern(value string) string {
 }
 
 func (s *server) listTables(schema string, constraints metadataListConstraints) ([]tableInfo, error) {
-	schema, err := s.normalizeSchema(schema)
+	schema, err := s.metadataSchema(schema, constraints.ExactIdentity)
 	if err != nil {
 		return nil, err
 	}
 	query := oracleListTablesQuery(schema, constraints)
-	if s.schemaIsSessionUser(schema) {
+	if s.metadataSchemaIsSessionUser(schema, constraints.ExactIdentity) {
 		query = oracleListSessionUserTablesQuery(constraints)
 	}
 	rows, err := s.queryRows(query.SQL, query.Args)
 	if err != nil {
-		if isOraclePGALimitError(err) {
+		if isOraclePGALimitError(err) && !constraints.ExactIdentity {
 			return []tableInfo{}, nil
 		}
 		return nil, err
@@ -1982,17 +2025,17 @@ func (s *server) listTables(schema string, constraints metadataListConstraints) 
 }
 
 func (s *server) listObjects(schema string, constraints metadataListConstraints) ([]objectInfo, error) {
-	schema, err := s.normalizeSchema(schema)
+	schema, err := s.metadataSchema(schema, constraints.ExactIdentity)
 	if err != nil {
 		return nil, err
 	}
 	query := oracleListObjectsQuery(schema, constraints)
-	if s.schemaIsSessionUser(schema) {
+	if s.metadataSchemaIsSessionUser(schema, constraints.ExactIdentity) {
 		query = oracleListSessionUserObjectsQuery(constraints)
 	}
 	rows, err := s.queryRows(query.SQL, query.Args)
 	if err != nil {
-		if isOraclePGALimitError(err) {
+		if isOraclePGALimitError(err) && !constraints.ExactIdentity && !metadataIncludesIndexes(constraints.ObjectTypes) {
 			return []objectInfo{}, nil
 		}
 		return nil, err
@@ -2002,12 +2045,21 @@ func (s *server) listObjects(schema string, constraints metadataListConstraints)
 	for rows.Next() {
 		var item objectInfo
 		item.Schema = schema
-		if err := rows.Scan(&item.Name, &item.ObjectType, &item.Comment); err != nil {
+		if err := rows.Scan(&item.Name, &item.ObjectType, &item.Comment, &item.ParentSchema, &item.ParentName); err != nil {
 			return nil, err
 		}
 		result = append(result, item)
 	}
 	return emptyIfNil(result), rows.Err()
+}
+
+func metadataIncludesIndexes(objectTypes []string) bool {
+	for _, objectType := range normalizedMetadataObjectTypes(objectTypes) {
+		if objectType == "INDEX" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *server) completionAssistantSearch(request completionAssistantRequest) (completionAssistantResponse, error) {
@@ -2658,9 +2710,16 @@ func oracleObjectNameCandidates(name string) (string, string, bool) {
 }
 
 func (s *server) getColumns(schema, table string) ([]columnInfo, error) {
-	schema, err := s.normalizeSchema(schema)
+	return s.getColumnsWithIdentity(schema, table, false)
+}
+
+func (s *server) getColumnsWithIdentity(schema, table string, exactIdentity bool) ([]columnInfo, error) {
+	schema, err := s.metadataSchema(schema, exactIdentity)
 	if err != nil {
 		return nil, err
+	}
+	if exactIdentity {
+		return s.getColumnsByName(schema, table)
 	}
 	exact, uppercase, hasUppercaseFallback := oracleObjectNameCandidates(table)
 	result, err := s.getColumnsByName(schema, exact)
@@ -2726,9 +2785,17 @@ ORDER BY c.COLUMN_ID`, []any{schema, table})
 }
 
 func (s *server) getTableComment(schema, table string) (*string, error) {
-	schema, err := s.normalizeSchema(schema)
+	return s.getTableCommentWithIdentity(schema, table, false)
+}
+
+func (s *server) getTableCommentWithIdentity(schema, table string, exactIdentity bool) (*string, error) {
+	schema, err := s.metadataSchema(schema, exactIdentity)
 	if err != nil {
 		return nil, err
+	}
+	if exactIdentity {
+		comment, _, err := s.getTableCommentByName(schema, table)
+		return comment, err
 	}
 	exact, uppercase, hasUppercaseFallback := oracleObjectNameCandidates(table)
 	comment, found, err := s.getTableCommentByName(schema, exact)
@@ -2801,11 +2868,17 @@ ORDER BY COLUMN_ID`, []any{schema, table})
 }
 
 func (s *server) listIndexes(schema, table string) ([]indexInfo, error) {
-	schema, err := s.normalizeSchema(schema)
+	return s.listIndexesWithIdentity(schema, table, false)
+}
+
+func (s *server) listIndexesWithIdentity(schema, table string, exactIdentity bool) ([]indexInfo, error) {
+	schema, err := s.metadataSchema(schema, exactIdentity)
 	if err != nil {
 		return nil, err
 	}
-	table = strings.TrimSpace(table)
+	if !exactIdentity {
+		table = strings.TrimSpace(table)
+	}
 	rows, err := s.queryRows(`
 SELECT i.INDEX_NAME,
        ic.COLUMN_NAME,
@@ -2816,7 +2889,7 @@ SELECT i.INDEX_NAME,
        i.VISIBILITY,
        ic.DESCEND,
        ie.COLUMN_EXPRESSION,
-       ic.COLUMN_POSITION
+       ic.COLUMN_POSITION, i.OWNER
 FROM ALL_INDEXES i
 JOIN ALL_IND_COLUMNS ic ON ic.INDEX_OWNER = i.OWNER AND ic.INDEX_NAME = i.INDEX_NAME
   AND ic.TABLE_OWNER = i.TABLE_OWNER AND ic.TABLE_NAME = i.TABLE_NAME
@@ -2826,27 +2899,30 @@ LEFT JOIN ALL_CONSTRAINTS pk ON pk.OWNER = i.TABLE_OWNER
   AND pk.TABLE_NAME = i.TABLE_NAME
   AND pk.CONSTRAINT_TYPE = 'P'
   AND pk.INDEX_NAME = i.INDEX_NAME
+  AND pk.INDEX_OWNER = i.OWNER
 WHERE i.TABLE_OWNER = :1 AND i.TABLE_NAME = :2
-ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION`, []any{schema, table})
+ORDER BY i.OWNER, i.INDEX_NAME, ic.COLUMN_POSITION`, []any{schema, table})
 	if err != nil {
 		return nil, err
 	}
 	defer s.closeRows(rows)
 
-	byName := map[string]*indexInfo{}
-	order := []string{}
+	byName := map[[2]string]*indexInfo{}
+	order := [][2]string{}
 	for rows.Next() {
-		var name, column, uniqueness, indexType, partitioned, visibility, direction string
+		var name, column, uniqueness, indexType, partitioned, visibility, direction, owner string
 		var expression sql.NullString
 		var primary int
 		var position int
-		if err := rows.Scan(&name, &column, &uniqueness, &primary, &indexType, &partitioned, &visibility, &direction, &expression, &position); err != nil {
+		if err := rows.Scan(&name, &column, &uniqueness, &primary, &indexType, &partitioned, &visibility, &direction, &expression, &position, &owner); err != nil {
 			return nil, err
 		}
-		item := byName[name]
+		identity := [2]string{owner, name}
+		item := byName[identity]
 		if item == nil {
 			visible := visibility
 			item = &indexInfo{
+				Owner:               &owner,
 				Name:                name,
 				Columns:             []string{},
 				IsUnique:            uniqueness == "UNIQUE",
@@ -2858,8 +2934,8 @@ ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION`, []any{schema, table})
 				Visibility:          &visible,
 				KeyMetadataComplete: true,
 			}
-			byName[name] = item
-			order = append(order, name)
+			byName[identity] = item
+			order = append(order, identity)
 		}
 		if position != len(item.Columns)+1 || (direction != "ASC" && direction != "DESC") || (visibility != "VISIBLE" && visibility != "INVISIBLE") || item.Visibility == nil || *item.Visibility != visibility || partitioned != "NO" || (indexType != "NORMAL" && indexType != "FUNCTION-BASED NORMAL") {
 			item.KeyMetadataComplete = false
@@ -2886,11 +2962,17 @@ ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION`, []any{schema, table})
 }
 
 func (s *server) listForeignKeys(schema, table string) ([]foreignKeyInfo, error) {
-	schema, err := s.normalizeSchema(schema)
+	return s.listForeignKeysWithIdentity(schema, table, false)
+}
+
+func (s *server) listForeignKeysWithIdentity(schema, table string, exactIdentity bool) ([]foreignKeyInfo, error) {
+	schema, err := s.metadataSchema(schema, exactIdentity)
 	if err != nil {
 		return nil, err
 	}
-	table = strings.TrimSpace(table)
+	if !exactIdentity {
+		table = strings.TrimSpace(table)
+	}
 	rows, err := s.queryRows(`
 SELECT ac.CONSTRAINT_NAME,
        acc.COLUMN_NAME,
@@ -2954,11 +3036,22 @@ func oracleSystemNotNullConstraint(kind string, generated sql.NullString, defini
 // only contains constraints a user would recognize as such, matching how
 // tools like DBeaver/Navicat present Oracle constraints.
 func (s *server) listConstraints(schema, table string) ([]constraintInfo, error) {
-	schema, err := s.normalizeSchemaForIdentity(schema)
+	return s.listConstraintsWithIdentity(schema, table, false)
+}
+
+func (s *server) listConstraintsWithIdentity(schema, table string, exactIdentity bool) ([]constraintInfo, error) {
+	var err error
+	if exactIdentity {
+		schema, err = s.metadataSchema(schema, true)
+	} else {
+		schema, err = s.normalizeSchemaForIdentity(schema)
+	}
 	if err != nil {
 		return nil, err
 	}
-	table = strings.TrimSpace(table)
+	if !exactIdentity {
+		table = strings.TrimSpace(table)
+	}
 	// SEARCH_CONDITION is a LONG column: Oracle rejects LONG values in WHERE
 	// clauses, functions, or ORDER BY (ORA-00932), so it can only appear in
 	// the SELECT list here. The NOT-NULL-check exclusion below is therefore
@@ -3148,11 +3241,17 @@ WHERE OWNER = :1 AND TABLE_NAME = :2 AND INDEX_OWNER = :3 AND INDEX_NAME = :4
 }
 
 func (s *server) listTriggers(schema, table string) ([]triggerInfo, error) {
-	schema, err := s.normalizeSchema(schema)
+	return s.listTriggersWithIdentity(schema, table, false)
+}
+
+func (s *server) listTriggersWithIdentity(schema, table string, exactIdentity bool) ([]triggerInfo, error) {
+	schema, err := s.metadataSchema(schema, exactIdentity)
 	if err != nil {
 		return nil, err
 	}
-	table = strings.TrimSpace(table)
+	if !exactIdentity {
+		table = strings.TrimSpace(table)
+	}
 	rows, err := s.queryRows(oracleListTriggersSQL, []any{schema, table})
 	if err != nil {
 		return nil, err
@@ -3399,8 +3498,12 @@ func (s *server) getTableDDL(schema, table, objectType string) (string, error) {
 }
 
 func (s *server) getTableDDLWithOptions(schema, table, objectType string, portable bool) (string, error) {
+	return s.getTableDDLWithIdentity(schema, table, objectType, portable, false)
+}
+
+func (s *server) getTableDDLWithIdentity(schema, table, objectType string, portable, exactIdentity bool) (string, error) {
 	var err error
-	schema, err = s.normalizeSchema(schema)
+	schema, err = s.metadataSchema(schema, exactIdentity)
 	if err != nil {
 		return "", err
 	}
@@ -3408,7 +3511,7 @@ func (s *server) getTableDDLWithOptions(schema, table, objectType string, portab
 	if err != nil {
 		return "", err
 	}
-	objectType, table, err = s.resolveDDLObject(schema, table, objectType)
+	objectType, table, err = s.resolveDDLObjectWithIdentity(schema, table, objectType, exactIdentity)
 	if err != nil {
 		return "", err
 	}
@@ -3447,6 +3550,12 @@ func (s *server) getTableDDLWithOptions(schema, table, objectType string, portab
 		return ddl, nil
 	}
 	if objectType == "TABLE" {
+		if exactIdentity {
+			if err != nil {
+				return "", err
+			}
+			return "", errors.New("exact table DDL is unavailable")
+		}
 		fallback, fallbackErr := s.buildTableDDL(schema, table)
 		if fallbackErr != nil {
 			return "", fallbackErr
@@ -3654,7 +3763,14 @@ func oracleStringLiteral(value string) string {
 }
 
 func (s *server) resolveDDLObject(schema, name, requested string) (string, string, error) {
+	return s.resolveDDLObjectWithIdentity(schema, name, requested, false)
+}
+
+func (s *server) resolveDDLObjectWithIdentity(schema, name, requested string, exactIdentity bool) (string, string, error) {
 	exact, uppercase, hasUppercaseFallback := oracleObjectNameCandidates(name)
+	if exactIdentity {
+		exact, hasUppercaseFallback = name, false
+	}
 	objectType := normalizeDDLObjectType(requested)
 	if objectType != "" {
 		return objectType, exact, nil

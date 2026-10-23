@@ -7074,6 +7074,7 @@ mod tests {
 
     fn index(overrides: IndexInfo) -> IndexInfo {
         IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -7306,6 +7307,7 @@ mod tests {
         target_column.column_default = Some("target".to_string());
         target_column.comment = Some("target comment".to_string());
         options.source_details[0].indexes.push(index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -8444,6 +8446,7 @@ mod tests {
     fn sqlserver_drops_changed_indexes_and_defaults_before_columns() {
         let target_column = ColumnInfo { column_default: Some("((0))".into()), ..column("legacy_status", "int", None) };
         let target_index = IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -8512,6 +8515,7 @@ mod tests {
         let source_column = column("amount", "bigint", None);
         let target_column = column("amount", "int", None);
         let unchanged_index = IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -8585,6 +8589,7 @@ mod tests {
     #[test]
     fn sqlserver_index_and_foreign_key_forms_follow_tsql() {
         let btree = IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -8609,6 +8614,7 @@ mod tests {
         assert!(!btree_sql.contains("BTREE"));
 
         let columnstore = IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9325,6 +9331,7 @@ mod tests {
     fn detects_modified_indexes_not_only_added_or_removed_indexes() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -9342,6 +9349,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -9368,6 +9376,7 @@ mod tests {
     #[test]
     fn detects_opclass_change_in_postgres_index() {
         let source_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9385,6 +9394,7 @@ mod tests {
             constraint_backed: false,
         });
         let target_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9417,6 +9427,7 @@ mod tests {
     fn detects_mysql_functional_index_changes_and_preserves_expression_ddl() {
         let functional_key_part = "((case when (`STATUS` = _utf8mb4'online') then _utf8mb4'online' else NULL end))";
         let source_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9434,6 +9445,7 @@ mod tests {
             constraint_backed: false,
         });
         let target_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9530,6 +9542,7 @@ mod tests {
         // whole expression as an identifier turned it into a literal (and nonexistent) column.
         let expression_key_part = "COALESCE(height, '-1'::integer::double precision)";
         let new_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9601,6 +9614,7 @@ mod tests {
         let expression_key_part =
             "(((category)::text = ANY ((ARRAY['industrial'::character varying, 'macro'::character varying])::text[])))";
         let new_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9675,6 +9689,7 @@ mod tests {
         // `indoption` is only meaningful for B-tree keys, so a GIN index must not gain
         // `ASC NULLS LAST` suffixes even when the introspection reports the flags.
         let new_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9741,6 +9756,7 @@ mod tests {
         // parts from pg_get_indexdef are left unquoted.
         let expression_key_part = "COALESCE(height, '-1'::integer::double precision)";
         let new_index = index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,
@@ -9819,6 +9835,7 @@ mod tests {
     fn quotes_expression_like_column_names_without_agent_provenance() {
         for db_type in [DatabaseType::Kingbase, DatabaseType::Vastbase] {
             let new_index = index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -9941,6 +9958,7 @@ mod tests {
                 diff_type: "modified".to_string(),
                 name: "idx_orders_status".to_string(),
                 source: Some(index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -10434,6 +10452,7 @@ mod tests {
                 diff_type: "added".to_string(),
                 name: "idx_orders_status".to_string(),
                 source: Some(index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -11169,6 +11188,7 @@ mod tests {
                     column("User ID", "bigint", None),
                 ],
                 indexes: vec![index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -11238,6 +11258,7 @@ mod tests {
                     column("user-id", "bigint", None),
                 ],
                 indexes: vec![index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -11297,6 +11318,7 @@ mod tests {
                     column("parent id", "TEXT", None),
                 ],
                 indexes: vec![index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -12487,6 +12509,7 @@ mod tests {
                 diff_type: "added".to_string(),
                 name: "idx_name".to_string(),
                 source: Some(index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -12535,6 +12558,7 @@ mod tests {
                 name: "idx_old".to_string(),
                 source: None,
                 target: Some(index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -12957,6 +12981,7 @@ mod tests {
     fn index_type_diff_btree_vs_hash() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -12974,6 +12999,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -12999,6 +13025,7 @@ mod tests {
     fn index_type_fulltext_detected() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13016,6 +13043,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13041,6 +13069,7 @@ mod tests {
     fn index_column_order_different() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13058,6 +13087,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13084,6 +13114,7 @@ mod tests {
     fn index_included_columns_diff() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13101,6 +13132,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13126,6 +13158,7 @@ mod tests {
     fn index_included_columns_added() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13143,6 +13176,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13168,6 +13202,7 @@ mod tests {
     fn index_filter_change() {
         let diffs = diff_indexes(
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13185,6 +13220,7 @@ mod tests {
                 constraint_backed: false,
             })],
             &[index(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -13212,6 +13248,7 @@ mod tests {
         let diffs = diff_indexes(
             &[
                 index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -13229,6 +13266,7 @@ mod tests {
                     constraint_backed: false,
                 }),
                 index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -13248,6 +13286,7 @@ mod tests {
             ],
             &[
                 index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -13265,6 +13304,7 @@ mod tests {
                     constraint_backed: false,
                 }),
                 index(IndexInfo {
+                    owner: None,
                     key_directions: Vec::new(),
                     visibility: None,
                     key_metadata_complete: false,
@@ -13647,6 +13687,7 @@ mod tests {
                     diff_type: "added".to_string(),
                     name: "idx_name".into(),
                     source: Some(index(IndexInfo {
+                        owner: None,
                         key_directions: Vec::new(),
                         visibility: None,
                         key_metadata_complete: false,
@@ -13671,6 +13712,7 @@ mod tests {
                     name: "idx_old".into(),
                     source: None,
                     target: Some(index(IndexInfo {
+                        owner: None,
                         key_directions: Vec::new(),
                         visibility: None,
                         key_metadata_complete: false,
@@ -14092,6 +14134,7 @@ mod tests {
             diff_type: "added".into(),
             name: "idx_del_flag".into(),
             source: Some(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -14385,6 +14428,7 @@ mod tests {
             diff_type: "added".into(),
             name: "idx_views".into(),
             source: Some(IndexInfo {
+                owner: None,
                 key_directions: Vec::new(),
                 visibility: None,
                 key_metadata_complete: false,
@@ -15806,6 +15850,7 @@ mod tests {
 
     fn named_index(name: &str, columns: &[&str], is_unique: bool) -> IndexInfo {
         index(IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,

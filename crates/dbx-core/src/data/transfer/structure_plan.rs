@@ -658,6 +658,7 @@ mod tests {
     #[test]
     fn structured_ddl_metadata_produces_operation_dtos() {
         let index = db::IndexInfo {
+            owner: None,
             key_directions: Vec::new(),
             visibility: None,
             key_metadata_complete: false,

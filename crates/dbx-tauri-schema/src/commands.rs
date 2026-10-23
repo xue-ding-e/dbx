@@ -176,6 +176,7 @@ pub async fn list_data_types(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn list_tables(
     state: State<'_, Arc<AppState>>,
     connection_id: String,
@@ -187,7 +188,22 @@ pub async fn list_tables(
     object_types: Option<Vec<String>>,
     catalog: Option<String>,
     table_name_filter: Option<dbx_core::schema::TableNameFilter>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<db::TableInfo>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::tables(
+            &state,
+            &connection_id,
+            &database,
+            &schema,
+            filter.as_deref(),
+            limit,
+            offset,
+            object_types.as_deref(),
+            table_name_filter.as_ref(),
+        )
+        .await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::list_doris_catalog_tables_core(
             &state,
@@ -224,7 +240,11 @@ pub async fn get_table_comment(
     schema: String,
     table: String,
     catalog: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Option<String>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::comment(&state, &connection_id, &database, &schema, &table).await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::get_doris_catalog_table_comment_core(
             &state,
@@ -262,10 +282,25 @@ pub async fn list_objects(
     catalog: Option<String>,
     table_name_filter: Option<dbx_core::schema::TableNameFilter>,
     execution_id: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<db::ObjectInfo>, String> {
     let app = Arc::clone(state.inner());
     let operation_app = Arc::clone(&app);
     run_cancellable(&app, execution_id, async move {
+        if exact_identity.unwrap_or(false) {
+            return dbx_core::schema::exact_metadata::objects(
+                &operation_app,
+                &connection_id,
+                &database,
+                &schema,
+                filter.as_deref(),
+                limit,
+                offset,
+                object_types.as_deref(),
+                table_name_filter.as_ref(),
+            )
+            .await;
+        }
         if let Some(catalog) = external_doris_catalog(&operation_app, &connection_id, catalog.as_deref()).await {
             let tables = dbx_core::schema::list_doris_catalog_tables_core(
                 &operation_app,
@@ -399,7 +434,19 @@ pub async fn get_columns(
     catalog: Option<String>,
     client_session_id: Option<String>,
     current_schema: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<db::ColumnInfo>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::columns(
+            &state,
+            &connection_id,
+            &database,
+            &schema,
+            &table,
+            client_session_id.as_deref(),
+        )
+        .await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::get_doris_catalog_columns_core(&state, &connection_id, &catalog, &database, &table)
             .await;
@@ -455,7 +502,11 @@ pub async fn list_indexes(
     schema: String,
     table: String,
     catalog: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<db::IndexInfo>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::indexes(&state, &connection_id, &database, &schema, &table).await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::list_doris_catalog_indexes_core(&state, &connection_id, &catalog, &database, &table)
             .await;
@@ -507,7 +558,12 @@ pub async fn list_foreign_keys(
     schema: String,
     table: String,
     catalog: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<db::ForeignKeyInfo>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::foreign_keys(&state, &connection_id, &database, &schema, &table)
+            .await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::list_doris_catalog_foreign_keys_core(
             &state,
@@ -549,7 +605,11 @@ pub async fn list_triggers(
     schema: String,
     table: String,
     catalog: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<db::TriggerInfo>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::triggers(&state, &connection_id, &database, &schema, &table).await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::list_doris_catalog_triggers_core(&state, &connection_id, &catalog, &database, &table)
             .await;
@@ -565,7 +625,11 @@ pub async fn list_constraints(
     schema: String,
     table: String,
     catalog: Option<String>,
+    exact_identity: Option<bool>,
 ) -> Result<Vec<dbx_core::db::ConstraintInfo>, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::constraints(&state, &connection_id, &database, &schema, &table).await;
+    }
     let _ = catalog;
     dbx_core::schema::list_constraints_core(&state, &connection_id, &database, &schema, &table).await
 }
@@ -636,7 +700,20 @@ pub async fn get_table_ddl(
     catalog: Option<String>,
     include_postgres_access: Option<bool>,
     portable: Option<bool>,
+    exact_identity: Option<bool>,
 ) -> Result<String, String> {
+    if exact_identity.unwrap_or(false) {
+        return dbx_core::schema::exact_metadata::ddl(
+            &state,
+            &connection_id,
+            &database,
+            &schema,
+            &table,
+            object_type,
+            portable.unwrap_or(false),
+        )
+        .await;
+    }
     if let Some(catalog) = external_doris_catalog(&state, &connection_id, catalog.as_deref()).await {
         return dbx_core::schema::get_doris_catalog_table_ddl_core(&state, &connection_id, &catalog, &database, &table)
             .await;
