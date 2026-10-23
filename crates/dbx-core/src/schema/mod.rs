@@ -12138,6 +12138,21 @@ async fn get_object_source_once(
                     // only view
                     db::questdb::questdb_object_source(pool, name).await?
                 }
+                PoolKind::Postgres(pool)
+                    if db_config.as_ref().is_some_and(|config| config.db_type == DatabaseType::Redshift)
+                        && matches!(object_type, db::ObjectSourceKind::Procedure) =>
+                {
+                    // Redshift has no pg_proc.prokind / pg_get_functiondef
+                    // (PostgreSQL 8.0 catalog); read the full CREATE PROCEDURE
+                    // text from prosrc and use pg_proc_info for the routine
+                    // kind (issue #13293).
+                    db::postgres::execute_query(
+                        pool,
+                        &db::postgres::redshift_procedure_source_sql(schema, name, signature),
+                    )
+                    .await
+                    .and_then(first_string_cell)?
+                }
                 PoolKind::Postgres(pool) => {
                     let unwrap_opengauss_record = db_config.as_ref().is_some_and(is_opengauss_family_config);
                     let isolate_view_search_path = postgres_view_source_uses_isolated_search_path(
@@ -12760,19 +12775,33 @@ impl Default for PostgresCatalogCaps {
     }
 }
 
-/// Probe the catalog features once per object-source fetch. A failed probe
-/// (permissions, proxies) stays on the modern queries and lets the existing
-/// error-triggered fallbacks handle legacy servers.
-async fn postgres_object_source_catalog_caps(pool: &deadpool_postgres::Pool) -> PostgresCatalogCaps {
-    const PROBE_SQL: &str = "SELECT EXISTS ( \
+/// Catalog-feature probe for object-source queries.
+///
+/// `to_regclass` is PostgreSQL 9.4+, so it errors on legacy forks such as
+/// Redshift (8.0.2) and the failed probe would leave the modern capabilities
+/// (including `pg_proc.prokind`, PostgreSQL 11+) enabled. Probe `pg_sequence`
+/// through the PostgreSQL 8.0 catalogs instead so those servers actually take
+/// the legacy paths (issue #13293).
+const POSTGRES_OBJECT_SOURCE_CATALOG_CAPS_SQL: &str = "SELECT EXISTS ( \
        SELECT 1 \
        FROM pg_catalog.pg_attribute \
        WHERE attrelid = 'pg_catalog.pg_proc'::regclass \
          AND attname = 'prokind' \
          AND NOT attisdropped \
      ), \
-     to_regclass('pg_catalog.pg_sequence') IS NOT NULL";
-    match db::postgres::execute_query(pool, PROBE_SQL).await {
+     EXISTS ( \
+       SELECT 1 \
+       FROM pg_catalog.pg_class c \
+       JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+       WHERE n.nspname = 'pg_catalog' \
+         AND c.relname = 'pg_sequence' \
+     )";
+
+/// Probe the catalog features once per object-source fetch. A failed probe
+/// (permissions, proxies) stays on the modern queries and lets the existing
+/// error-triggered fallbacks handle legacy servers.
+async fn postgres_object_source_catalog_caps(pool: &deadpool_postgres::Pool) -> PostgresCatalogCaps {
+    match db::postgres::execute_query(pool, POSTGRES_OBJECT_SOURCE_CATALOG_CAPS_SQL).await {
         Ok(result) => {
             let values = result.rows.first().cloned().unwrap_or_default();
             PostgresCatalogCaps {
@@ -12860,7 +12889,7 @@ async fn postgres_object_source(
         }
         Err(primary_err)
             if postgres_missing_prokind_error(&primary_err)
-                && matches!(object_type, db::ObjectSourceKind::Function) =>
+                && matches!(object_type, db::ObjectSourceKind::Function | db::ObjectSourceKind::Procedure) =>
         {
             let fallback_sql = postgres_function_object_source_sql_without_prokind(schema, name, false);
             db::postgres::execute_query(pool, &fallback_sql)
@@ -13216,6 +13245,19 @@ mod object_source_tests {
         assert!(legacy.contains("'create sequence ' || quote_ident(c.relname) || ';'"));
         assert!(legacy.contains("pg_get_userbyid(c.relowner)"));
         assert!(legacy.contains("owned by ' || quote_ident(owned.relname)"));
+    }
+
+    #[test]
+    fn object_source_capability_probe_avoids_post_pg8_catalog_helpers() {
+        // Redshift is based on PostgreSQL 8.0.2: to_regclass (9.4+) errors,
+        // and the failed probe would keep the modern prokind / pg_sequence
+        // queries enabled (#13293).
+        let sql = super::POSTGRES_OBJECT_SOURCE_CATALOG_CAPS_SQL;
+        assert!(sql.contains("attname = 'prokind'"));
+        assert!(sql.contains("FROM pg_catalog.pg_class c"));
+        assert!(sql.contains("JOIN pg_catalog.pg_namespace n"));
+        assert!(sql.contains("c.relname = 'pg_sequence'"));
+        assert!(!sql.contains("to_regclass"));
     }
 
     #[test]
