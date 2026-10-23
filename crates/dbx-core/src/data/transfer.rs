@@ -26,6 +26,7 @@ mod db2;
 mod ddl_plan;
 mod overwrite_clear;
 mod structure_plan;
+pub(crate) mod xugu_objects;
 
 pub use overwrite_clear::clear_foreign_key_linked_overwrite_targets;
 
@@ -268,6 +269,8 @@ pub enum TransferObjectKind {
     Trigger,
     Sequence,
     Event,
+    Package,
+    Synonym,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -306,6 +309,9 @@ pub fn transfer_object_kinds_for_family(family: &TransferObjectFamily) -> Vec<Tr
 }
 
 pub fn transfer_object_kinds(db_type: &DatabaseType) -> Vec<TransferObjectKind> {
+    if *db_type == DatabaseType::Xugu {
+        return xugu_objects::supported_kinds();
+    }
     match transfer_object_family(db_type) {
         Some(family) => transfer_object_kinds_for_family(&family),
         None => Vec::new(),
@@ -718,6 +724,13 @@ pub fn validate_transfer_target_table_names(request: &TransferRequest) -> Result
 /// target for the cross-family DDL pipeline (the executor rejects it).
 pub fn cross_family_transferable_object_kinds(source: &DatabaseType, target: &DatabaseType) -> Vec<TransferObjectKind> {
     use TransferObjectKind::*;
+    if *source == DatabaseType::Xugu || *target == DatabaseType::Xugu {
+        return if *source == DatabaseType::Xugu && *target == DatabaseType::Xugu {
+            xugu_objects::supported_kinds()
+        } else {
+            vec![]
+        };
+    }
     if is_same_transfer_family(source, target) {
         return transfer_object_kinds(source);
     }
@@ -1144,8 +1157,10 @@ pub fn validate_transfer_database_pair(
     if !matches!((source_db_type, target_db_type), (DatabaseType::Xugu, DatabaseType::Xugu)) {
         return Err("虚谷数据传输当前仅支持虚谷到虚谷".to_string());
     }
-    if request.objects.as_ref().is_some_and(|objects| !objects.is_empty()) {
-        return Err("虚谷数据传输当前仅支持表对象".to_string());
+    if request.objects.as_ref().is_some_and(|objects| {
+        objects.iter().any(|selection| !xugu_objects::supported_kinds().contains(&selection.object_type))
+    }) {
+        return Err("虚谷数据传输不支持所选对象类型".to_string());
     }
     if request.mode == TransferMode::Upsert || request.drop_target_before_create {
         return Err("虚谷数据传输当前仅支持追加或覆盖，暂不支持更新插入或重建".to_string());
@@ -9534,6 +9549,8 @@ pub fn ordered_transfer_object_kinds(kinds: Vec<TransferObjectKind>) -> Vec<Tran
         TransferObjectKind::Procedure => 4,
         TransferObjectKind::Trigger => 5,
         TransferObjectKind::Event => 6,
+        TransferObjectKind::Package => 3,
+        TransferObjectKind::Synonym => 4,
     };
     let mut kinds = kinds;
     kinds.sort_by_key(rank);
@@ -9712,6 +9729,9 @@ where
     let target_db_type = get_db_type(state, &request.target_connection_id).await?;
     if !should_transfer_schema_objects(&source_db_type, &target_db_type, request) {
         return Ok(TransferObjectOutcome::default());
+    }
+    if source_db_type == DatabaseType::Xugu && target_db_type == DatabaseType::Xugu {
+        return Err("Xugu schema objects must run through the prepared transfer plan".into());
     }
     if !is_same_transfer_family(&source_db_type, &target_db_type) {
         return transfer_cross_family_schema_objects(
@@ -15575,7 +15595,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         }
 
         #[test]
-        fn xugu_transfer_is_same_engine_table_only_and_append_or_overwrite() {
+        fn xugu_transfer_is_same_engine_only_and_append_or_overwrite() {
             let request = base_request();
             assert!(validate_transfer_database_pair(&request, &DatabaseType::Xugu, &DatabaseType::Xugu).is_ok());
             // Existing non-Xugu transfer combinations retain their prior policy.
@@ -15632,7 +15652,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         }
 
         #[test]
-        fn xugu_structure_transfer_rejects_renamed_tables_and_non_table_objects() {
+        fn xugu_structure_transfer_preserves_names_and_accepts_native_objects() {
             let request = TransferRequest { target_table_name_case: TransferTableNameCase::Upper, ..base_request() };
             assert!(validate_transfer_database_pair(&request, &DatabaseType::Xugu, &DatabaseType::Xugu)
                 .unwrap_err()
@@ -15645,9 +15665,29 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
                 }]),
                 ..base_request()
             };
-            assert!(validate_transfer_database_pair(&request, &DatabaseType::Xugu, &DatabaseType::Xugu)
-                .unwrap_err()
-                .contains("仅支持表对象"));
+            assert!(validate_transfer_database_pair(&request, &DatabaseType::Xugu, &DatabaseType::Xugu).is_ok());
+            for kind in [
+                TransferObjectKind::Package,
+                TransferObjectKind::Synonym,
+                TransferObjectKind::Sequence,
+                TransferObjectKind::Procedure,
+                TransferObjectKind::Function,
+                TransferObjectKind::Trigger,
+            ] {
+                let request = TransferRequest {
+                    objects: Some(vec![TransferObjectSelection { object_type: kind, names: vec!["O".into()] }]),
+                    ..base_request()
+                };
+                assert!(validate_transfer_database_pair(&request, &DatabaseType::Xugu, &DatabaseType::Xugu).is_ok());
+            }
+            let unsupported = TransferRequest {
+                objects: Some(vec![TransferObjectSelection {
+                    object_type: TransferObjectKind::Event,
+                    names: vec!["E".into()],
+                }]),
+                ..base_request()
+            };
+            assert!(validate_transfer_database_pair(&unsupported, &DatabaseType::Xugu, &DatabaseType::Xugu).is_err());
         }
 
         #[test]

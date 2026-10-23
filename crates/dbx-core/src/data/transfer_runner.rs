@@ -155,6 +155,50 @@ where
         let mut last_rows_transferred = 0_u64;
         let mut last_total_rows = None;
 
+        // Xugu-only preflight: read every selected definition before writing,
+        // then establish independent sequences before tables. Packages and
+        // programmable objects follow tables; triggers run last. Other engines
+        // retain their existing execution order.
+        let xugu_object_plan = if source_db_type == DatabaseType::Xugu
+            && target_db_type == DatabaseType::Xugu
+            && super::transfer::should_transfer_schema_objects(&source_db_type, &target_db_type, &request)
+        {
+            let prepared = super::transfer::xugu_objects::prepare(&state, &request, &source_pool_key).await;
+            let result = match prepared {
+                Ok(plan) => plan.before_tables(&state, &request, &target_pool_key).await.map(|()| plan),
+                Err(error) => Err(error),
+            };
+            match result {
+                Ok(plan) => Some(plan),
+                Err(error) => {
+                    emit_terminal_progress(
+                        &app,
+                        history.as_ref(),
+                        TransferProgress {
+                            transfer_id: transfer_id.clone(),
+                            table: "schema objects".into(),
+                            table_index: 0,
+                            total_tables,
+                            rows_transferred: 0,
+                            total_rows: None,
+                            status: if error == "Cancelled" {
+                                TransferStatus::Cancelled
+                            } else {
+                                TransferStatus::Error
+                            },
+                            error: Some(error),
+                            terminal: true,
+                        },
+                    )
+                    .await;
+                    super::transfer::clear_cancelled(&transfer_id).await;
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+
         // When drop_target_before_create is true, perform a rename pre-pass in
         // parents_first=false order (children first) so that foreign keys on the
         // backup tables remain intact. The main create/insert pass then runs in
@@ -502,16 +546,27 @@ where
         // transfers schema objects; PG→PG keeps the legacy empty-selection
         // default only when structure participates in the transfer.
         let mut object_outcome = super::transfer::TransferObjectOutcome::default();
-        match super::transfer::transfer_schema_objects_with_routine_context(
-            &state,
-            &request,
-            &source_pool_key,
-            &target_pool_key,
-            routine_context.as_ref(),
-            |progress| emit_progress(&app, progress),
-        )
-        .await
-        {
+        let object_result = if let Some(plan) = xugu_object_plan.as_ref() {
+            plan.after_tables(&state, &request, &target_pool_key, &failed_tables, |mut progress| {
+                // Object completion is not a copied row. Preserve the table-data
+                // counters while reporting the current Xugu schema object.
+                progress.rows_transferred = last_rows_transferred;
+                progress.total_rows = last_total_rows;
+                emit_progress(&app, progress)
+            })
+            .await
+        } else {
+            super::transfer::transfer_schema_objects_with_routine_context(
+                &state,
+                &request,
+                &source_pool_key,
+                &target_pool_key,
+                routine_context.as_ref(),
+                |progress| emit_progress(&app, progress),
+            )
+            .await
+        };
+        match object_result {
             Ok(outcome) => {
                 if let Some(journal) = history.as_ref() {
                     journal.record_object_outcome(&outcome).await;
