@@ -4903,6 +4903,23 @@ export const useConnectionStore = defineStore("connection", () => {
     rebuildTreeNodes();
   }
 
+  // Catalog-less generic JDBC servers (e.g. Zenith / GaussDB 100) only report the
+  // placeholder default database, so a collapsed node would hide every schema.
+  // Open it right away so the schema list shows when the connection is opened.
+  async function expandCatalogLessJdbcDefaultDatabase(connectionNode: TreeNode | null, config: ConnectionConfig | undefined) {
+    if (!connectionNode || config?.db_type !== "jdbc" || !connectionShouldDiscoverJdbcSchemas(config)) return;
+    const databaseNodes = (connectionNode.children ?? []).filter((child) => child.type === "database");
+    if (databaseNodes.length !== 1 || databaseNodes[0].database !== "") return;
+    const defaultNodeId = databaseNodes[0].id;
+    try {
+      await loadTreeNodeChildren(databaseNodes[0]);
+    } catch {
+      // Schema loading records its own error on the node; keep the database list usable.
+    }
+    const liveNode = findNode(treeNodes.value, defaultNodeId);
+    if (liveNode) liveNode.isExpanded = true;
+  }
+
   async function reloadSchemaChildren(connectionId: string, database?: string) {
     const config = getConfig(connectionId);
     if (!config) return;
@@ -4911,12 +4928,12 @@ export const useConnectionStore = defineStore("connection", () => {
     clearLoadedChildrenCache(`${connectionId}:${db}`);
     await loadDatabases(connectionId, { force: true });
     // After saving schema filter, force-refresh database node's schema children
-    // to avoid stale children from previously expanded nodes
-    if (db) {
-      const dbNode = findNode(treeNodes.value, `${connectionId}:${db}`);
-      if (dbNode) {
-        await loadTreeNodeChildren(dbNode, { force: true });
-      }
+    // to avoid stale children from previously expanded nodes. Catalog-less JDBC
+    // connections (Oracle/Zenith via generic JDBC) keep their schemas under the
+    // default database node, whose id ends with an empty database name.
+    const dbNode = findNode(treeNodes.value, `${connectionId}:${db}`);
+    if (dbNode) {
+      await loadTreeNodeChildren(dbNode, { force: true });
     }
   }
 
@@ -5991,6 +6008,7 @@ export const useConnectionStore = defineStore("connection", () => {
                 if (cached.hit) {
                   if (cached.isStale) refreshStaleTreeNode(node);
                   else scheduleMissingPrimaryVisibleObjectNamesRefresh(connectionId, config, options);
+                  await expandCatalogLessJdbcDefaultDatabase(treeNodeLoadTarget(load), config);
                   return;
                 }
               }
@@ -6038,6 +6056,7 @@ export const useConnectionStore = defineStore("connection", () => {
               );
               setChildren(targetNode, children, { trustEmptyConnectionChildren: databases.length > 0 && visibleNames.length === 0 });
               await savePersistedConnectionTreeChildren(cacheKey, targetNode.children || children);
+              await expandCatalogLessJdbcDefaultDatabase(treeNodeLoadTarget(load), config);
             }
           }
           const liveNode = treeNodeLoadTarget(load);

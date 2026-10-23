@@ -2568,7 +2568,7 @@ public final class DbxJdbcPlugin {
         ArrayNode result = MAPPER.createArrayNode();
         Connection conn = openConnection(connection);
         JdbcDriverQuirks quirks = driverQuirks(connection);
-        if (quirks.useOracleMetadata()) {
+        if (quirks.useOracleMetadata() || isZenithConnection(connection, conn)) {
             return result;
         }
         DatabaseMetaData metadata = conn.getMetaData();
@@ -2646,6 +2646,9 @@ public final class DbxJdbcPlugin {
         String catalog = metadataCatalog(database, quirks);
         if (quirks.useOracleMetadata()) {
             return oracleListSchemas(conn);
+        }
+        if (isZenithConnection(connection, conn)) {
+            return zenithListSchemas(conn);
         }
         DatabaseMetaData meta = conn.getMetaData();
         if (quirks.caseInsensitiveSchemaMetadata()) {
@@ -2727,6 +2730,17 @@ public final class DbxJdbcPlugin {
         if (usePrestoInformationSchemaTables(connection)) {
             return prestoListTables(conn, database, schema, filter, limit, offset, objectTypes);
         }
+        if (isZenithConnection(connection, conn)) {
+            return filterMetadataNodes(
+                (ArrayNode) zenithListTables(conn, zenithEffectiveSchema(conn, schema), false, null),
+                filter,
+                limit,
+                offset,
+                objectTypes,
+                "table_type",
+                true
+            );
+        }
         if (isKingbaseUrl(optionalText(connection, "connection_string"))) {
             return filterMetadataNodes(
                 (ArrayNode) kingbaseListTables(conn, schema, false),
@@ -2784,6 +2798,17 @@ public final class DbxJdbcPlugin {
         }
         if (usePrestoInformationSchemaTables(connection)) {
             return prestoListObjects(conn, database, schema, filter, limit, offset, objectTypes);
+        }
+        if (isZenithConnection(connection, conn)) {
+            return filterMetadataNodes(
+                (ArrayNode) zenithListObjects(conn, zenithEffectiveSchema(conn, schema), schema),
+                filter,
+                limit,
+                offset,
+                objectTypes,
+                "object_type",
+                false
+            );
         }
         boolean kingbase = isKingbaseUrl(optionalText(connection, "connection_string"));
         if (kingbase) {
@@ -3041,6 +3066,10 @@ public final class DbxJdbcPlugin {
             String resolvedTable = exactIdentity ? table : oracleResolveTable(conn, owner, table);
             return oracleListIndexes(conn, owner, resolvedTable == null ? table : resolvedTable, exactIdentity);
         }
+        if (isZenithConnection(connection, conn)) {
+            String owner = zenithEffectiveSchema(conn, schema);
+            return zenithListIndexes(conn, owner, zenithResolveTable(conn, owner, table));
+        }
 
         DatabaseMetaData meta = conn.getMetaData();
         String catalog = metadataCatalog(database, quirks);
@@ -3193,6 +3222,9 @@ public final class DbxJdbcPlugin {
         Connection conn = openConnection(connection);
         if (driverQuirks(connection).useOracleMetadata()) {
             return oracleGetColumns(conn, exactIdentity ? schema : oracleEffectiveSchema(conn, schema), table, exactIdentity);
+        }
+        if (isZenithConnection(connection, conn)) {
+            return zenithGetColumns(conn, zenithEffectiveSchema(conn, schema), table);
         }
         if (isKingbaseUrl(optionalText(connection, "connection_string"))) {
             return kingbaseGetColumns(conn, schema, table);
@@ -3929,6 +3961,372 @@ public final class DbxJdbcPlugin {
 
     private static boolean isKingbaseUrl(String url) {
         return urlMatchesPrefix(url, "jdbc:kingbase");
+    }
+
+    // --- Zenith (GaussDB 100) metadata methods ---
+    //
+    // The Zenith driver's DatabaseMetaData queries Oracle's ALL_* views, which
+    // Zenith does not have (its dictionary is DB_*/ADM_*/MY_*), so getSchemas(),
+    // getTables(), getColumns() and getIndexInfo() all fail with GS-00843, and
+    // getSchemas(String, String) / Connection.getSchema() are unimplemented.
+    // Zenith has no catalogs: schema = user. Read the DB_* views directly.
+
+    private static final String ZENITH_DRIVER_CLASS = "com.huawei.gauss.jdbc.ZenithDriver";
+
+    static boolean isZenithConnection(JsonNode connection) {
+        if (urlMatchesPrefix(optionalText(connection, "connection_string"), "jdbc:zenith:")) {
+            return true;
+        }
+        String driverClass = optionalText(connection, "jdbc_driver_class");
+        return driverClass != null && ZENITH_DRIVER_CLASS.equals(driverClass.trim());
+    }
+
+    private static boolean isZenithConnection(JsonNode connection, Connection conn) {
+        if (isZenithConnection(connection)) {
+            return true;
+        }
+        try {
+            DatabaseMetaData meta = conn.getMetaData();
+            String product = meta == null ? null : meta.getDatabaseProductName();
+            return product != null && product.regionMatches(true, 0, "Zenith", 0, 6);
+        } catch (SQLException | AbstractMethodError | UnsupportedOperationException ignored) {
+            return false;
+        }
+    }
+
+    private static String zenithEffectiveSchema(Connection conn, String schema) throws SQLException {
+        if (schema != null && !schema.isBlank()) {
+            return zenithResolveOwner(conn, schema);
+        }
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery("SELECT USER FROM DUAL")) {
+            String current = rs.next() ? rs.getString(1) : null;
+            if (current != null && !current.isBlank()) {
+                return current;
+            }
+        } catch (SQLException ignored) {
+        }
+        String username = conn.getMetaData().getUserName();
+        if (username == null || username.isBlank()) {
+            // An empty owner would make every dictionary query silently return nothing.
+            throw new SQLException("Unable to determine the current Zenith user; specify a schema explicitly");
+        }
+        return zenithResolveOwner(conn, username);
+    }
+
+    private static String zenithResolveOwner(Connection conn, String owner) throws SQLException {
+        String sql = "SELECT USERNAME FROM DB_USERS WHERE USERNAME = ?";
+        String exact = oracleFindIdentifier(conn, sql, owner);
+        if (exact != null) {
+            return exact;
+        }
+        exact = oracleFindIdentifier(conn, sql, owner.toUpperCase(Locale.ROOT));
+        return exact == null ? owner : exact;
+    }
+
+    private static String zenithResolveTable(Connection conn, String owner, String table) throws SQLException {
+        String sql = "SELECT OBJECT_NAME FROM DB_OBJECTS WHERE OWNER = ? AND OBJECT_NAME = ?";
+        String exact = oracleFindIdentifier(conn, sql, owner, table);
+        if (exact != null) {
+            return exact;
+        }
+        exact = oracleFindIdentifier(conn, sql, owner, table.toUpperCase(Locale.ROOT));
+        return exact == null ? table : exact;
+    }
+
+    private static JsonNode zenithListSchemas(Connection conn) throws SQLException {
+        ArrayNode result = MAPPER.createArrayNode();
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT USERNAME FROM DB_USERS ORDER BY USERNAME")) {
+            while (rs.next()) {
+                String name = rs.getString(1);
+                if (name != null && !name.isBlank()) {
+                    result.add(name);
+                }
+            }
+        } catch (SQLException e) {
+            // Without DB_USERS access the login user's own schema is still browsable.
+            // If that fallback fails too, report the original DB_USERS error.
+            try {
+                result.add(zenithEffectiveSchema(conn, null));
+            } catch (SQLException fallback) {
+                e.addSuppressed(fallback);
+                throw e;
+            }
+        }
+        return result;
+    }
+
+    private static JsonNode zenithListTables(Connection conn, String owner, boolean objectNodes, String schemaLabel)
+        throws SQLException {
+        ArrayNode result = MAPPER.createArrayNode();
+        String tableSql =
+            "SELECT t.TABLE_NAME AS NAME, c.COMMENTS AS COMMENTS FROM DB_TABLES t " +
+            "LEFT JOIN DB_TAB_COMMENTS c ON c.OWNER = t.OWNER AND c.TABLE_NAME = t.TABLE_NAME " +
+            "WHERE t.OWNER = ? ORDER BY t.TABLE_NAME";
+        String viewSql =
+            "SELECT v.VIEW_NAME AS NAME, c.COMMENTS AS COMMENTS FROM DB_VIEWS v " +
+            "LEFT JOIN DB_TAB_COMMENTS c ON c.OWNER = v.OWNER AND c.TABLE_NAME = v.VIEW_NAME " +
+            "WHERE v.OWNER = ? ORDER BY v.VIEW_NAME";
+        appendZenithTables(result, conn, tableSql, owner, "TABLE", objectNodes, schemaLabel);
+        appendZenithTables(result, conn, viewSql, owner, "VIEW", objectNodes, schemaLabel);
+        return result;
+    }
+
+    private static void appendZenithTables(
+        ArrayNode result,
+        Connection conn,
+        String sql,
+        String owner,
+        String type,
+        boolean objectNodes,
+        String schemaLabel
+    ) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, owner);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ObjectNode item = MAPPER.createObjectNode();
+                    item.put("name", rs.getString("NAME"));
+                    item.put(objectNodes ? "object_type" : "table_type", type);
+                    if (objectNodes) {
+                        putNullable(item, "schema", schemaLabel);
+                    }
+                    putNullable(item, "comment", emptyToNull(rs.getString("COMMENTS")));
+                    result.add(item);
+                }
+            }
+        }
+    }
+
+    private static JsonNode zenithListObjects(Connection conn, String owner, String schemaLabel) throws SQLException {
+        ArrayNode result = (ArrayNode) zenithListTables(conn, owner, true, schemaLabel);
+        // Procedures and functions live only in DB_PROCEDURES, not in DB_OBJECTS.
+        appendZenithObjects(
+            result,
+            conn,
+            "SELECT DISTINCT OBJECT_NAME, OBJECT_TYPE FROM DB_PROCEDURES " +
+                "WHERE OWNER = ? AND OBJECT_TYPE IN ('PROCEDURE', 'FUNCTION') ORDER BY OBJECT_TYPE, OBJECT_NAME",
+            owner,
+            null,
+            schemaLabel
+        );
+        appendZenithObjects(
+            result,
+            conn,
+            "SELECT SEQUENCE_NAME FROM DB_SEQUENCES WHERE SEQUENCE_OWNER = ? ORDER BY SEQUENCE_NAME",
+            owner,
+            "SEQUENCE",
+            schemaLabel
+        );
+        appendZenithObjects(
+            result,
+            conn,
+            "SELECT SYNONYM_NAME FROM DB_SYNONYMS WHERE OWNER = ? ORDER BY SYNONYM_NAME",
+            owner,
+            "SYNONYM",
+            schemaLabel
+        );
+        return result;
+    }
+
+    private static void appendZenithObjects(
+        ArrayNode result,
+        Connection conn,
+        String sql,
+        String owner,
+        String objectType,
+        String schemaLabel
+    ) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, owner);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ObjectNode item = MAPPER.createObjectNode();
+                    item.put("name", rs.getString(1));
+                    item.put("object_type", objectType == null ? rs.getString(2) : objectType);
+                    putNullable(item, "schema", schemaLabel);
+                    item.putNull("comment");
+                    result.add(item);
+                }
+            }
+        } catch (SQLException ignored) {
+            // Routines, sequences and synonyms are optional; they must not hide tables.
+        }
+    }
+
+    private static JsonNode zenithGetColumns(Connection conn, String owner, String table) throws SQLException {
+        ArrayNode result = MAPPER.createArrayNode();
+        String resolvedTable = zenithResolveTable(conn, owner, table);
+        Set<String> pks = zenithPrimaryKeys(conn, owner, resolvedTable);
+        // The driver's getColumns() reports DATA_TYPE=0, shifts precision/scale and
+        // drops comments and defaults, so the dictionary view is the only reliable source.
+        String sql =
+            "SELECT c.DATA_DEFAULT, c.COLUMN_NAME, c.DATA_TYPE, c.DATA_LENGTH, c.DATA_PRECISION, c.DATA_SCALE, " +
+            "c.CHAR_LENGTH, c.NULLABLE, c.AUTO_INCREMENT, m.COMMENTS " +
+            "FROM DB_TAB_COLUMNS c " +
+            "LEFT JOIN DB_COL_COMMENTS m ON m.OWNER = c.OWNER AND m.TABLE_NAME = c.TABLE_NAME AND m.COLUMN_NAME = c.COLUMN_NAME " +
+            "WHERE c.OWNER = ? AND c.TABLE_NAME = ? ORDER BY c.COLUMN_ID";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, owner);
+            ps.setString(2, resolvedTable);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String dataDefault = rs.getString("DATA_DEFAULT");
+                    String name = rs.getString("COLUMN_NAME");
+                    String dataType = rs.getString("DATA_TYPE");
+                    ObjectNode item = columnNode(result, name);
+                    item.put("data_type", dataType);
+                    item.put("is_nullable", !"N".equalsIgnoreCase(rs.getString("NULLABLE")));
+                    putNullablePreferValue(item, "column_default", dataDefault == null ? null : dataDefault.trim());
+                    item.put("is_primary_key", pks.contains(name));
+                    if ("Y".equalsIgnoreCase(rs.getString("AUTO_INCREMENT"))) {
+                        item.put("extra", "auto_increment");
+                    } else {
+                        item.putNull("extra");
+                    }
+                    putNullablePreferValue(item, "comment", rs.getString("COMMENTS"));
+                    putNullableInt(item, "numeric_precision", rs.getObject("DATA_PRECISION"));
+                    putNullableInt(item, "numeric_scale", rs.getObject("DATA_SCALE"));
+                    putNullableInt(
+                        item,
+                        "character_maximum_length",
+                        zenithCharacterLength(dataType, rs.getObject("CHAR_LENGTH"), rs.getObject("DATA_LENGTH"))
+                    );
+                }
+            }
+        }
+        return result;
+    }
+
+    private static final Set<String> ZENITH_LENGTH_TYPES = Set.of(
+        "CHAR", "NCHAR", "VARCHAR", "VARCHAR2", "NVARCHAR", "NVARCHAR2", "BINARY", "VARBINARY", "RAW"
+    );
+
+    static Object zenithCharacterLength(String dataType, Object charLength, Object dataLength) {
+        if (charLength instanceof Number number && number.intValue() > 0) {
+            return number;
+        }
+        // DATA_LENGTH is the storage size in bytes, which only means "length" for string/binary types.
+        String type = dataType == null ? "" : dataType.trim().toUpperCase(Locale.ROOT);
+        return ZENITH_LENGTH_TYPES.contains(type) ? dataLength : null;
+    }
+
+    private static Set<String> zenithPrimaryKeys(Connection conn, String owner, String table) {
+        String sql = "SELECT COLUMNS FROM DB_INDEXES WHERE OWNER = ? AND TABLE_NAME = ? AND IS_PRIMARY = 'Y'";
+        Set<String> keys = new LinkedHashSet<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, owner);
+            ps.setString(2, table);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    keys.addAll(splitZenithIndexColumns(rs.getString(1)));
+                }
+            }
+        } catch (SQLException ignored) {
+            // Primary-key flags are optional detail; the column list must still load.
+        }
+        return keys;
+    }
+
+    /** DB_INDEXES.COLUMNS is a ", "-separated column list, e.g. "ORDER_ID, REGION_ID, STATUS". */
+    static List<String> splitZenithIndexColumns(String columns) {
+        List<String> result = new ArrayList<>();
+        if (columns == null) {
+            return result;
+        }
+        for (String column : columns.split(",")) {
+            String trimmed = column.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    private static JsonNode zenithListIndexes(Connection conn, String owner, String table) {
+        // DB_IND_COLUMNS has no OWNER column; it joins on INDEX_OWNER.
+        String sql =
+            "SELECT i.INDEX_NAME, i.IS_PRIMARY, i.IS_UNIQUE, ic.COLUMN_NAME FROM DB_INDEXES i " +
+            "JOIN DB_IND_COLUMNS ic ON ic.INDEX_OWNER = i.OWNER AND ic.INDEX_NAME = i.INDEX_NAME " +
+            "WHERE i.OWNER = ? AND i.TABLE_NAME = ? ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION";
+        LinkedHashMap<String, ObjectNode> indexes = new LinkedHashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, owner);
+            ps.setString(2, table);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String name = rs.getString("INDEX_NAME");
+                    ObjectNode item = indexes.get(name);
+                    if (item == null) {
+                        item = indexNode(
+                            name,
+                            "Y".equalsIgnoreCase(rs.getString("IS_UNIQUE")),
+                            "Y".equalsIgnoreCase(rs.getString("IS_PRIMARY")),
+                            null
+                        );
+                        indexes.put(name, item);
+                    }
+                    String column = rs.getString("COLUMN_NAME");
+                    if (column != null && !column.isBlank()) {
+                        ((ArrayNode) item.path("columns")).add(column);
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+            // Index metadata is optional detail, matching the other index readers.
+            indexes.clear();
+        }
+        ArrayNode result = MAPPER.createArrayNode();
+        indexes.values().forEach(result::add);
+        return result;
+    }
+
+    private static JsonNode zenithObjectSource(Connection conn, String owner, String name, String objectType)
+        throws SQLException {
+        String normalizedType = normalizeObjectType(objectType);
+        String source;
+        if ("VIEW".equals(normalizedType)) {
+            String text = zenithSingleText(conn, "SELECT TEXT FROM DB_VIEWS WHERE OWNER = ? AND VIEW_NAME = ?", owner, name);
+            source = "CREATE OR REPLACE VIEW " + zenithQuoteIdentifier(owner) + "." + zenithQuoteIdentifier(name) + " AS\n" + text;
+        } else if ("PROCEDURE".equals(normalizedType) || "FUNCTION".equals(normalizedType)) {
+            // DB_SOURCE.LINE is NULL on Zenith, so the routine body must come from DB_PROCEDURES.SOURCE.
+            source = zenithSingleText(
+                conn,
+                "SELECT SOURCE FROM DB_PROCEDURES WHERE OWNER = ? AND OBJECT_NAME = ? AND OBJECT_TYPE = ?",
+                owner,
+                stripRoutineSignature(name),
+                normalizedType
+            );
+        } else {
+            throw new SQLException("Object source is not supported by this JDBC driver");
+        }
+        ObjectNode item = MAPPER.createObjectNode();
+        item.put("name", name);
+        item.put("object_type", objectType);
+        putNullable(item, "schema", owner);
+        item.put("source", source);
+        // Read-only until the generated DDL has been verified against a live Zenith server.
+        item.put("editable", false);
+        return item;
+    }
+
+    private static String zenithSingleText(Connection conn, String sql, String... params) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                ps.setString(i + 1, params[i]);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Object source not found");
+                }
+                String text = rs.getString(1);
+                return text == null ? "" : text;
+            }
+        }
+    }
+
+    private static String zenithQuoteIdentifier(String identifier) {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
     private static boolean isSybaseConnection(JsonNode connection) {
@@ -4824,6 +5222,10 @@ public final class DbxJdbcPlugin {
 
         if (isSybaseConnection(connection) && "VIEW".equals(normalizeObjectType(objectType))) {
             return sybaseViewObjectSource(connection, conn, database, schema, name, objectType);
+        }
+
+        if (isZenithConnection(connection, conn) && !"TABLE".equals(normalizeObjectType(objectType))) {
+            return zenithObjectSource(conn, zenithEffectiveSchema(conn, schema), name, objectType);
         }
 
         if ("TABLE".equals(normalizeObjectType(objectType))) {

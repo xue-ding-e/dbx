@@ -34,7 +34,7 @@ import { useSidebarRemoteSearch } from "@/composables/useSidebarRemoteSearch";
 import { collectSidebarRemoteSearchResults, mergeSidebarRemoteSearchResults, type SidebarRemoteSearchResult } from "@/lib/sidebar/sidebarRemoteSearch";
 import { isCancelSearchShortcut, isCopySidebarSelectionShortcut, isDisconnectSidebarConnectionShortcut, isEditSidebarConnectionShortcut, isEditSidebarTableStructureShortcut, isPasteSidebarSelectionShortcut, isRefreshDataShortcut, isViewTableDdlShortcut } from "@/lib/editor/keyboardShortcuts";
 import { sidebarNodeSupportsDdlView } from "@/lib/sidebar/sidebarTreeDdlShortcut";
-import { hasTreeNodeDatabaseContext } from "@/lib/sidebar/treeNodeContext";
+import { DEFAULT_DATABASE_TREE_LABEL, hasTreeNodeDatabaseContext } from "@/lib/sidebar/treeNodeContext";
 import { objectSourceTargetForTreeNode } from "@/lib/sidebar/treeNodeClick";
 import { supportsTypeObjectSource } from "@/lib/database/databaseObjectCapabilities";
 import { copyToClipboard } from "@/lib/common/clipboard";
@@ -3068,7 +3068,7 @@ defineExpose({
       v-if="sidebarVisibleSchemasTarget?.connectionId && sidebarVisibleSchemasTarget.database != null"
       v-model:open="sidebarVisibleSchemasOpen"
       :connection-id="sidebarVisibleSchemasTarget.connectionId"
-      :connection-name="sidebarVisibleSchemasTarget.label"
+      :connection-name="sidebarVisibleSchemasTarget.label === DEFAULT_DATABASE_TREE_LABEL ? t(DEFAULT_DATABASE_TREE_LABEL) : sidebarVisibleSchemasTarget.label"
       :database="sidebarVisibleSchemasTarget.database"
     />
 

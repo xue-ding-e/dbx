@@ -4847,4 +4847,67 @@ describe("connectionStore metadata loading", () => {
     const labels = (tablesGroup.children ?? []).filter((child) => child.type === "table").map((child) => child.label);
     expect(labels).toContain("t_0201");
   });
+
+  it("expands the catalogless default database on open and refreshes it after saving a schema filter", async () => {
+    const listDatabases = vi.fn().mockResolvedValue([]);
+    const listSchemaInfos = vi.fn().mockResolvedValue([{ name: "APP_USER" }, { name: "APP_USER_ARCHIVE" }, { name: "SYS" }]);
+
+    vi.doMock("@/lib/backend/tauriRuntime", () => ({ isTauriRuntime: () => false }));
+    vi.doMock("@/lib/backend/api", () => ({
+      checkConnectionHealth: vi.fn().mockResolvedValue(undefined),
+      deleteSchemaCachePrefix: vi.fn().mockResolvedValue(undefined),
+      listDatabases,
+      listInstalledAgents: vi.fn().mockResolvedValue([]),
+      listObjects: vi.fn().mockResolvedValue([]),
+      listSchemaInfos,
+      listTables: vi.fn().mockResolvedValue([]),
+      loadSchemaCache: vi.fn().mockResolvedValue(null),
+      saveSchemaCache: vi.fn().mockResolvedValue(undefined),
+      saveConnections: vi.fn().mockResolvedValue(undefined),
+      saveSidebarLayout: vi.fn().mockResolvedValue(undefined),
+    }));
+
+    const { useConnectionStore } = await import("@/stores/connectionStore");
+    const store = useConnectionStore();
+    // A Zenith (GaussDB 100) server through generic JDBC: no catalogs, users are schemas.
+    const connection = {
+      ...genericJdbcConnection(),
+      id: "zenith-1",
+      name: "Zenith",
+      database: "",
+      connection_string: "jdbc:zenith:@127.0.0.1:1888",
+      jdbc_driver_class: "com.huawei.gauss.jdbc.ZenithDriver",
+    } as ConnectionConfig;
+    const connectionNode: TreeNode = { id: connection.id, label: connection.name, type: "connection", connectionId: connection.id, isExpanded: true, children: [] };
+    store.connections = [connection];
+    store.connectedIds.add(connection.id);
+    store.treeNodes = [connectionNode];
+    store.sidebarLayout = { groups: [], order: [{ type: "connection", id: connection.id }] };
+
+    await store.loadDatabases(connection.id, { force: true });
+    // Saving the filter rebuilds the tree, so always resolve the live node.
+    const findById = (nodes: TreeNode[], id: string): TreeNode | undefined => {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        const found = findById(node.children ?? [], id);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const defaultDatabase = () => findById(store.treeNodes, "zenith-1:")!;
+    const schemaLabels = () =>
+      defaultDatabase()
+        .children?.filter((node) => node.type === "schema")
+        .map((node) => node.label);
+    // Opening the connection expands the placeholder default database so the schemas show at once.
+    expect(defaultDatabase().id).toBe("zenith-1:");
+    expect(defaultDatabase().isExpanded).toBe(true);
+    expect(schemaLabels()).toEqual(["APP_USER", "APP_USER_ARCHIVE", "SYS"]);
+
+    await store.setVisibleSchemas(connection.id, "", ["APP_USER"]);
+
+    // The saved filter must show without a manual refresh of the connection.
+    expect(store.getConfig(connection.id)?.visible_schemas).toEqual({ "": ["APP_USER"] });
+    expect(schemaLabels()).toEqual(["APP_USER"]);
+  });
 });
