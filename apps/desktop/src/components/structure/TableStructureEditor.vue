@@ -107,6 +107,7 @@ import {
   type EditableStructureForeignKey,
   type EditableStructureIndex,
   type EditableStructureTrigger,
+  type MysqlTableCharsetChange,
   type OracleConstraintChange,
   type OracleConstraintDefinition,
   type TablePartitionBoundDraft,
@@ -115,7 +116,7 @@ import {
   type TablePartitionSqlOptions,
 } from "@/lib/table/tableStructureEditorSql";
 import { buildMysqlAutoIncrementCounterStatement, canEditMysqlAutoIncrementCounter, refreshMysqlAutoIncrementCounterDraft, translateMysqlAutoIncrementWarning } from "@/lib/table/mysqlAutoIncrementCounter";
-import { mysqlTableCollationSql, parseMysqlTableCollation } from "@/lib/table/mysqlTableCollation";
+import { mysqlTableCollationSql, parseMysqlTableCharset } from "@/lib/table/mysqlTableCollation";
 import { MYSQL_STORAGE_ENGINES_SQL, mysqlTableEngineSql, mysqlTableEngineSqlOption, parseMysqlTableEngineMetadata, refreshMysqlTableEngineDraft, supportsMysqlTableEngine } from "@/lib/table/mysqlTableEngine";
 import { INCEPTOR_PHYSICAL_OPTIONS, buildInceptorCreateOptions, emptyTablePhysicalOptions, hasTablePhysicalOptions, pruneTablePhysicalOptions, restoreTablePhysicalOptions } from "@/lib/table/tablePhysicalOptions";
 import { PRESET_FIELDS_TEMPLATE_ID, createTableColumnTemplateDrafts } from "@/lib/table/tableColumnTemplates";
@@ -1629,6 +1630,22 @@ const charsetMetadataLoading = ref(false);
 // The table's own default collation, used only to keep inherited charsets out of the
 // generated DDL. Columns keep the real values MySQL reports so the pickers stay filled.
 const mysqlTableDefaultCollation = ref("");
+const mysqlTableCharset = ref("");
+const originalMysqlTableCharset = ref("");
+const mysqlTableCollation = ref("");
+const originalMysqlTableCollation = ref("");
+const mysqlTableCharsetChanged = computed(() => mysqlTableCharset.value.trim().toLowerCase() !== originalMysqlTableCharset.value.trim().toLowerCase() || mysqlTableCollation.value.trim().toLowerCase() !== originalMysqlTableCollation.value.trim().toLowerCase());
+
+const mysqlTableCharsetChange = computed<MysqlTableCharsetChange | undefined>(() => {
+  const profile = connection.value?.driver_profile?.trim().toLowerCase();
+  if (isCreateMode.value || databaseType.value !== "mysql" || connection.value?.db_type !== "mysql" || (profile && profile !== "mysql") || !mysqlTableCharsetChanged.value) return undefined;
+  const charset = mysqlTableCharset.value.trim();
+  if (!charset) return undefined;
+  return {
+    charset,
+    collation: mysqlTableCollation.value.trim() || undefined,
+  };
+});
 
 const mysqlCharsetOptions = computed<string[]>(() => {
   const meta = serverCharsetMetadata.value;
@@ -1660,16 +1677,36 @@ async function loadCharsetMetadata() {
 async function loadMysqlTableDefaultCollation() {
   if (!showCharacterSet.value || isCreateMode.value || !props.connectionId || !props.database || !props.tableName) {
     mysqlTableDefaultCollation.value = "";
+    mysqlTableCharset.value = "";
+    originalMysqlTableCharset.value = "";
+    mysqlTableCollation.value = "";
+    originalMysqlTableCollation.value = "";
     return;
   }
+  const preserveEditedValues = mysqlTableCharsetChanged.value;
   try {
     await store.ensureConnected(props.connectionId);
     const result = await api.executeQuery(props.connectionId, props.database, mysqlTableCollationSql(props.database, props.tableName), undefined, undefined, { maxRows: 1 });
-    mysqlTableDefaultCollation.value = parseMysqlTableCollation(result);
+    const metadata = parseMysqlTableCharset(result);
+    mysqlTableDefaultCollation.value = metadata.collation;
+    originalMysqlTableCharset.value = metadata.charset;
+    originalMysqlTableCollation.value = metadata.collation;
+    if (!preserveEditedValues) {
+      mysqlTableCharset.value = metadata.charset;
+      mysqlTableCollation.value = metadata.collation;
+    }
   } catch {
     // Optional metadata: without it the DDL just spells out the charset the column
     // already has, which is equivalent SQL — never block the editor on this lookup.
     mysqlTableDefaultCollation.value = "";
+  }
+}
+
+function onMysqlTableCharsetChange(value: string) {
+  mysqlTableCharset.value = value;
+  const collationCharset = mysqlTableCollation.value.split("_", 1)[0]?.toLowerCase();
+  if (mysqlTableCollation.value && collationCharset !== value.trim().toLowerCase()) {
+    mysqlTableCollation.value = collationOptionsForCharset(value)[0] ?? "";
   }
 }
 
@@ -2733,6 +2770,10 @@ function createCurrentDraft(initialized = true): TableStructureEditorDraft {
     originalMysqlAutoIncrementValue: originalMysqlAutoIncrementValue.value,
     mysqlTableEngine: mysqlTableEngine.value,
     originalMysqlTableEngine: originalMysqlTableEngine.value,
+    mysqlTableCharset: mysqlTableCharset.value,
+    originalMysqlTableCharset: originalMysqlTableCharset.value,
+    mysqlTableCollation: mysqlTableCollation.value,
+    originalMysqlTableCollation: originalMysqlTableCollation.value,
     physicalOptions: cloneDraftValue(physicalOptions.value),
     starrocksPhysicalOptions: cloneDraftValue(starrocksPhysicalOptions.value),
     starrocksSortColumns: starrocksSortColumns.value ? [...starrocksSortColumns.value] : undefined,
@@ -2814,6 +2855,10 @@ function restoreDraft(draft: TableStructureEditorDraft) {
   originalMysqlAutoIncrementValue.value = draft.originalMysqlAutoIncrementValue;
   mysqlTableEngine.value = draft.mysqlTableEngine || "";
   originalMysqlTableEngine.value = draft.originalMysqlTableEngine || "";
+  mysqlTableCharset.value = draft.mysqlTableCharset || "";
+  originalMysqlTableCharset.value = draft.originalMysqlTableCharset || "";
+  mysqlTableCollation.value = draft.mysqlTableCollation || "";
+  originalMysqlTableCollation.value = draft.originalMysqlTableCollation || "";
   tableOwner.value = draft.tableOwner || "";
   originalTableOwner.value = draft.originalTableOwner || "";
   columns.value = cloneDraftValue(draft.columns || []);
@@ -2948,6 +2993,7 @@ function hasPendingStructureChanges(includeExistingPrimaryKey = true, includeOra
     scope.foreignKeys ||
     scope.triggers ||
     scope.tableComment ||
+    mysqlTableCharsetChanged.value ||
     partitionOperations.value.length > 0 ||
     mysqlTableEngine.value.toLowerCase() !== originalMysqlTableEngine.value.toLowerCase() ||
     (canBuildMysqlAutoIncrement.value && mysqlAutoIncrementValue.value !== originalMysqlAutoIncrementValue.value) ||
@@ -3386,6 +3432,7 @@ async function refreshSqlPreview() {
   }
   sqlPreviewLoading.value = true;
   const options = structureChangeOptions();
+  const tableCharsetChange = mysqlTableCharsetChange.value;
   const partitionResultPromise = partitionOperations.value.length > 0 ? api.buildTablePartitionOperationSql(partitionSqlOptions()) : Promise.resolve({ statements: [], warnings: [] });
   try {
     const [result, ownerResult, mysqlAutoIncrementStatement, partitionResult] = await Promise.all([
@@ -3397,7 +3444,9 @@ async function refreshSqlPreview() {
           ? api.previewSqliteTableStructureChange(props.connectionId, props.database, options)
           : databaseType.value === "starrocks"
             ? api.buildTableStructureChangeSql(options, { ...starrocksAlterContext.value!, reorderColumns: false, positionColumnOrder: structureCapabilities.value.reorderColumn, sortColumnNames: pendingStarRocksSort.value })
-            : api.buildTableStructureChangeSql(options),
+            : tableCharsetChange
+              ? api.buildTableStructureChangeSql(options, undefined, tableCharsetChange)
+              : api.buildTableStructureChangeSql(options),
       supportsTableOwner.value
         ? api.buildTableOwnerChangeSql({
             databaseType: databaseType.value,
@@ -3528,6 +3577,10 @@ function resetState() {
   mysqlAutoIncrementLoadError.value = "";
   mysqlTableEngine.value = "";
   originalMysqlTableEngine.value = "";
+  mysqlTableCharset.value = "";
+  originalMysqlTableCharset.value = "";
+  mysqlTableCollation.value = "";
+  originalMysqlTableCollation.value = "";
   physicalOptions.value = emptyTablePhysicalOptions();
   starrocksPhysicalOptions.value = emptyStarRocksPhysicalOptions();
   starrocksAlterContext.value = undefined;
@@ -6765,6 +6818,7 @@ async function applyChanges() {
   // structure draft it was applied from is clean, so the change-derived scope
   // would be empty: reload every facet instead of leaving the tabs stale.
   const refreshScope = ddlDirty.value ? { columns: true, indexes: true, foreignKeys: true, constraints: true, triggers: true, partitions: true, tableComment: true } : captureStructureRefreshScope();
+  if (!ddlDirty.value && mysqlTableCharsetChanged.value) refreshScope.columns = true;
   const starrocksPhysicalOrderChanged = !ddlDirty.value && databaseType.value === "starrocks" && structureCapabilities.value.reorderColumn && columns.value.some((column, index) => column.original && column.originalPosition !== index);
   // Plan A guard: concurrent builds only run with a long-enough query timeout
   // (a cancelled build leaves an INVALID index behind), and are blocked
@@ -7059,6 +7113,12 @@ onMounted(() => {
   void loadTableOwner(false, props.draft?.tableOwner !== undefined);
   void loadTableOwnerRoles();
   void loadMysqlTableEngine(props.draft?.mysqlTableEngine !== undefined);
+  if (props.draft && props.draft.mysqlTableCollation === undefined && !isCreateMode.value) {
+    // Drafts written before table-level charset support already mark the columns
+    // facet as loaded, so the normal structure load would skip this lookup.
+    void loadCharsetMetadata();
+    void loadMysqlTableDefaultCollation();
+  }
   if (props.draft?.initialized) {
     // A clean persisted editor snapshot is not a live schema cache. After an
     // MCP DDL, restoring its loaded-facet flags would otherwise bypass the
@@ -7271,6 +7331,10 @@ watch(
     mysqlTableEngineLoading,
     mysqlTableEngineLoadError,
     mysqlTableDefaultCollation,
+    mysqlTableCharset,
+    originalMysqlTableCharset,
+    mysqlTableCollation,
+    originalMysqlTableCollation,
     tableOwner,
     ddlDraft,
     existingPrimaryKeyDraft,
@@ -7498,6 +7562,39 @@ watch(
         </TooltipTrigger>
         <TooltipContent>{{ t("structureEditor.mysqlTableEngineLoadFailed", { message: mysqlTableEngineLoadError }) }}</TooltipContent>
       </Tooltip>
+    </div>
+
+    <div v-if="supportsMysqlEngine && !isCreateMode" class="flex shrink-0 items-center gap-2">
+      <label class="shrink-0 font-medium text-muted-foreground">{{ t("structureEditor.characterSet") }}</label>
+      <SearchableSelect
+        :model-value="mysqlTableCharset"
+        :options="mysqlCharsetOptions"
+        :placeholder="t('structureEditor.charsetPlaceholder')"
+        :search-placeholder="t('structureEditor.charsetPlaceholder')"
+        :empty-text="t('structureEditor.noMatchingType')"
+        :allow-custom="true"
+        :loading="charsetMetadataLoading"
+        :loading-text="t('common.loading')"
+        :disabled="charsetMetadataLoading || saving"
+        :trigger-class="[structureMonoControlClass, 'w-[180px] max-w-[180px]']"
+        data-mysql-table-charset-select
+        @update:model-value="onMysqlTableCharsetChange"
+      />
+    </div>
+
+    <div v-if="supportsMysqlEngine && !isCreateMode" class="flex shrink-0 items-center gap-2">
+      <label class="shrink-0 font-medium text-muted-foreground">{{ t("structureEditor.collation") }}</label>
+      <SearchableSelect
+        v-model="mysqlTableCollation"
+        :options="collationOptionsForCharset(mysqlTableCharset)"
+        :placeholder="t('structureEditor.collationPlaceholder')"
+        :search-placeholder="t('structureEditor.collationPlaceholder')"
+        :empty-text="t('structureEditor.noMatchingType')"
+        :allow-custom="true"
+        :disabled="charsetMetadataLoading || saving"
+        :trigger-class="[structureMonoControlClass, 'w-[220px] max-w-[220px]']"
+        data-mysql-table-collation-select
+      />
     </div>
 
     <TablePhysicalOptionsEditor v-if="isCreateMode && databaseType === 'transwarp'" v-model="physicalOptions" :config="INCEPTOR_PHYSICAL_OPTIONS" :columns="columns.filter((column) => !column.markedForDrop && !!column.name.trim())" :disabled="saving" />

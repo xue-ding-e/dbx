@@ -331,6 +331,8 @@ pub struct BuildTableStructureSqlRequest {
     pub starrocks: Option<dbx_core::table_structure_sql::StarRocksAlterOptions>,
     pub options: dbx_core::table_structure_sql::TableStructureSqlOptions,
     #[serde(default)]
+    pub mysql_table_charset: Option<dbx_core::table_structure_sql::MysqlTableCharsetChange>,
+    #[serde(default)]
     pub server_version: Option<String>,
     #[serde(default)]
     pub dialect_options: Option<dbx_core::table_structure_sql::CreateTableDialectOptions>,
@@ -1362,7 +1364,16 @@ pub async fn review_oracle_view_rename_source(
 pub async fn build_table_structure_change_sql(
     Json(req): Json<BuildTableStructureSqlRequest>,
 ) -> Json<dbx_core::table_structure_sql::TableStructureSqlResult> {
-    Json(dbx_core::table_structure_sql::build_table_structure_change_sql_with_context(req.options, req.starrocks))
+    let mysql_table_charset = req
+        .mysql_table_charset
+        .map(|change| dbx_core::table_structure_sql::build_mysql_table_charset_change_sql(&req.options, change));
+    let mut result =
+        dbx_core::table_structure_sql::build_table_structure_change_sql_with_context(req.options, req.starrocks);
+    if let Some(extra) = mysql_table_charset {
+        result.statements.extend(extra.statements);
+        result.warnings.extend(extra.warnings);
+    }
+    Json(result)
 }
 
 pub async fn build_table_owner_change_sql(

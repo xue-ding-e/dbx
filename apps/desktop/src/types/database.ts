@@ -2034,6 +2034,10 @@ export interface TableStructureEditorDraft {
   originalMysqlAutoIncrementValue?: string;
   mysqlTableEngine?: string;
   originalMysqlTableEngine?: string;
+  mysqlTableCharset?: string;
+  originalMysqlTableCharset?: string;
+  mysqlTableCollation?: string;
+  originalMysqlTableCollation?: string;
   physicalOptions?: import("@/lib/table/tablePhysicalOptions").TablePhysicalOptionsDraft;
   starrocksLayoutDraft?: import("@/lib/table/starrocksAlterOptions").StarRocksLayoutDraft;
   starrocksSortColumns?: string[];

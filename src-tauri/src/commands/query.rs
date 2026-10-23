@@ -936,8 +936,16 @@ pub fn review_oracle_view_rename_source(
 pub fn build_table_structure_change_sql(
     options: dbx_core::table_structure_sql::TableStructureSqlOptions,
     starrocks: Option<dbx_core::table_structure_sql::StarRocksAlterOptions>,
+    mysql_table_charset: Option<dbx_core::table_structure_sql::MysqlTableCharsetChange>,
 ) -> Result<dbx_core::table_structure_sql::TableStructureSqlResult, String> {
-    Ok(dbx_core::table_structure_sql::build_table_structure_change_sql_with_context(options, starrocks))
+    let table_charset = mysql_table_charset
+        .map(|change| dbx_core::table_structure_sql::build_mysql_table_charset_change_sql(&options, change));
+    let mut result = dbx_core::table_structure_sql::build_table_structure_change_sql_with_context(options, starrocks);
+    if let Some(extra) = table_charset {
+        result.statements.extend(extra.statements);
+        result.warnings.extend(extra.warnings);
+    }
+    Ok(result)
 }
 
 #[tauri::command]
