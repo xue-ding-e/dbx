@@ -1,3 +1,4 @@
+import { tableColumnPasteEn as tableColumnPaste } from "./tableColumnPaste";
 import { sidebarMenuEn as sidebarMenu } from "./sidebarMenuMessages";
 import { oceanbaseCloneDialogEn as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { redisGroupingEn as redisGrouping } from "./redisGrouping";
@@ -64,6 +65,7 @@ const consul = {
 };
 
 export default {
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "Dependencies",
     dependents: "Dependents",

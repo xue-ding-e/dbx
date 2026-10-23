@@ -1,3 +1,4 @@
+import { tableColumnPasteRu as tableColumnPaste } from "./tableColumnPaste";
 import { sidebarMenuRu as sidebarMenu } from "./sidebarMenuMessages";
 import { oceanbaseCloneDialogRu as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { withEnglishFallback } from "./fallback";
@@ -7,6 +8,7 @@ import { meilisearchManagementRu } from "./meilisearchManagement";
 
 // Russian locale. Entries omitted here fall back to English at runtime.
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "Зависимости",
     dependents: "Зависимые объекты",

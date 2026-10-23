@@ -1,3 +1,4 @@
+import { tableColumnPasteAz as tableColumnPaste } from "./tableColumnPaste";
 import { sidebarMenuAz as sidebarMenu } from "./sidebarMenuMessages";
 import { withEnglishFallback } from "./fallback";
 import docs from "./docs/az";
@@ -61,6 +62,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "Asılılıqlar",
     dependents: "Asılı obyektlər",

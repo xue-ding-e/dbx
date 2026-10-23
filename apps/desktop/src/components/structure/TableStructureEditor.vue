@@ -7,6 +7,9 @@ import { getColumnDefaultValuePresets } from "@/lib/table/columnDefaultPresets";
 import { applyDdlStoragePreference } from "@/lib/sql/ddlStorage";
 import DdlStorageToggle from "@/components/objects/DdlStorageToggle.vue";
 import StructureIndexColumnPicker from "./StructureIndexColumnPicker.vue";
+import TableColumnPasteDialog from "./TableColumnPasteDialog.vue";
+import { createPastedColumnDrafts, parseTableColumnDefinitions } from "@/lib/table/tableColumnDefinitionPaste";
+import { resolveNextEditorToolbarTier, type EditorToolbarTier } from "@/lib/tabs/editorToolbarLayout";
 import DangerConfirmDialog from "@/components/editor/DangerConfirmDialog.vue";
 import { executeOceanbasePrimaryKeyPlan, readOceanbasePrimaryKeySnapshot, prepareOraclePrimaryKeyChange, OceanbasePrimaryKeyValidationError, type ExistingPrimaryKeyChange, type OceanbasePrimaryKeyPlan, type PrimaryKeyTarget } from "@/lib/database/oceanbasePrimaryKey";
 import { executeOracleForeignKeyCreatePlan, executeOracleForeignKeyPlan, prepareOracleForeignKeyCreatePlan, prepareOracleForeignKeyPlan, readOracleForeignKeyDefinitions, type OracleForeignKeyCreatePlan, type OracleForeignKeyPlan } from "@/lib/database/oracleForeignKeys";
@@ -563,6 +566,7 @@ async function authorizeStarRocksLayoutCopy(sql: string): Promise<boolean> {
   return !productionContext.active || (await productionSafetyStore.requestConfirmation({ sql, connectionName: config?.name, database: props.database, productionDatabases: productionContext.databases, source: t("starrocksLayout.copyTitle") }));
 }
 const copyColumnsDialogOpen = ref(false);
+const pasteColumnsDialogOpen = ref(false);
 const copySourceConnectionId = ref("");
 const copySourceDatabase = ref("");
 const copySourceSchema = ref("");
@@ -666,6 +670,10 @@ const partitionStatusKnown = ref(true);
 const concurrentAvailabilityInvalidated = ref(false);
 const pendingStatements = ref<string[]>([]);
 const warnings = ref<string[]>([]);
+function structureWarningText(warning: string): string {
+  if (warning === "Table name is required.") return t("diagram.tableNameRequired");
+  return translateMysqlAutoIncrementWarning(t, warning);
+}
 const sqliteSchemaRevision = ref<string>();
 const foreignKeys = ref<EditableStructureForeignKey[]>([]);
 const foreignKeyDefinitionBusy = ref(false);
@@ -1301,6 +1309,60 @@ const structurePropertyLabelClass = "flex min-w-0 items-center gap-1 whitespace-
 const structureActionButtonClass = `${structureIconButtonClass} shrink-0`;
 const structureDensityMenuOpen = ref(false);
 const structureDensityMenuRef = ref<HTMLElement>();
+const structureToolbarRef = ref<HTMLElement>();
+const structureToolbarTier = ref<EditorToolbarTier>(0);
+let structureToolbarCondensedAtWidth = 0;
+let structureToolbarRequiredWidths: Partial<Record<EditorToolbarTier, number>> = {};
+let structureToolbarResizeObserver: ResizeObserver | undefined;
+let structureToolbarMeasureRaf = 0;
+
+function measureStructureToolbar() {
+  const toolbar = structureToolbarRef.value;
+  if (!toolbar || !toolbar.clientWidth) return;
+  const tier = structureToolbarTier.value;
+  const next = resolveNextEditorToolbarTier({
+    tier,
+    availableWidth: toolbar.clientWidth,
+    contentWidth: toolbar.scrollWidth,
+    condensedAtWidth: structureToolbarCondensedAtWidth,
+    expandedTierRequiredWidths: structureToolbarRequiredWidths,
+  });
+  if (next > tier) {
+    structureToolbarRequiredWidths[tier] = toolbar.scrollWidth;
+    structureToolbarCondensedAtWidth = toolbar.clientWidth;
+  }
+  structureToolbarTier.value = next;
+}
+
+function scheduleStructureToolbarMeasurement() {
+  if (structureToolbarMeasureRaf || !structureToolbarRef.value?.isConnected) return;
+  structureToolbarMeasureRaf = requestAnimationFrame(() => {
+    structureToolbarMeasureRaf = 0;
+    measureStructureToolbar();
+  });
+}
+
+function stopStructureToolbarObserver() {
+  structureToolbarResizeObserver?.disconnect();
+  structureToolbarResizeObserver = undefined;
+  if (structureToolbarMeasureRaf) cancelAnimationFrame(structureToolbarMeasureRaf);
+  structureToolbarMeasureRaf = 0;
+}
+
+function observeStructureToolbar() {
+  stopStructureToolbarObserver();
+  const toolbar = structureToolbarRef.value;
+  if (!toolbar) return;
+  if (typeof ResizeObserver !== "undefined") {
+    structureToolbarResizeObserver = new ResizeObserver(scheduleStructureToolbarMeasurement);
+    structureToolbarResizeObserver.observe(toolbar);
+  }
+  scheduleStructureToolbarMeasurement();
+}
+
+watch(structureToolbarRef, observeStructureToolbar, { flush: "post" });
+// A tier changes the content's width even when the toolbar's box stays fixed.
+watch(structureToolbarTier, () => void nextTick(scheduleStructureToolbarMeasurement));
 
 function applyStructureDensityWidths(density: StructureEditorDensity) {
   colWidths.value = loadStructureColumnWidths(density);
@@ -2016,6 +2078,7 @@ const tableStoresCaseSensitiveIdentifiers = computed(() => {
 const usesSqliteRebuildStrategy = computed(() => !isCreateMode.value && structureCapabilities.value.alterStrategy === "sqlite-rebuild");
 const hasSqliteTypeChange = computed(() => usesSqliteRebuildStrategy.value && hasExistingColumnTypeChange(columns.value));
 const canAddColumn = computed(() => canAddTableStructureColumn(databaseType.value, isCreateMode.value) && (isCreateMode.value || databaseType.value !== "starrocks" || ["primary", "duplicate"].includes(starrocksAlterContext.value?.model ?? "")));
+const canPasteColumns = computed(() => databaseType.value === "mysql" && canAddColumn.value && !loading.value && !saving.value);
 const newTableName = ref("");
 const tableComment = ref("");
 const originalTableComment = ref("");
@@ -4440,6 +4503,22 @@ async function loadCopySourceColumns(tableName: string) {
 
 function toggleCopySourceColumns() {
   selectedCopySourceColumnNames.value = allCopyableSourceColumnsSelected.value ? [] : [...copyableSourceColumnNames.value];
+}
+
+function applyPastedColumns(text: string) {
+  if (!pasteColumnsDialogOpen.value || !canPasteColumns.value || activeTab.value !== "columns") return;
+  // Revalidate at commit time, including names of drop-marked columns. Import
+  // must never implicitly replace a field or use a stale dialog preview.
+  const result = parseTableColumnDefinitions(
+    text,
+    columns.value.map((column) => column.name),
+  );
+  if (result.diagnostics.length || !result.columns.length) return;
+  const drafts = createPastedColumnDrafts(result.columns, uuid);
+  columns.value.splice(resolveInsertColumnIndex(columns.value, selectedColumnId.value), 0, ...drafts);
+  selectSingleColumn(drafts[drafts.length - 1]);
+  if (usesLocalTableColumnOrder.value) persistLocalColumnOrder(false);
+  pasteColumnsDialogOpen.value = false;
 }
 
 function applyCopiedColumns() {
@@ -7005,6 +7084,7 @@ onMounted(() => {
 
 onActivated(() => {
   registerStructureEditorShortcuts();
+  observeStructureToolbar();
   observeStructureHorizontalScroller();
   void loadDynamicDataTypeOptions();
   if (supportsTableOwner.value && !loadedMetadataFacets.has("owner")) void loadTableOwner(false, props.draft?.tableOwner !== undefined);
@@ -7025,7 +7105,9 @@ onActivated(() => {
   if (activeTab.value === "ddl") scheduleDdlEditorInit();
 });
 onDeactivated(() => {
+  stopStructureToolbarObserver();
   copyColumnsDialogOpen.value = false;
+  pasteColumnsDialogOpen.value = false;
   flushStructureScrollDraftSync();
   if (structureColumnScrollingTimer) clearTimeout(structureColumnScrollingTimer);
   structureColumnScrollingTimer = undefined;
@@ -7037,6 +7119,7 @@ onDeactivated(() => {
   destroyDdlEditor();
 });
 onBeforeUnmount(() => {
+  stopStructureToolbarObserver();
   ++copySourceScopeRequestId;
   resetCopySourceTables();
   structureLoadRequestId++;
@@ -7159,6 +7242,10 @@ watch([() => props.connectionId, () => props.database, databaseType], () => {
   void loadDynamicDataTypeOptions();
 });
 
+watch([() => props.connectionId, () => props.database, () => props.schema, () => props.catalog, () => props.tableName, databaseType, activeTab], () => {
+  pasteColumnsDialogOpen.value = false;
+});
+
 watch(() => connection.value?.database_info?.productVersion, scheduleSqlPreviewRefresh);
 
 watch(
@@ -7216,6 +7303,15 @@ watch(activeTab, () => {
 });
 
 watch([activeTab, loading, indexesLoading, visibleColWidths, indexColWidths], observeStructureHorizontalScroller, { deep: true, flush: "post", immediate: true });
+
+// Tab availability, density and translations all change the space the actions
+// need. Re-measure the full layout instead of keeping widths from another view.
+watch([activeTab, isCreateMode, databaseType, tableMetadataCapabilities, showPartitionsTab, localStructureDensity, structureDensityOptions], () => {
+  structureToolbarRequiredWidths = {};
+  structureToolbarCondensedAtWidth = 0;
+  structureToolbarTier.value = 0;
+  void nextTick(scheduleStructureToolbarMeasurement);
+});
 
 // Font sizes change with density, so start measuring again instead of keeping a stale maximum.
 watch(localStructureDensity, () => {
@@ -7448,8 +7544,12 @@ watch(
     <div v-else class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <div class="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border">
         <Tabs v-model="activeTab" class="structure-tabs h-full min-h-0">
-          <div class="col-start-1 row-start-1 flex shrink-0 items-center justify-between gap-2 border-b px-2 py-[var(--structure-header-py)]">
-            <TabsList>
+          <div
+            ref="structureToolbarRef"
+            class="structure-toolbar col-start-1 row-start-1 flex min-w-0 shrink-0 items-center justify-between gap-2 border-b px-2 py-[var(--structure-header-py)]"
+            :class="{ 'structure-toolbar--compact': structureToolbarTier >= 1, 'structure-toolbar--icons': structureToolbarTier >= 2, 'structure-toolbar--wrap': structureToolbarTier >= 3 }"
+          >
+            <TabsList class="structure-toolbar-tabs shrink-0">
               <TabsTrigger v-if="tableMetadataCapabilities.ddl && !isCreateMode" value="ddl">
                 DDL
                 <span v-if="ddlDirty" class="ml-1 h-1.5 w-1.5 rounded-full bg-primary" :title="t('structureEditor.ddlEditNotice')" data-ddl-dirty-indicator></span>
@@ -7461,10 +7561,10 @@ watch(
               <TabsTrigger v-if="tableMetadataCapabilities.triggers" value="triggers">{{ t("structureEditor.triggers") }}</TabsTrigger>
               <TabsTrigger v-if="showPartitionsTab" value="partitions">{{ t("structureEditor.partitions") }}</TabsTrigger>
             </TabsList>
-            <div class="flex shrink-0 items-center gap-1.5">
-              <Button v-if="!isCreateMode" size="sm" variant="outline" :class="structureToolbarButtonClass" data-structure-view-data @click="emit('viewData')">
+            <div class="structure-toolbar-actions flex shrink-0 items-center gap-1.5">
+              <Button v-if="!isCreateMode" size="sm" variant="outline" :class="[structureToolbarButtonClass, 'structure-toolbar-action structure-toolbar-secondary']" :title="t('contextMenu.viewData')" :aria-label="t('contextMenu.viewData')" data-structure-view-data @click="emit('viewData')">
                 <Rows3 :class="structureIconClass" />
-                {{ t("contextMenu.viewData") }}
+                <span class="structure-toolbar-label">{{ t("contextMenu.viewData") }}</span>
               </Button>
               <div class="flex items-center gap-1.5">
                 <SlidersHorizontal :class="[structureIconClass, 'text-muted-foreground']" />
@@ -7499,7 +7599,7 @@ watch(
                   </div>
                 </div>
               </div>
-              <div v-if="activeTab === 'columns'" class="relative flex w-40 shrink-0 items-center">
+              <div v-if="activeTab === 'columns'" class="structure-toolbar-search relative flex w-40 shrink-0 items-center">
                 <Search :class="[structureIconClass, 'pointer-events-none absolute left-2 text-muted-foreground']" />
                 <Input
                   ref="columnSearchInputRef"
@@ -7520,9 +7620,9 @@ watch(
               </div>
               <Tooltip v-if="activeTab === 'columns'" :delay-duration="FIELD_SHORTCUT_TOOLTIP_DELAY_MS" data-add-column-shortcut-tooltip>
                 <TooltipTrigger as-child>
-                  <Button size="sm" :class="structureToolbarButtonClass" :disabled="!canAddColumn" @click="addColumn">
+                  <Button size="sm" :class="[structureToolbarButtonClass, 'structure-toolbar-action']" :disabled="!canAddColumn" :title="t('structureEditor.addColumn')" :aria-label="t('structureEditor.addColumn')" @click="addColumn">
                     <Plus :class="structureIconClass" />
-                    {{ t("structureEditor.addColumn") }}
+                    <span class="structure-toolbar-label">{{ t("structureEditor.addColumn") }}</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" class="font-mono font-medium" data-add-column-shortcut-content>Shift+Enter</TooltipContent>
@@ -7531,25 +7631,67 @@ watch(
                 v-if="activeTab === 'columns' && !isCreateMode && databaseType === 'starrocks'"
                 variant="outline"
                 size="sm"
-                :class="structureToolbarButtonClass"
+                :class="[structureToolbarButtonClass, 'structure-toolbar-action structure-toolbar-secondary']"
                 :disabled="loading || saving || hasPendingStructureChanges() || ddlDirty"
-                :title="hasPendingStructureChanges() || ddlDirty ? t('starrocksLayout.copySaveFirst') : undefined"
+                :title="hasPendingStructureChanges() || ddlDirty ? t('starrocksLayout.copySaveFirst') : t('starrocksLayout.copyButton')"
+                :aria-label="t('starrocksLayout.copyButton')"
                 @click="starrocksLayoutCopyOpen = true"
                 data-starrocks-layout-copy-button
               >
-                <SlidersHorizontal :class="structureIconClass" />{{ t("starrocksLayout.copyButton") }}
+                <SlidersHorizontal :class="structureIconClass" /><span class="structure-toolbar-label">{{ t("starrocksLayout.copyButton") }}</span>
               </Button>
-              <Button v-if="activeTab === 'columns'" size="sm" variant="outline" :class="structureToolbarButtonClass" :disabled="!canAddColumn" @click="openCopyColumnsDialog">
+              <Button
+                v-if="activeTab === 'columns'"
+                size="sm"
+                variant="outline"
+                :class="[structureToolbarButtonClass, 'structure-toolbar-action structure-toolbar-secondary']"
+                :disabled="!canAddColumn"
+                :title="t('structureEditor.copyColumns')"
+                :aria-label="t('structureEditor.copyColumns')"
+                @click="openCopyColumnsDialog"
+              >
                 <Copy :class="structureIconClass" />
-                {{ t("structureEditor.copyColumns") }}
+                <span class="structure-toolbar-label">{{ t("structureEditor.copyColumns") }}</span>
               </Button>
-              <Button v-if="activeTab === 'columns'" size="sm" variant="outline" :class="structureToolbarButtonClass" :disabled="copyableStructureColumnNames.length === 0" @click="copyColumnNamesDialogOpen = true">
+              <Button
+                v-if="activeTab === 'columns' && databaseType === 'mysql'"
+                size="sm"
+                variant="outline"
+                :class="[structureToolbarButtonClass, 'structure-toolbar-action structure-toolbar-secondary']"
+                :disabled="!canPasteColumns"
+                :title="t('tableColumnPaste.title')"
+                :aria-label="t('tableColumnPaste.title')"
+                data-column-paste-button
+                @click="pasteColumnsDialogOpen = true"
+              >
                 <ClipboardList :class="structureIconClass" />
-                {{ t("grid.copyColumnNames") }}
+                <span class="structure-toolbar-label">{{ t("tableColumnPaste.title") }}</span>
               </Button>
-              <Button v-if="activeTab === 'columns'" size="sm" variant="outline" :class="structureToolbarButtonClass" :disabled="!canAddColumn" @click="applyColumnTemplate(PRESET_FIELDS_TEMPLATE_ID)">
-                <Copy :class="structureIconClass" />
-                {{ t("structureEditor.columnTemplates") }}
+              <Button
+                v-if="activeTab === 'columns'"
+                size="sm"
+                variant="outline"
+                :class="[structureToolbarButtonClass, 'structure-toolbar-action structure-toolbar-secondary']"
+                :disabled="copyableStructureColumnNames.length === 0"
+                :title="t('grid.copyColumnNames')"
+                :aria-label="t('grid.copyColumnNames')"
+                @click="copyColumnNamesDialogOpen = true"
+              >
+                <Rows3 :class="structureIconClass" />
+                <span class="structure-toolbar-label">{{ t("grid.copyColumnNames") }}</span>
+              </Button>
+              <Button
+                v-if="activeTab === 'columns'"
+                size="sm"
+                variant="outline"
+                :class="[structureToolbarButtonClass, 'structure-toolbar-action structure-toolbar-secondary']"
+                :disabled="!canAddColumn"
+                :title="t('structureEditor.columnTemplates')"
+                :aria-label="t('structureEditor.columnTemplates')"
+                @click="applyColumnTemplate(PRESET_FIELDS_TEMPLATE_ID)"
+              >
+                <Plus :class="structureIconClass" />
+                <span class="structure-toolbar-label">{{ t("structureEditor.columnTemplates") }}</span>
               </Button>
               <Tooltip v-if="activeTab === 'columns'">
                 <TooltipTrigger as-child>
@@ -7559,7 +7701,7 @@ watch(
                 </TooltipTrigger>
                 <TooltipContent>{{ t("structureEditor.configureColumnTemplates") }}</TooltipContent>
               </Tooltip>
-              <div v-if="activeTab === 'indexes'" class="relative flex w-40 shrink-0 items-center">
+              <div v-if="activeTab === 'indexes'" class="structure-toolbar-search relative flex w-40 shrink-0 items-center">
                 <Search :class="[structureIconClass, 'pointer-events-none absolute left-2 text-muted-foreground']" />
                 <Input ref="indexSearchInputRef" v-model="indexSearchText" :placeholder="t('structureEditor.searchIndexes')" :class="[structureControlClass, 'pl-7 pr-14 text-[length:var(--structure-font-size)] placeholder:text-[length:var(--structure-font-size)]']" @keydown="onIndexSearchKeydown" />
                 <button
@@ -7572,21 +7714,45 @@ watch(
                   {{ indexSearchMatchCount }}
                 </button>
               </div>
-              <Button v-if="activeTab === 'indexes'" size="sm" :class="structureToolbarButtonClass" :disabled="!structureCapabilities.createIndex || indexesLoading" @click="addIndex">
+              <Button v-if="activeTab === 'indexes'" size="sm" :class="[structureToolbarButtonClass, 'structure-toolbar-action']" :disabled="!structureCapabilities.createIndex || indexesLoading" :title="t('structureEditor.addIndex')" :aria-label="t('structureEditor.addIndex')" @click="addIndex">
                 <Plus :class="structureIconClass" />
-                {{ t("structureEditor.addIndex") }}
+                <span class="structure-toolbar-label">{{ t("structureEditor.addIndex") }}</span>
               </Button>
-              <Button v-if="activeTab === 'foreignKeys'" size="sm" :class="structureToolbarButtonClass" :disabled="!canEditForeignKeys || foreignKeysLoading" @click="addForeignKey">
+              <Button
+                v-if="activeTab === 'foreignKeys'"
+                size="sm"
+                :class="[structureToolbarButtonClass, 'structure-toolbar-action']"
+                :disabled="!canEditForeignKeys || foreignKeysLoading"
+                :title="t('structureEditor.addForeignKey')"
+                :aria-label="t('structureEditor.addForeignKey')"
+                @click="addForeignKey"
+              >
                 <Plus :class="structureIconClass" />
-                {{ t("structureEditor.addForeignKey") }}
+                <span class="structure-toolbar-label">{{ t("structureEditor.addForeignKey") }}</span>
               </Button>
               <template v-if="activeTab === 'constraints' && isOracleConstraintEditor">
-                <Button size="sm" :class="structureToolbarButtonClass" :disabled="saving || oracleConstraintBusy || !!oracleConstraintDraft" @click="addOracleConstraint('check')"><Plus :class="structureIconClass" />{{ t("structureEditor.addCheckConstraint") }}</Button>
-                <Button size="sm" :class="structureToolbarButtonClass" :disabled="saving || oracleConstraintBusy || !!oracleConstraintDraft" @click="addOracleConstraint('unique')"><Plus :class="structureIconClass" />{{ t("structureEditor.addUniqueConstraint") }}</Button>
+                <Button
+                  size="sm"
+                  :class="[structureToolbarButtonClass, 'structure-toolbar-action']"
+                  :disabled="saving || oracleConstraintBusy || !!oracleConstraintDraft"
+                  :title="t('structureEditor.addCheckConstraint')"
+                  :aria-label="t('structureEditor.addCheckConstraint')"
+                  @click="addOracleConstraint('check')"
+                  ><Plus :class="structureIconClass" /><span class="structure-toolbar-label">{{ t("structureEditor.addCheckConstraint") }}</span></Button
+                >
+                <Button
+                  size="sm"
+                  :class="[structureToolbarButtonClass, 'structure-toolbar-action']"
+                  :disabled="saving || oracleConstraintBusy || !!oracleConstraintDraft"
+                  :title="t('structureEditor.addUniqueConstraint')"
+                  :aria-label="t('structureEditor.addUniqueConstraint')"
+                  @click="addOracleConstraint('unique')"
+                  ><Plus :class="structureIconClass" /><span class="structure-toolbar-label">{{ t("structureEditor.addUniqueConstraint") }}</span></Button
+                >
               </template>
-              <Button v-if="activeTab === 'triggers'" size="sm" :class="structureToolbarButtonClass" :disabled="!canEditTriggers || triggersLoading" @click="addTrigger">
+              <Button v-if="activeTab === 'triggers'" size="sm" :class="[structureToolbarButtonClass, 'structure-toolbar-action']" :disabled="!canEditTriggers || triggersLoading" :title="t('structureEditor.addTrigger')" :aria-label="t('structureEditor.addTrigger')" @click="addTrigger">
                 <Plus :class="structureIconClass" />
-                {{ t("structureEditor.addTrigger") }}
+                <span class="structure-toolbar-label">{{ t("structureEditor.addTrigger") }}</span>
               </Button>
             </div>
           </div>
@@ -7613,7 +7779,7 @@ watch(
                 @update="onColumnVirtualRowsUpdated"
               >
                 <template #before>
-                  <table class="structure-column-virtual-header-table border-separate border-spacing-0 text-[length:var(--structure-font-size)] leading-[var(--structure-line-height)]" :style="{ width: columnTableWidth + 'px', minWidth: columnTableWidth + 'px' }">
+                  <table class="structure-column-virtual-header-table border-separate border-spacing-0 text-[length:var(--structure-font-size)] leading-[var(--structure-line-height)]">
                     <colgroup>
                       <col v-for="(width, index) in visibleColWidths" :key="index" :style="{ width: width + 'px' }" />
                     </colgroup>
@@ -7735,10 +7901,10 @@ watch(
                             </div>
                           </div>
                         </td>
-                        <td :class="[structureCellClass, structureColumnSelectionClass('name')]">
-                          <Input v-model="column.name" :class="[structureControlClass, columnSearchFieldClass(column, column.name)]" :title="columnIndexTitle(column) || undefined" :disabled="isColumnNameDisabled(column)" data-column-name-input @blur="commitColumnNameInput(column)" />
+                        <td :class="[structureCellClass, structureColumnSelectionClass('name')]" :title="[column.name, columnIndexTitle(column)].filter(Boolean).join('\n') || undefined">
+                          <Input v-model="column.name" :class="[structureControlClass, columnSearchFieldClass(column, column.name)]" :disabled="isColumnNameDisabled(column)" data-column-name-input @blur="commitColumnNameInput(column)" />
                         </td>
-                        <td :class="[structureCellClass, 'structure-column-data-type', structureDataTypeToneClass(column.dataType), structureColumnSelectionClass('type')]">
+                        <td :class="[structureCellClass, 'structure-column-data-type', structureDataTypeToneClass(column.dataType), structureColumnSelectionClass('type')]" :title="gaussdbMDataTypeDisplayName(column.dataType) || undefined">
                           <SearchableSelect
                             v-if="!isColumnTypeDisabled(column)"
                             :model-value="dataTypeBaseInputValue(databaseType, column.dataType)"
@@ -7762,7 +7928,7 @@ watch(
                           </SearchableSelect>
                           <Input v-else :model-value="gaussdbMDataTypeDisplayName(dataTypeBaseInputValue(databaseType, column.dataType))" :class="[structureMonoControlClass, 'w-full']" disabled />
                         </td>
-                        <td v-if="columnEditorControls.length" :class="[structureCellClass, structureColumnSelectionClass('length')]">
+                        <td v-if="columnEditorControls.length" :class="[structureCellClass, structureColumnSelectionClass('length')]" :title="structureColumnClipboardValue(column, 'length') || undefined">
                           <Popover v-if="isMysqlEnumDataType(databaseType, column.dataType)">
                             <PopoverTrigger as-child>
                               <Button variant="outline" size="sm" :class="[structureMonoControlClass, 'w-full justify-between px-2']" :disabled="isColumnTypeDisabled(column)">
@@ -7851,7 +8017,7 @@ watch(
                             "
                           />
                         </td>
-                        <td v-if="columnEditorControls.defaultValue" :class="[structureCellClass, 'structure-column-default-value', structureDefaultValueToneClass(column.defaultValue, column.dataType), structureColumnSelectionClass('defaultValue')]">
+                        <td v-if="columnEditorControls.defaultValue" :class="[structureCellClass, 'structure-column-default-value', structureDefaultValueToneClass(column.defaultValue, column.dataType), structureColumnSelectionClass('defaultValue')]" :title="column.defaultValue || undefined">
                           <div class="flex min-w-0 items-center gap-1">
                             <Input v-model="column.defaultValue" :class="[structureMonoControlClass, 'flex-1']" :disabled="isColumnDefaultDisabled(column)" />
                             <DropdownMenu>
@@ -7868,7 +8034,7 @@ watch(
                             </DropdownMenu>
                           </div>
                         </td>
-                        <td v-if="columnEditorControls.comment" :class="[structureCellClass, structureColumnSelectionClass('comment')]">
+                        <td v-if="columnEditorControls.comment" :class="[structureCellClass, structureColumnSelectionClass('comment')]" :title="column.comment || undefined">
                           <div class="flex min-w-0 items-center gap-1">
                             <Input v-model="column.comment" :class="[structureControlClass, 'flex-1', columnSearchFieldClass(column, column.comment)]" :disabled="isColumnCommentDisabled(column)" />
                             <Popover>
@@ -7896,7 +8062,7 @@ watch(
                             </Popover>
                           </div>
                         </td>
-                        <td v-if="showCharacterSet" :class="[structureCellClass, structureColumnSelectionClass('characterSet')]">
+                        <td v-if="showCharacterSet" :class="[structureCellClass, structureColumnSelectionClass('characterSet')]" :title="columnCharset(column) || undefined">
                           <SearchableSelect
                             :model-value="columnCharset(column)"
                             :options="mysqlCharsetOptions"
@@ -7909,7 +8075,7 @@ watch(
                             @update:model-value="(v: string) => onCharsetChange(column, v)"
                           />
                         </td>
-                        <td v-if="showCharacterSet" :class="[structureCellClass, structureColumnSelectionClass('collation')]">
+                        <td v-if="showCharacterSet" :class="[structureCellClass, structureColumnSelectionClass('collation')]" :title="columnCollation(column) || undefined">
                           <SearchableSelect
                             :model-value="columnCollation(column)"
                             :options="collationOptionsForCharset(columnCharset(column))"
@@ -8932,7 +9098,7 @@ watch(
           <div v-if="warnings.length" class="mb-2 space-y-1">
             <div v-for="warning in warnings" :key="warning" class="flex gap-1.5 rounded-md border border-yellow-300/40 bg-yellow-500/10 px-[var(--structure-cell-px)] py-[var(--structure-cell-py)] text-[length:var(--structure-font-size)] text-yellow-700 dark:text-yellow-300">
               <AlertTriangle :class="[structureIconClass, 'mt-0.5 shrink-0']" />
-              <span>{{ translateMysqlAutoIncrementWarning(t, warning) }}</span>
+              <span>{{ structureWarningText(warning) }}</span>
             </div>
           </div>
           <pre v-if="pendingStatements.length" class="select-text whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2.5 font-mono text-[calc(var(--structure-font-size)+1px)] leading-5" v-html="highlightedSql" />
@@ -8959,6 +9125,7 @@ watch(
     </div>
 
     <DataGridCopyColumnNamesDialog v-model:open="copyColumnNamesDialogOpen" :column-names="copyableStructureColumnNames" :database-type="databaseType" :column-comments="copyableStructureColumnComments" @copy="copyColumnNamesText" />
+    <TableColumnPasteDialog v-model:open="pasteColumnsDialogOpen" :disabled="!canPasteColumns" :existing-names="columns.map((column) => column.name)" @import="applyPastedColumns" />
     <Dialog v-model:open="copyColumnsDialogOpen">
       <DialogContent class="max-w-xl">
         <DialogHeader>
@@ -9269,6 +9436,40 @@ watch(
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+/* Keep the primary action labelled for as long as the measured row fits. */
+.structure-toolbar--compact .structure-toolbar-secondary,
+.structure-toolbar--icons .structure-toolbar-action {
+  width: var(--structure-control-height);
+  padding-inline: 0;
+  gap: 0;
+}
+
+.structure-toolbar--compact .structure-toolbar-secondary .structure-toolbar-label,
+.structure-toolbar--icons .structure-toolbar-action .structure-toolbar-label {
+  display: none;
+}
+
+.structure-toolbar--icons .structure-toolbar-search {
+  width: 7rem;
+}
+
+/* Very small split panes still expose every action after labels are removed. */
+.structure-toolbar--wrap {
+  flex-wrap: wrap;
+}
+
+.structure-toolbar--wrap .structure-toolbar-tabs {
+  height: auto;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.structure-toolbar--wrap .structure-toolbar-actions {
+  max-width: 100%;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
 /* Both native scrollbars are replaced: the horizontal one by
    `.structure-horizontal-scrollbar`, the vertical one by
    `.structure-vertical-scrollbar`. */
@@ -9354,12 +9555,15 @@ watch(
 }
 
 .structure-column-virtual-scroller :deep(.structure-column-virtual-row) {
-  width: var(--structure-column-table-width);
+  width: 100%;
   min-width: var(--structure-column-table-width);
 }
 
+.structure-column-virtual-scroller :deep(.structure-column-virtual-header-table),
 .structure-column-virtual-scroller :deep(.structure-column-virtual-row-table) {
-  width: var(--structure-column-table-width);
+  /* Fill wide panes while retaining the configured column widths on overflow.
+     Header and virtual rows must use the same fixed table layout. */
+  width: 100%;
   min-width: var(--structure-column-table-width);
   table-layout: fixed;
 }

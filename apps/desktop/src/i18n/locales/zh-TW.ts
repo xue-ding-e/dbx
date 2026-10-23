@@ -1,3 +1,4 @@
+import { tableColumnPasteZhTW as tableColumnPaste } from "./tableColumnPaste";
 import { sidebarMenuZhTW as sidebarMenu } from "./sidebarMenuMessages";
 import { oceanbaseCloneDialogZhTW as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { redisGroupingZhTW as redisGrouping } from "./redisGrouping";
@@ -66,6 +67,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "依賴物件",
     dependents: "被依賴物件",

@@ -1,3 +1,4 @@
+import { tableColumnPasteTh as tableColumnPaste } from "./tableColumnPaste";
 import { withEnglishFallback } from "./fallback";
 import docs from "./docs/th";
 
@@ -49,6 +50,7 @@ const damengDump = {
 };
 
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "วัตถุที่พึ่งพา",
     dependents: "วัตถุที่อ้างอิงวัตถุนี้",

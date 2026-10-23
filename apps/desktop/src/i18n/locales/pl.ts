@@ -1,3 +1,4 @@
+import { tableColumnPastePl as tableColumnPaste } from "./tableColumnPaste";
 import { withEnglishFallback } from "./fallback";
 import { redisGroupingPl as redisGrouping } from "./redisGrouping";
 import docs from "./docs/pl";
@@ -62,6 +63,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "Zależności",
     dependents: "Obiekty zależne",

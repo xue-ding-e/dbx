@@ -1,3 +1,4 @@
+import { tableColumnPasteZhCN as tableColumnPaste } from "./tableColumnPaste";
 import { sidebarMenuZhCN as sidebarMenu } from "./sidebarMenuMessages";
 import { oceanbaseCloneDialogZhCN as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { redisGroupingZhCN as redisGrouping } from "./redisGrouping";
@@ -10,6 +11,7 @@ import { mongodbDatabaseDumpZhCN as mongoDump } from "./mongodbDatabaseDump";
 import { damengDumpZhCN as damengDump } from "./damengDump";
 
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "依赖对象",
     dependents: "被依赖对象",

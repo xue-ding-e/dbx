@@ -1,3 +1,4 @@
+import { tableColumnPasteIt as tableColumnPaste } from "./tableColumnPaste";
 import { sidebarMenuIt as sidebarMenu } from "./sidebarMenuMessages";
 import { oceanbaseCloneDialogIt as oceanbaseCloneDialog } from "./oceanbaseCloneDialog";
 import { withEnglishFallback } from "./fallback";
@@ -64,6 +65,7 @@ const consul = {
 };
 
 export default withEnglishFallback({
+  tableColumnPaste,
   objectDependencies: {
     dependencies: "Dipendenze",
     dependents: "Oggetti dipendenti",
