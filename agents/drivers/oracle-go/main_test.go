@@ -3579,6 +3579,7 @@ type oracleViewSourceQueryStep struct {
 	columns          []string
 	rows             [][]driver.Value
 	err              error
+	nextErr          error
 	exec             bool
 	panicText        string
 	nextPanicText    string
@@ -3635,7 +3636,7 @@ func (c *oracleViewSourceConn) QueryContext(
 		values[index] = arg.Value
 	}
 	if !reflect.DeepEqual(values, step.args) {
-		return nil, errors.New("unexpected query arguments")
+		return nil, fmt.Errorf("unexpected query arguments: got %v, want %v (query %q)", values, step.args, query)
 	}
 	if step.err != nil {
 		return nil, step.err
@@ -3647,6 +3648,7 @@ func (c *oracleViewSourceConn) QueryContext(
 	return &oracleViewSourceRows{
 		columns:          columns,
 		values:           step.rows,
+		nextErr:          step.nextErr,
 		nextPanicText:    step.nextPanicText,
 		columnsPanicText: step.columnsPanicText,
 		columnsPanicCall: step.columnsPanicCall,
@@ -3683,6 +3685,7 @@ type oracleViewSourceRows struct {
 	columns          []string
 	values           [][]driver.Value
 	next             int
+	nextErr          error
 	nextPanicText    string
 	columnsPanicText string
 	columnsPanicCall int
@@ -3704,6 +3707,9 @@ func (r *oracleViewSourceRows) Close() error {
 func (r *oracleViewSourceRows) Next(dest []driver.Value) error {
 	if r.nextPanicText != "" {
 		panic(r.nextPanicText)
+	}
+	if r.nextErr != nil {
+		return r.nextErr
 	}
 	if r.next >= len(r.values) {
 		return io.EOF
@@ -4083,6 +4089,110 @@ func TestExecuteQueryPageSurfacesPanicWhenPlaceholderNotApplicable(t *testing.T)
 	}
 	if len(result.Rows) != 0 {
 		t.Fatalf("failed query must not return rows, got %v", result.Rows)
+	}
+}
+
+func TestExecuteQueryPageRetriesWithWKTRewriteOnTTCError(t *testing.T) {
+	// go-ora raises "TTC error: received code ... during response reading" when a
+	// response contains a value it cannot decode, e.g. SDO_GEOMETRY. The paged
+	// path must retry with the value rewrite (geometry as WKT) instead of
+	// surfacing the raw error and leaving the table unreadable (issue #13179).
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{
+			queryContains: "SELECT * FROM SDE.TEST_GEOM",
+			args:          []driver.Value{},
+			columns:       []string{"ID", "GEOM"},
+			rows:          [][]driver.Value{{int64(1), "raw geometry bytes"}},
+			nextErr:       errors.New("TTC error: received code 3 during response reading"),
+		},
+		{
+			queryContains: "ALL_TAB_COLUMNS",
+			args:          []driver.Value{"SDE", "TEST_GEOM"},
+			columns:       []string{"COLUMN_NAME", "DATA_TYPE", "DATA_TYPE_OWNER"},
+			rows: [][]driver.Value{
+				{"ID", "NUMBER", nil},
+				{"GEOM", "SDO_GEOMETRY", "PUBLIC"},
+			},
+		},
+		{
+			queryContains: `SDO_UTIL.TO_WKTGEOMETRY("GEOM") AS "GEOM"`,
+			args:          []driver.Value{},
+			columns:       []string{"ID", "GEOM"},
+			rows:          [][]driver.Value{{int64(1), "POINT (1 2)"}},
+		},
+	})
+	s := newServer()
+	s.db = db
+	result, err := s.executeQueryPage(queryOptions{SQL: "SELECT * FROM SDE.TEST_GEOM"}, 10)
+	if err != nil {
+		t.Fatalf("expected the WKT retry to serve the first page, got %v", err)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d queries, got %d", len(scripted.steps), scripted.next)
+	}
+	if len(result.Rows) != 1 {
+		t.Fatalf("expected one rewritten row, got %v", result.Rows)
+	}
+	want := []any{int64(1), "POINT (1 2)"}
+	if !reflect.DeepEqual(result.Rows[0], want) {
+		t.Fatalf("unexpected row: %v, want %v", result.Rows[0], want)
+	}
+	if result.SessionID != nil || result.HasMore {
+		t.Fatalf("fully drained page must not keep a session: %v %v", result.SessionID, result.HasMore)
+	}
+}
+
+func TestExecuteQueryPageKeepsTTCErrorWhenNoRewriteApplies(t *testing.T) {
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{
+			queryContains: "SELECT * FROM SDE.TEST_GEOM",
+			args:          []driver.Value{},
+			columns:       []string{"ID"},
+			rows:          [][]driver.Value{{int64(1)}},
+			nextErr:       errors.New("TTC error: received code 3 during response reading"),
+		},
+		{
+			queryContains: "ALL_TAB_COLUMNS",
+			args:          []driver.Value{"SDE", "TEST_GEOM"},
+			columns:       []string{"COLUMN_NAME", "DATA_TYPE", "DATA_TYPE_OWNER"},
+			rows:          [][]driver.Value{{"ID", "NUMBER", nil}},
+		},
+	})
+	s := newServer()
+	s.db = db
+	_, err := s.executeQueryPage(queryOptions{SQL: "SELECT * FROM SDE.TEST_GEOM"}, 10)
+	if err == nil || !strings.Contains(err.Error(), "TTC error: received code 3") {
+		t.Fatalf("expected the original TTC error, got %v", err)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d queries, got %d", len(scripted.steps), scripted.next)
+	}
+}
+
+func TestOraclePagedRetrySQLChoosesRewriteByFailureKind(t *testing.T) {
+	loadColumns := func(string, string) ([]oracleColumnMeta, error) {
+		return []oracleColumnMeta{{Name: "GEOM", DataType: "SDO_GEOMETRY", DataTypeOwner: "PUBLIC"}}, nil
+	}
+	ttcErr := errors.New("TTC error: received code 3 during response reading")
+
+	rewritten, ok := oraclePagedRetrySQL("SELECT * FROM TEST_GEOM", loadColumns, ttcErr)
+	if !ok {
+		t.Fatal("expected a TTC-error retry")
+	}
+	if !strings.Contains(rewritten, `SDO_UTIL.TO_WKTGEOMETRY("GEOM") AS "GEOM"`) {
+		t.Fatalf("TTC retry must read geometry as WKT, got %s", rewritten)
+	}
+
+	placeholder, ok := oraclePagedRetrySQL("SELECT * FROM TEST_GEOM", loadColumns, oracleDriverPanicError{value: "decode panic"})
+	if !ok {
+		t.Fatal("expected a panic retry")
+	}
+	if !strings.Contains(placeholder, "'<SDO_GEOMETRY>'") {
+		t.Fatalf("panic retry must use the placeholder projection, got %s", placeholder)
+	}
+
+	if _, ok := oraclePagedRetrySQL("SELECT * FROM TEST_GEOM", loadColumns, errors.New("ORA-00942: table or view does not exist")); ok {
+		t.Fatal("unrelated errors must not be retried")
 	}
 }
 

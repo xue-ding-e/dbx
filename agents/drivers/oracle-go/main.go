@@ -4218,14 +4218,30 @@ func (s *server) runPagedOracleSelect(sqlText string, opts queryOptions, pageSiz
 	var ownedRows *sql.Rows
 	defer func() { s.closeRows(ownedRows) }()
 	for attempt := 0; ; attempt++ {
+		// Only the first page may be retried: once rows have been returned the
+		// caller owns them and a second execution would duplicate data.
+		retrySQL := func(err error) (string, bool) {
+			if attempt != 0 || s.hasManualTransaction() || oracleSQLLocksRows(sqlText) {
+				return "", false
+			}
+			return oraclePagedRetrySQL(sqlText, s.loadOracleColumnMeta, err)
+		}
 		rows, err := s.queryRowsWithOracleValueRewriteIfNeeded(sqlText, opts.TimeoutSecs, opts.DeferLOBs)
 		if err != nil {
+			if rewritten, ok := retrySQL(err); ok {
+				sqlText = rewritten
+				continue
+			}
 			return queryPageResult{}, nil, err
 		}
 		ownedRows = rows
 		columns, err := rows.Columns()
 		if err != nil {
 			s.closeRows(rows)
+			if rewritten, ok := retrySQL(err); ok {
+				sqlText = rewritten
+				continue
+			}
 			return queryPageResult{}, nil, err
 		}
 		columnTypes := columnTypeNames(rows)
@@ -4238,12 +4254,9 @@ func (s *server) runPagedOracleSelect(sqlText string, opts queryOptions, pageSiz
 		result.ExecutionTimeMS = time.Since(start).Milliseconds()
 		if err != nil {
 			s.closeRows(rows)
-			var panicErr oracleDriverPanicError
-			if attempt == 0 && !s.hasManualTransaction() && !oracleSQLLocksRows(sqlText) && errors.As(err, &panicErr) {
-				if placeholder, ok := oraclePlaceholderRetrySQL(sqlText, s.loadOracleColumnMeta); ok {
-					sqlText = placeholder
-					continue
-				}
+			if rewritten, ok := retrySQL(err); ok {
+				sqlText = rewritten
+				continue
 			}
 			return queryPageResult{}, nil, err
 		}
@@ -4265,6 +4278,33 @@ func oraclePlaceholderRetrySQL(sqlText string, loadColumns oracleColumnMetaLoade
 		return "", false
 	}
 	return placeholder, true
+}
+
+// oraclePagedRetrySQL returns the statement to retry with when the first page
+// of a paged Oracle SELECT fails while reading the response.
+//
+// A driver panic means the driver state for the scanned value is unknown, so it
+// keeps the placeholder projection used by the non-paged fallback. Response
+// reading failures such as go-ora's "TTC error: received code ..." mean a column
+// value could not be decoded (SDO_GEOMETRY, XMLTYPE, ...); those retry with the
+// value rewrite so the columns come back as WKT / serialized text instead of
+// failing the whole page (issue #13179). The non-paged executeSelect path
+// already performs this rewrite in executeOracleSelectWithXMLTypeRetry; without
+// it the paged path (table data and paged query results) surfaced the raw TTC
+// error and the table could not be opened.
+func oraclePagedRetrySQL(sqlText string, loadColumns oracleColumnMetaLoader, err error) (string, bool) {
+	var panicErr oracleDriverPanicError
+	if errors.As(err, &panicErr) {
+		return oraclePlaceholderRetrySQL(sqlText, loadColumns)
+	}
+	if !shouldRetryOracleXMLTypeRewrite(err) {
+		return "", false
+	}
+	rewritten, rewriteErr := rewriteOracleSelectSQL(sqlText, loadColumns, false)
+	if rewriteErr != nil || rewritten == sqlText {
+		return "", false
+	}
+	return rewritten, true
 }
 
 func (s *server) fetchQueryPage(sessionID string, pageSize int) (queryPageResult, error) {
