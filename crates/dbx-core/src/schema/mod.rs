@@ -26,6 +26,12 @@ mod external_table_filter_tests;
 mod kingbase;
 mod mongodb_columns;
 pub mod oracle_routines;
+mod oracle_type_data;
+mod oracle_type_details;
+mod oracle_type_evolution;
+mod oracle_type_management;
+#[cfg(test)]
+mod oracle_type_transport_tests;
 pub mod plugin_metadata;
 #[cfg(test)]
 mod plugin_metadata_tests;
@@ -3546,13 +3552,16 @@ mod tests {
     }
 
     #[test]
-    fn supports_custom_type_details_covers_five_verified_families() {
+    fn supports_custom_type_details_preserves_pg_and_adds_oracle_families() {
         for db_type in [
             DatabaseType::Postgres,
             DatabaseType::OpenGauss,
             DatabaseType::Gaussdb,
             DatabaseType::Kingbase,
             DatabaseType::Vastbase,
+            DatabaseType::Oracle,
+            DatabaseType::OceanbaseOracle,
+            DatabaseType::Dameng,
         ] {
             assert!(supports_custom_type_details(&test_connection_config(db_type)), "{db_type:?}");
         }
@@ -4601,16 +4610,67 @@ done
 
     #[test]
     fn mysql_event_object_source_is_read_only() {
-        let source = finalize_object_source(db::ObjectSource {
-            name: "event_daily_sync".to_string(),
-            object_type: db::ObjectSourceKind::Event,
-            schema: None,
-            source: "CREATE EVENT event_daily_sync ON SCHEDULE EVERY 1 DAY DO SELECT 1".to_string(),
-            editable: None,
-            routine_parameters: None,
-        });
+        let source = finalize_object_source(
+            db::ObjectSource {
+                name: "event_daily_sync".to_string(),
+                object_type: db::ObjectSourceKind::Event,
+                schema: None,
+                source: "CREATE EVENT event_daily_sync ON SCHEDULE EVERY 1 DAY DO SELECT 1".to_string(),
+                editable: None,
+                routine_parameters: None,
+            },
+            None,
+        );
 
         assert_eq!(source.editable, Some(false));
+    }
+
+    #[test]
+    fn oracle_family_type_sources_are_editable_without_changing_xugu_or_routines() {
+        for db_type in [DatabaseType::Oracle, DatabaseType::OceanbaseOracle, DatabaseType::Dameng, DatabaseType::Xugu] {
+            let config = test_connection_config(db_type);
+            for kind in [db::ObjectSourceKind::Type, db::ObjectSourceKind::TypeBody, db::ObjectSourceKind::Function] {
+                let source = finalize_object_source(
+                    db::ObjectSource {
+                        name: "Mixed Type".to_string(),
+                        object_type: kind.clone(),
+                        schema: Some("Exact Owner".to_string()),
+                        source: "CREATE TYPE ...".to_string(),
+                        editable: Some(true),
+                        routine_parameters: None,
+                    },
+                    Some(&config),
+                );
+                let newly_editable = db_type != DatabaseType::Xugu
+                    && matches!(kind, db::ObjectSourceKind::Type | db::ObjectSourceKind::TypeBody);
+                assert_eq!(
+                    source.editable,
+                    Some(
+                        db_type == DatabaseType::Xugu
+                            || newly_editable
+                            || !matches!(kind, db::ObjectSourceKind::Type | db::ObjectSourceKind::TypeBody)
+                    ),
+                    "{db_type:?} {kind:?}"
+                );
+            }
+        }
+        let mut config = test_connection_config(DatabaseType::Jdbc);
+        config.connection_string = Some("jdbc:oceanbase:oracle://localhost:2881/APP".into());
+        config.jdbc_driver_class = Some("com.oceanbase.jdbc.Driver".into());
+        for kind in [db::ObjectSourceKind::Type, db::ObjectSourceKind::TypeBody] {
+            let source = finalize_object_source(
+                db::ObjectSource {
+                    name: "Mixed Type".into(),
+                    object_type: kind,
+                    schema: Some("Exact Owner".into()),
+                    source: "CREATE TYPE ...".into(),
+                    editable: Some(true),
+                    routine_parameters: None,
+                },
+                Some(&config),
+            );
+            assert_eq!(source.editable, Some(true));
+        }
     }
 
     #[test]
@@ -7503,9 +7563,13 @@ async fn list_objects_once(
         if let Some(agent_client) = extract_pool!(pool_handle.as_ref(), Agent) {
             let is_oracle = db_config.as_ref().is_some_and(|config| config.db_type == DatabaseType::Oracle);
             let is_oceanbase = db_config.as_ref().is_some_and(|config| config.db_type == DatabaseType::OceanbaseOracle);
-            let use_oracle_agent_paging = db_config.as_ref().is_some_and(is_default_oracle_agent_config);
+            // Type requests can use the shared Go handler's ROWNUM paging on
+            // legacy/OCI profiles too; retain the old fallback for other kinds.
+            let use_oracle_agent_paging = db_config.as_ref().is_some_and(is_default_oracle_agent_config)
+                || (is_oracle && object_types_only_custom_types(object_types));
             let use_agent_paging = use_oracle_agent_paging || is_oceanbase;
             let filter_locally_after_oracle_comments = is_oracle
+                && !object_types_only_custom_types(object_types)
                 && !object_types.is_some_and(|types| types.len() == 1 && types[0].eq_ignore_ascii_case("INDEX"))
                 && filter.is_some_and(|filter| !filter.trim().is_empty());
             let timeout_duration = agent_metadata_timeout(db_config.as_ref());
@@ -11309,14 +11373,15 @@ async fn read_mysql_object_source_row(
 /// separate from listing support so a future per-kind DDL capability can be
 /// toggled independently.
 fn supports_custom_type_details(config: &ConnectionConfig) -> bool {
-    matches!(
-        config.db_type,
-        DatabaseType::Postgres
-            | DatabaseType::OpenGauss
-            | DatabaseType::Gaussdb
-            | DatabaseType::Kingbase
-            | DatabaseType::Vastbase
-    )
+    oracle_type_details::dialect(config).is_some()
+        || matches!(
+            config.db_type,
+            DatabaseType::Postgres
+                | DatabaseType::OpenGauss
+                | DatabaseType::Gaussdb
+                | DatabaseType::Kingbase
+                | DatabaseType::Vastbase
+        )
 }
 
 pub async fn get_custom_type_details_core(
@@ -11330,6 +11395,401 @@ pub async fn get_custom_type_details_core(
         get_custom_type_details_once(state, connection_id, database, schema, name)
     })
     .await
+}
+
+/// Read a type-management snapshot through the same Agent/JDBC query boundary
+/// as custom-type details. This is intentionally a narrow dictionary adapter;
+/// execution remains a separate, explicit user-confirmed operation.
+pub async fn get_oracle_type_management_snapshot_core(
+    state: &AppState,
+    connection_id: &str,
+    database: &str,
+    owner: &str,
+    name: &str,
+) -> Result<db::OracleTypeManagementSnapshot, String> {
+    get_oracle_type_management_snapshot_with_objects_core(state, connection_id, database, owner, name, &[]).await
+}
+
+/// Known identities let recovery inspect objects whose dependency edges vanished
+/// after an earlier confirmed DROP. Definitions still come from the live database.
+pub async fn get_oracle_type_management_snapshot_with_objects_core(
+    state: &AppState,
+    connection_id: &str,
+    database: &str,
+    owner: &str,
+    name: &str,
+    known_objects: &[db::OracleTypeManagementObjectKey],
+) -> Result<db::OracleTypeManagementSnapshot, String> {
+    if known_objects.len() > 500 {
+        return Err("TYPE recovery can inspect at most 500 known object identities.".into());
+    }
+    let config = connection_config(state, connection_id).await;
+    let config = config.as_ref().ok_or_else(|| "connection not found".to_string())?;
+    let dialect = oracle_type_details::dialect(config)
+        .ok_or_else(|| "TYPE management is supported only for Oracle-family connections".to_string())?;
+    let run = |sql: String| run_oracle_type_management_query(state, connection_id, database, sql, 10_000);
+    let (acting_user, acting_user_read) = oracle_type_management::acting_user(&run).await;
+    let (dependencies, dependencies_read) = oracle_type_management::dependencies(dialect, owner, name, &run).await;
+    let (direct_privileges, privileges_read) =
+        oracle_type_management::direct_privileges(dialect, owner, name, &run).await;
+
+    let mut objects = Vec::new();
+    let mut identities = vec![
+        (owner.to_string(), name.to_string(), "TYPE".to_string()),
+        (owner.to_string(), name.to_string(), "TYPE BODY".to_string()),
+    ];
+    identities.extend(known_objects.iter().map(|key| (key.owner.clone(), key.name.clone(), key.object_type.clone())));
+    for dependency in &dependencies {
+        identities.push((dependency.owner.clone(), dependency.name.clone(), dependency.object_type.clone()));
+        if dependency.object_type == "TYPE" {
+            identities.push((dependency.owner.clone(), dependency.name.clone(), "TYPE BODY".to_string()));
+        }
+    }
+    let mut object_keys = HashSet::new();
+    let mut persistent_references = Vec::new();
+    let mut persistent_references_read = oracle_type_management::available();
+    for (object_owner, object_name, object_type) in identities {
+        if !object_keys.insert((object_owner.clone(), object_name.clone(), object_type.clone())) {
+            continue;
+        }
+        let mut object =
+            oracle_type_management::object_metadata(dialect, &object_owner, &object_name, &object_type, &run).await;
+        let source_kind = match object_type.as_str() {
+            "TYPE" => Some(db::ObjectSourceKind::Type),
+            "TYPE BODY" | "CLASS_BODY" => Some(db::ObjectSourceKind::TypeBody),
+            "CLASS" | "CLLT" => Some(db::ObjectSourceKind::Type),
+            "FUNCTION" => Some(db::ObjectSourceKind::Function),
+            "PROCEDURE" => Some(db::ObjectSourceKind::Procedure),
+            "PACKAGE" => Some(db::ObjectSourceKind::Package),
+            "PACKAGE BODY" => Some(db::ObjectSourceKind::PackageBody),
+            "VIEW" => Some(db::ObjectSourceKind::View),
+            "MATERIALIZED VIEW" => Some(db::ObjectSourceKind::MaterializedView),
+            "TRIGGER" => Some(db::ObjectSourceKind::Trigger),
+            _ => None,
+        };
+        let (source, source_read) = if object.exists == Some(false) {
+            (None, oracle_type_management::available())
+        } else if let Some(source_kind) = source_kind.clone() {
+            match get_object_source_core(
+                state,
+                connection_id,
+                database,
+                &object_owner,
+                &object_name,
+                source_kind,
+                None,
+                None,
+            )
+            .await
+            {
+                Ok(source) => (
+                    Some(source.source),
+                    db::TypeMetadataRead { state: db::TypeMetadataState::Available, reason: None },
+                ),
+                Err(error) => {
+                    (None, db::TypeMetadataRead { state: db::TypeMetadataState::Unavailable, reason: Some(error) })
+                }
+            }
+        } else {
+            (
+                None,
+                db::TypeMetadataRead {
+                    state: db::TypeMetadataState::Unsupported,
+                    reason: Some(format!("Source for {object_type} is not available through the type manager")),
+                },
+            )
+        };
+        object.source = source;
+        object.source_read = source_read;
+        object.source_fingerprint = source_kind.and_then(|kind| {
+            object.source.as_ref().and_then(|source| {
+                dbx_sql::object_source_sql::build_oracle_type_management_source(
+                    dbx_sql::object_source_sql::EditableObjectSourceSqlInput {
+                        database_type: match dialect {
+                            oracle_type_details::Dialect::Oracle => DatabaseType::Oracle,
+                            oracle_type_details::Dialect::OceanBase => DatabaseType::OceanbaseOracle,
+                            oracle_type_details::Dialect::Dameng => DatabaseType::Dameng,
+                        },
+                        object_type: kind,
+                        schema: Some(object_owner.clone()),
+                        name: object_name.clone(),
+                        source: source.clone(),
+                    },
+                )
+                .ok()
+                .map(|(_, fingerprint)| fingerprint)
+            })
+        });
+        let is_type = object_type == "TYPE";
+        let (object_privileges, object_privileges_read) = if is_type {
+            if object_owner == owner && object_name == name {
+                (direct_privileges.clone(), privileges_read.clone())
+            } else {
+                oracle_type_management::direct_privileges(dialect, &object_owner, &object_name, &run).await
+            }
+        } else {
+            (
+                Vec::new(),
+                db::TypeMetadataRead {
+                    state: db::TypeMetadataState::Unsupported,
+                    reason: Some(
+                        "Direct grants are read only for objects that the type manager may replace".to_string(),
+                    ),
+                },
+            )
+        };
+        object.direct_privileges = object_privileges;
+        object.privileges_read = object_privileges_read;
+        if is_type {
+            let (references, read) =
+                oracle_type_management::persistent_references(dialect, &object_owner, &object_name, &run).await;
+            persistent_references.extend(references);
+            if read.state != db::TypeMetadataState::Available {
+                persistent_references_read.state = db::TypeMetadataState::Incomplete;
+                let reason = format!(
+                    "{object_owner}.{object_name}: {}",
+                    read.reason.unwrap_or_else(|| "Persistent references are unknown".into())
+                );
+                persistent_references_read.reason.get_or_insert_with(String::new).push_str(&format!("{reason}\n"));
+            }
+        }
+        objects.push(object);
+    }
+    let root = objects
+        .iter()
+        .find(|object| object.owner == owner && object.name == name && object.object_type == "TYPE")
+        .unwrap();
+    let body = objects
+        .iter()
+        .find(|object| object.owner == owner && object.name == name && object.object_type == "TYPE BODY")
+        .unwrap();
+    let (type_source, type_source_read) = (root.source.clone(), root.source_read.clone());
+    let (body_source, body_source_read) = (body.source.clone(), body.source_read.clone());
+    let (details, details_read) = if root.exists == Some(false) {
+        (None, oracle_type_management::available())
+    } else {
+        match get_custom_type_details_core(state, connection_id, database, owner, name).await {
+            Ok(details) => (Some(details), oracle_type_management::available()),
+            Err(error) => (None, oracle_type_management::unavailable(error)),
+        }
+    };
+    Ok(db::OracleTypeManagementSnapshot {
+        target: db::OracleTypeManagementTarget {
+            connection_id: connection_id.to_string(),
+            database: database.to_string(),
+            owner: owner.to_string(),
+            name: name.to_string(),
+        },
+        acting_user,
+        acting_user_read,
+        visibility_scope: "current-user-visible-dictionaries".to_string(),
+        details,
+        details_read,
+        type_source,
+        type_source_read,
+        body_source,
+        body_source_read,
+        objects,
+        dependencies,
+        dependencies_read,
+        persistent_references,
+        persistent_references_read,
+        direct_privileges,
+        privileges_read,
+    })
+}
+
+/// Shared query transport for TYPE metadata and bounded scalar verification.
+/// These are ordinary reads on the existing Agent/ExternalDriver RPC contract.
+async fn run_oracle_type_management_query(
+    state: &AppState,
+    connection_id: &str,
+    database: &str,
+    sql: String,
+    max_rows: usize,
+) -> Result<db::QueryResult, String> {
+    let config = connection_config(state, connection_id).await.ok_or("connection not found")?;
+    if oracle_type_details::dialect(&config).is_none() {
+        return Err("TYPE management requires an Oracle-family connection".into());
+    }
+    let timeout = agent_metadata_timeout(Some(&config));
+    let pool_key = state.get_or_create_metadata_pool_for_session(connection_id, Some(database), None).await?;
+    let response: oracle_type_management::QueryResponse = match clone_metadata_pool(state, &pool_key).await.ok_or("Pool not found")? {
+        PoolKind::Agent(client) => client.lock().await.execute_query_with_timeout(agent_execute_query_params(&sql, if database.is_empty() { None } else { Some(database) }, None, QueryExecutionOptions { max_rows: Some(max_rows), ..Default::default() }), timeout).await,
+        PoolKind::ExternalDriver { config, session, .. } => session.invoke_with_timeout("executeQuery", serde_json::json!({ "connection": config.as_ref(), "database": database, "sql": sql, "maxRows": max_rows, "fetchSize": 1000 }), timeout).await,
+        _ => Err("Oracle-family TYPE management requires an Agent or JDBC query transport".into()),
+    }?;
+    response.into_result()
+}
+
+pub async fn verify_oracle_type_data_core(
+    state: &AppState,
+    input: db::OracleTypeDataRequest,
+) -> Result<db::OracleTypeDataResult, String> {
+    let target = input.target.clone();
+    let config = connection_config(state, &target.connection_id).await.ok_or("connection not found")?;
+    let dialect =
+        oracle_type_details::dialect(&config).ok_or("TYPE data verification requires an Oracle-family connection")?;
+    if input.action == "register" {
+        let mapping = input.mapping.as_ref().ok_or("A permanent data mapping is required")?;
+        let snapshot = get_oracle_type_management_snapshot_core(
+            state,
+            &target.connection_id,
+            &target.database,
+            &target.owner,
+            &target.name,
+        )
+        .await?;
+        // Registration is a read-only, full-table proof, not permission to run
+        // TYPE DDL. DM can identify the table while its UDT column code remains
+        // unknown; the execution planner still requires complete live references.
+        if !snapshot
+            .persistent_references
+            .iter()
+            .any(|r| r.owner == mapping.source.owner && r.table_name == mapping.source.name)
+        {
+            return Err(
+                "Register the original complete data projection before changing or removing its live TYPE reference"
+                    .into(),
+            );
+        }
+    }
+    oracle_type_data::read(dialect, input, |sql| {
+        run_oracle_type_management_query(state, &target.connection_id, &target.database, sql, 10_002)
+    })
+    .await
+}
+
+pub async fn prepare_oracle_type_evolution_core(
+    state: &AppState,
+    input: db::OracleTypeEvolutionRequest,
+) -> Result<db::OracleTypeEvolutionManifest, String> {
+    let target = input.target.clone();
+    let config = connection_config(state, &target.connection_id).await.ok_or("connection not found")?;
+    if oracle_type_details::dialect(&config) != Some(oracle_type_details::Dialect::Oracle) {
+        return Err("Native ALTER TYPE evolution is not enabled for this database dialect; retain the source or use the verified manual mapping route".into());
+    }
+    let snapshot = get_oracle_type_management_snapshot_core(
+        state,
+        &target.connection_id,
+        &target.database,
+        &target.owner,
+        &target.name,
+    )
+    .await?;
+    oracle_type_evolution::read(input, snapshot, |sql| {
+        run_oracle_type_management_query(state, &target.connection_id, &target.database, sql, 10_000)
+    })
+    .await
+}
+
+/// Build one strictly-targeted TYPE-management statement group. This endpoint
+/// validates and previews only; the caller must obtain explicit confirmation
+/// and execute statements through the normal guarded query path.
+pub fn build_oracle_type_management_sql(
+    input: db::OracleTypeManagementSqlInput,
+) -> Result<db::OracleTypeManagementSqlResult, String> {
+    if !matches!(input.database_type, DatabaseType::Oracle | DatabaseType::OceanbaseOracle | DatabaseType::Dameng) {
+        return Err("TYPE management SQL is supported only for Oracle-family databases.".into());
+    }
+    use db::OracleTypeManagementSqlOperation as Operation;
+    use dbx_sql::db_admin_sql::{
+        build_drop_object_sql, build_oracle_type_grant_sql, DatabaseObjectType, DropObjectSqlOptions,
+        OracleTypeGrantSqlOptions,
+    };
+    use dbx_sql::object_source_sql::{build_oracle_type_management_source, EditableObjectSourceSqlInput};
+
+    let database_type = input.database_type;
+    let owner = input.owner.clone();
+    let name = input.name.clone();
+    let object_source = move |object_type: db::ObjectSourceKind, source: Option<String>| {
+        let source = source.ok_or_else(|| "TYPE source text is required for a save operation.".to_string())?;
+        let source_input = EditableObjectSourceSqlInput {
+            database_type,
+            object_type: object_type.clone(),
+            schema: Some(owner.clone()),
+            name: name.clone(),
+            source,
+        };
+        let (sql, fingerprint) = if object_type == db::ObjectSourceKind::Trigger {
+            dbx_sql::object_source_sql::build_oracle_type_management_trigger_source(
+                source_input,
+                input.trigger_enabled.ok_or("The verified trigger firing state is required")?,
+            )?
+        } else {
+            build_oracle_type_management_source(source_input)?
+        };
+        Ok(db::OracleTypeManagementSqlResult { statements: vec![sql], source_fingerprint: Some(fingerprint) })
+    };
+    let statements = match input.operation {
+        Operation::SaveSpec => return object_source(db::ObjectSourceKind::Type, input.source),
+        Operation::SaveBody => return object_source(db::ObjectSourceKind::TypeBody, input.source),
+        Operation::RebuildSource => {
+            return object_source(input.object_type.ok_or("Dependency object type is required")?, input.source)
+        }
+        Operation::CompileSpec => {
+            if database_type != DatabaseType::Oracle {
+                return Err("Native TYPE specification compilation is only enabled for Oracle".into());
+            }
+            let validated = object_source(db::ObjectSourceKind::Type, input.source)?;
+            let quoted = |value: &str| format!("\"{}\"", value.replace('"', "\"\""));
+            return Ok(db::OracleTypeManagementSqlResult {
+                statements: vec![format!(
+                    "ALTER TYPE {}.{} COMPILE SPECIFICATION;",
+                    quoted(&input.owner),
+                    quoted(&input.name)
+                )],
+                source_fingerprint: validated.source_fingerprint,
+            });
+        }
+        Operation::CompileTrigger => {
+            let source = input.source.ok_or("The unchanged trigger definition is required")?;
+            input.trigger_enabled.ok_or("The verified trigger firing state is required")?;
+            let (_, fingerprint) = build_oracle_type_management_source(EditableObjectSourceSqlInput {
+                database_type,
+                object_type: db::ObjectSourceKind::Trigger,
+                schema: Some(input.owner.clone()),
+                name: input.name.clone(),
+                source,
+            })?;
+            let quoted = |value: &str| format!("\"{}\"", value.replace('"', "\"\""));
+            return Ok(db::OracleTypeManagementSqlResult {
+                statements: vec![format!("ALTER TRIGGER {}.{} COMPILE;", quoted(&input.owner), quoted(&input.name))],
+                source_fingerprint: Some(fingerprint),
+            });
+        }
+        Operation::DropSpec => vec![build_drop_object_sql(DropObjectSqlOptions {
+            database_type: Some(input.database_type),
+            object_type: DatabaseObjectType::Type,
+            schema: Some(input.owner),
+            name: input.name,
+            signature: None,
+            identifier_quote: None,
+        })],
+        Operation::DropBody => vec![build_drop_object_sql(DropObjectSqlOptions {
+            database_type: Some(input.database_type),
+            object_type: DatabaseObjectType::TypeBody,
+            schema: Some(input.owner),
+            name: input.name,
+            signature: None,
+            identifier_quote: None,
+        })],
+        Operation::GrantExecute | Operation::GrantPrivilege => {
+            vec![build_oracle_type_grant_sql(OracleTypeGrantSqlOptions {
+                database_type: input.database_type,
+                owner: input.owner,
+                type_name: input.name,
+                grantee: input.grantee.ok_or_else(|| "TYPE grant grantee is required.".to_string())?,
+                grantable: input.grantable,
+                privilege: if input.operation == Operation::GrantExecute {
+                    "EXECUTE".into()
+                } else {
+                    input.privilege.ok_or("TYPE privilege is required")?
+                },
+            })?]
+        }
+    };
+    Ok(db::OracleTypeManagementSqlResult { statements, source_fingerprint: None })
 }
 
 async fn get_custom_type_details_once(
@@ -11346,6 +11806,54 @@ async fn get_custom_type_details_once(
     };
     if !supports_custom_type_details(config) {
         return Err(format!("custom type details are not supported for {:?} connections", config.db_type));
+    }
+    if let Some(dialect) = oracle_type_details::dialect(config) {
+        let pool = clone_metadata_pool(state, &pool_key).await.ok_or("Pool not found")?;
+        let timeout = agent_metadata_timeout(Some(config));
+        return match pool {
+            PoolKind::Agent(client) => {
+                oracle_type_details::read(dialect, schema, name, |sql| {
+                    let client = client.clone();
+                    async move {
+                        let mut client = client.lock().await;
+                        client
+                            .execute_query_with_timeout(
+                                agent_execute_query_params(
+                                    &sql,
+                                    if database.is_empty() { None } else { Some(database) },
+                                    // Dictionaries use an explicit OWNER predicate;
+                                    // do not switch the borrowed session's schema.
+                                    None,
+                                    QueryExecutionOptions { max_rows: Some(10_000), ..Default::default() },
+                                ),
+                                timeout,
+                            )
+                            .await
+                    }
+                })
+                .await
+            }
+            PoolKind::ExternalDriver { config, session, .. } => {
+                oracle_type_details::read(dialect, schema, name, |sql| {
+                    let session = session.clone();
+                    let config = config.clone();
+                    async move {
+                        session
+                            .invoke_with_timeout(
+                                "executeQuery",
+                                serde_json::json!({
+                                    "connection": config.as_ref(), "database": database,
+                                    "sql": sql, "maxRows": 10_000, "fetchSize": 1000,
+                                }),
+                                timeout,
+                            )
+                            .await
+                    }
+                })
+                .await
+            }
+            _ => Err("Oracle-family type details require an Agent or JDBC query transport".to_string()),
+        };
     }
     {
         let pool_handle = state.pool_handle(&pool_key).await;
@@ -11374,6 +11882,7 @@ pub async fn get_object_source_core(
     signature: Option<&str>,
     relation_name: Option<&str>,
 ) -> Result<db::ObjectSource, String> {
+    let config = connection_config(state, connection_id).await;
     let source = retry_metadata_connection(state, connection_id, Some(database), || {
         get_object_source_once(
             state,
@@ -11387,7 +11896,7 @@ pub async fn get_object_source_core(
         )
     })
     .await?;
-    Ok(finalize_object_source(source))
+    Ok(finalize_object_source(source, config.as_ref()))
 }
 
 pub async fn get_event_info_core(
@@ -11443,12 +11952,16 @@ pub async fn get_event_info_core(
     }
 }
 
-fn finalize_object_source(mut source: db::ObjectSource) -> db::ObjectSource {
+fn finalize_object_source(mut source: db::ObjectSource, config: Option<&ConnectionConfig>) -> db::ObjectSource {
     if matches!(source.object_type, db::ObjectSourceKind::Procedure | db::ObjectSourceKind::Function) {
         source.source = normalize_routine_object_source(source.source);
     }
     if matches!(source.object_type, db::ObjectSourceKind::Event) {
         source.editable = Some(false);
+    } else if matches!(source.object_type, db::ObjectSourceKind::Type | db::ObjectSourceKind::TypeBody)
+        && config.and_then(oracle_type_details::dialect).is_some()
+    {
+        source.editable = Some(true);
     }
     source
 }
@@ -11724,17 +12237,19 @@ fn oracle_owner_filter(schema: &str) -> String {
 }
 
 pub fn oracle_list_objects_sql(schema: &str) -> String {
-    oracle_list_objects_sql_for_owner(&oracle_owner_filter(schema))
+    let type_owner = if schema.is_empty() { "USER".to_string() } else { sql_string(schema) };
+    oracle_list_objects_sql_for_owner(&oracle_owner_filter(schema), &type_owner)
 }
 
-fn oracle_list_objects_sql_for_owner(owner: &str) -> String {
+fn oracle_list_objects_sql_for_owner(owner: &str, type_owner: &str) -> String {
     format!(
-        "SELECT o.object_name, CASE o.object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY' ELSE o.object_type END AS object_type, o.owner, \
+        "SELECT o.object_name, CASE o.object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY' WHEN 'TYPE BODY' THEN 'TYPE_BODY' ELSE o.object_type END AS object_type, o.owner, \
          i.table_owner AS parent_schema, i.table_name AS parent_name \
          FROM all_objects o LEFT JOIN all_indexes i ON o.object_type = 'INDEX' AND i.owner = o.owner AND i.index_name = o.object_name \
-         WHERE o.owner = {owner} AND o.object_type IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX') \
+         WHERE ((o.owner = {owner} AND o.object_type IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX')) \
+            OR (o.owner = {type_owner} AND o.object_type IN ('TYPE', 'TYPE BODY'))) \
          AND (o.object_type <> 'INDEX' OR i.generated = 'N' OR i.generated IS NULL) \
-         ORDER BY CASE o.object_type WHEN 'TABLE' THEN 0 WHEN 'VIEW' THEN 1 WHEN 'PROCEDURE' THEN 2 WHEN 'FUNCTION' THEN 3 WHEN 'SEQUENCE' THEN 4 WHEN 'PACKAGE' THEN 5 WHEN 'PACKAGE BODY' THEN 6 ELSE 7 END, o.object_name"
+         ORDER BY CASE o.object_type WHEN 'TABLE' THEN 0 WHEN 'VIEW' THEN 1 WHEN 'PROCEDURE' THEN 2 WHEN 'FUNCTION' THEN 3 WHEN 'SEQUENCE' THEN 4 WHEN 'PACKAGE' THEN 5 WHEN 'PACKAGE BODY' THEN 6 ELSE 7 END, o.object_name, o.object_type"
     )
 }
 
@@ -11802,7 +12317,7 @@ async fn oracle_agent_list_objects(
 ) -> Result<ObjectListOutcome, String> {
     let index_only = object_types.is_some_and(|types| types.len() == 1 && types[0].eq_ignore_ascii_case("INDEX"));
     let mut sql = if exact_identity {
-        oracle_list_objects_sql_for_owner(&sql_string(schema))
+        oracle_list_objects_sql_for_owner(&sql_string(schema), &sql_string(schema))
     } else {
         oracle_list_objects_sql(schema)
     };
@@ -11832,6 +12347,9 @@ async fn oracle_agent_list_objects(
             QueryExecutionOptions { max_rows: Some(page_size), ..Default::default() },
         );
         let result: db::QueryResult = client.execute_query_with_timeout(params, timeout_duration).await?;
+        if (result.truncated || result.has_more) && result.rows.is_empty() {
+            return Err("Oracle object list was truncated without returning a page".to_string());
+        }
         let row_count = result.rows.len();
         objects.extend(result.rows.into_iter().filter_map(|row| {
             let name = row.first()?.as_str()?.to_string();

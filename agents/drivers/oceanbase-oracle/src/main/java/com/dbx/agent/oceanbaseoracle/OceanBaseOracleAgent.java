@@ -1375,6 +1375,12 @@ public final class OceanBaseOracleAgent extends ConfiguredJdbcAgent {
                 throw metadataError;
             }
         }
+        if ("TYPE".equals(objectType) || "TYPE_BODY".equals(objectType)) {
+            if (source == null || source.trim().isEmpty()) {
+                throw new SQLException("No complete source available for " + owner + "." + name + " (" + objectType + ")");
+            }
+            return new ObjectSource(name, objectType, owner, source, false);
+        }
         return new ObjectSource(name, objectType, owner, source == null ? "" : source);
     }
 

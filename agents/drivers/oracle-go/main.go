@@ -216,6 +216,7 @@ UNION ALL
 SELECT o.OBJECT_NAME,
        CASE o.OBJECT_TYPE
          WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY'
+         WHEN 'TYPE BODY' THEN 'TYPE_BODY'
          WHEN 'MATERIALIZED VIEW' THEN 'MATERIALIZED_VIEW'
          ELSE o.OBJECT_TYPE
        END AS OBJECT_TYPE,
@@ -224,7 +225,7 @@ SELECT o.OBJECT_NAME,
        i.TABLE_NAME AS PARENT_NAME
 FROM USER_OBJECTS o
 LEFT JOIN USER_INDEXES i ON o.OBJECT_TYPE = 'INDEX' AND i.INDEX_NAME = o.OBJECT_NAME
-WHERE o.OBJECT_TYPE IN ('VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX')
+WHERE o.OBJECT_TYPE IN ('VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX', 'TYPE', 'TYPE BODY')
 UNION ALL
 SELECT s.SYNONYM_NAME AS OBJECT_NAME,
        'SYNONYM' AS OBJECT_TYPE,
@@ -242,9 +243,10 @@ const oracleListObjectsOrderSQL = `ORDER BY CASE OBJECT_TYPE
   WHEN 'SEQUENCE' THEN 5
   WHEN 'SYNONYM' THEN 6
   WHEN 'PACKAGE' THEN 7
-  ELSE 8
-END, OBJECT_NAME`
-const oracleListObjectsSQL = oracleListObjectsBaseSQL + "\n" + oracleListObjectsOrderSQL
+  WHEN 'TYPE' THEN 8
+  WHEN 'TYPE_BODY' THEN 9
+  ELSE 10
+END, OBJECT_NAME, OBJECT_TYPE`
 const oracleListTriggersSQL = `
 SELECT t.TRIGGER_NAME,
        t.TRIGGERING_EVENT,
@@ -1891,12 +1893,25 @@ func oracleListSessionUserTablesQuery(constraints metadataListConstraints) oracl
 }
 
 func oracleListObjectsQuery(schema string, constraints metadataListConstraints) oracleMetadataListQuery {
+	return oracleListObjectsQueryWithTypeOwner(schema, schema, constraints)
+}
+
+func oracleListObjectsQueryWithTypeOwner(schema, typeOwner string, constraints metadataListConstraints) oracleMetadataListQuery {
+	baseSQL := oracleListObjectsBaseSQL + `
+UNION ALL
+SELECT o.OBJECT_NAME,
+       CASE o.OBJECT_TYPE WHEN 'TYPE BODY' THEN 'TYPE_BODY' ELSE o.OBJECT_TYPE END AS OBJECT_TYPE,
+       CAST(NULL AS VARCHAR2(4000)) AS COMMENTS,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_SCHEMA,
+       CAST(NULL AS VARCHAR2(128)) AS PARENT_NAME
+FROM ALL_OBJECTS o
+WHERE o.OWNER = :4 AND o.OBJECT_TYPE IN ('TYPE', 'TYPE BODY')`
 	return oracleConstrainedMetadataListQuery(
-		oracleListObjectsBaseSQL,
+		baseSQL,
 		"OBJECT_NAME, OBJECT_TYPE, COMMENTS, PARENT_SCHEMA, PARENT_NAME",
 		"OBJECT_TYPE",
 		oracleListObjectsOrderSQL,
-		[]any{schema, schema, schema},
+		[]any{schema, schema, schema, typeOwner},
 		constraints,
 	)
 }
@@ -2025,12 +2040,17 @@ func (s *server) listTables(schema string, constraints metadataListConstraints) 
 }
 
 func (s *server) listObjects(schema string, constraints metadataListConstraints) ([]objectInfo, error) {
+	rawTypeOwner := schema
 	schema, err := s.metadataSchema(schema, constraints.ExactIdentity)
 	if err != nil {
 		return nil, err
 	}
-	query := oracleListObjectsQuery(schema, constraints)
-	if s.metadataSchemaIsSessionUser(schema, constraints.ExactIdentity) {
+	if rawTypeOwner == "" {
+		rawTypeOwner = schema
+	}
+	query := oracleListObjectsQueryWithTypeOwner(schema, rawTypeOwner, constraints)
+	useSessionUser := rawTypeOwner == schema && s.metadataSchemaIsSessionUser(schema, constraints.ExactIdentity)
+	if useSessionUser {
 		query = oracleListSessionUserObjectsQuery(constraints)
 	}
 	rows, err := s.queryRows(query.SQL, query.Args)
@@ -2044,9 +2064,12 @@ func (s *server) listObjects(schema string, constraints metadataListConstraints)
 	var result []objectInfo
 	for rows.Next() {
 		var item objectInfo
-		item.Schema = schema
 		if err := rows.Scan(&item.Name, &item.ObjectType, &item.Comment, &item.ParentSchema, &item.ParentName); err != nil {
 			return nil, err
+		}
+		item.Schema = schema
+		if strings.EqualFold(item.ObjectType, "TYPE") || strings.EqualFold(item.ObjectType, "TYPE_BODY") {
+			item.Schema = rawTypeOwner
 		}
 		result = append(result, item)
 	}
@@ -3362,12 +3385,52 @@ func oracleTriggerBody(source, description string) (string, bool) {
 }
 
 func (s *server) getObjectSource(schema, name, objectType string) (map[string]any, error) {
+	upperType := strings.ToUpper(objectType)
+	if upperType == "TYPE" || upperType == "TYPE_BODY" || upperType == "TYPE BODY" {
+		if schema == "" {
+			var err error
+			schema, err = s.normalizeSchemaForIdentity(schema)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if upperType != "TYPE" {
+			upperType = "TYPE BODY"
+		}
+		source, found, sourceErr := s.loadObjectSourceText(schema, name, upperType)
+		if sourceErr != nil || !found || strings.TrimSpace(source) == "" {
+			db, dbErr := s.requireDB()
+			if dbErr != nil {
+				if sourceErr != nil {
+					return nil, errors.Join(sourceErr, dbErr)
+				}
+				return nil, dbErr
+			}
+			ddlType := "TYPE"
+			if upperType == "TYPE BODY" {
+				ddlType = "TYPE_BODY"
+			}
+			var ddl sql.NullString
+			ddlErr := db.QueryRow("SELECT DBMS_METADATA.GET_DDL(:1, :2, :3) FROM DUAL", ddlType, name, schema).Scan(&ddl)
+			if ddlErr == nil && ddl.Valid && strings.TrimSpace(ddl.String) != "" {
+				source = ddl.String
+			} else {
+				if ddlErr == nil {
+					ddlErr = fmt.Errorf("empty source returned")
+				}
+				if sourceErr != nil {
+					return nil, errors.Join(sourceErr, ddlErr)
+				}
+				return nil, ddlErr
+			}
+		}
+		return map[string]any{"name": name, "object_type": objectType, "schema": schema, "source": source, "editable": false}, nil
+	}
 	var err error
 	schema, err = s.normalizeSchemaForIdentity(schema)
 	if err != nil {
 		return nil, err
 	}
-	upperType := strings.ToUpper(objectType)
 	if upperType == "VIEW" {
 		source, err := s.getViewSource(schema, name)
 		if err != nil {

@@ -997,7 +997,9 @@ public final class DamengAgent extends AbstractJdbcAgent {
             || constraints.objectTypeAllowed("FUNCTION")
             || constraints.objectTypeAllowed("SEQUENCE")
             || constraints.objectTypeAllowed("PACKAGE")
-            || constraints.objectTypeAllowed("PACKAGE_BODY");
+            || constraints.objectTypeAllowed("PACKAGE_BODY")
+            || constraints.objectTypeAllowed("TYPE")
+            || constraints.objectTypeAllowed("TYPE_BODY");
     }
 
     private static void appendDamengObjectTypePredicate(
@@ -1048,6 +1050,12 @@ public final class DamengAgent extends AbstractJdbcAgent {
         if (constraints.objectTypeAllowed("PACKAGE_BODY")) {
             result.add("PACKAGE BODY");
         }
+        if (constraints.objectTypeAllowed("TYPE")) {
+            result.add("TYPE");
+        }
+        if (constraints.objectTypeAllowed("TYPE_BODY")) {
+            result.add("TYPE BODY");
+        }
         return result;
     }
 
@@ -1081,6 +1089,12 @@ public final class DamengAgent extends AbstractJdbcAgent {
         }
         if (constraints.objectTypeAllowed("PACKAGE_BODY")) {
             result.add("PACKAGE BODY");
+        }
+        if (constraints.objectTypeAllowed("TYPE")) {
+            result.add("TYPE");
+        }
+        if (constraints.objectTypeAllowed("TYPE_BODY")) {
+            result.add("TYPE BODY");
         }
         return result;
     }
@@ -1484,7 +1498,11 @@ public final class DamengAgent extends AbstractJdbcAgent {
             RuntimeException dbmsError;
             try {
                 String source = readDbmsMetadataObjectSource(dbmsType, name, schema);
-                return new ObjectSource(name, objectType, schema, source);
+                if (isOracleFamilyType(objectType) && !notBlank(source)) {
+                    dbmsError = new IllegalStateException("DM8 returned empty type source for " + schema + "." + name);
+                } else {
+                    return new ObjectSource(name, objectType, schema, source, !isOracleFamilyType(objectType));
+                }
             } catch (Exception error) {
                 // 检查型异常（SQLException 等）由 unchecked 透传后在此处统一处理。
                 RuntimeException runtimeError = error instanceof RuntimeException runtime ? runtime : new RuntimeException(error);
@@ -1494,12 +1512,24 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 dbmsError = runtimeError;
             }
             try {
-                return buildCatalogObjectSource(schema, name, objectType, dbmsError);
+                ObjectSource source = buildCatalogObjectSource(schema, name, objectType, dbmsError);
+                if (isOracleFamilyType(objectType)) {
+                    if (source == null || !notBlank(source.getSource()) || source.getSource().startsWith(CATALOG_BODY_HINT)) {
+                        throw new IllegalStateException("DM8 could not read complete type source for " + schema + "." + name, dbmsError);
+                    }
+                    return new ObjectSource(name, objectType, schema, source.getSource(), false);
+                }
+                return source;
             } catch (RuntimeException fallbackError) {
                 fallbackError.addSuppressed(dbmsError);
                 throw fallbackError;
             }
         });
+    }
+
+    private static boolean isOracleFamilyType(String objectType) {
+        String normalized = normalizeObjectSourceType(objectType);
+        return "TYPE".equals(normalized) || "TYPE_BODY".equals(normalized);
     }
 
     private String readDbmsMetadataObjectSource(String dbmsType, String name, String schema) throws Exception {
@@ -1577,6 +1607,9 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 }
             }
             default -> throw new IllegalArgumentException("Unsupported object type: " + objectType);
+        }
+        if (isOracleFamilyType(objectType)) {
+            throw new IllegalStateException("DM8 could not read complete type source for " + schema + "." + name + " (" + objectType + ")", dbmsError);
         }
         return unavailableObjectSource(schema, name, objectType, dbmsError);
     }
@@ -1715,6 +1748,9 @@ public final class DamengAgent extends AbstractJdbcAgent {
         String sourceType,
         String source
     ) {
+        if (isOracleFamilyType(objectType)) {
+            return oracleFamilyTypeSourceMatches(source, objectType);
+        }
         if (!("FUNCTION".equals(objectType) || "PROCEDURE".equals(objectType))
             || !"PROC".equalsIgnoreCase(sourceType)) {
             return true;
@@ -1723,6 +1759,30 @@ public final class DamengAgent extends AbstractJdbcAgent {
         return catalogType != null
             ? objectType.equals(catalogType)
             : routineSourceStartsWithType(source, objectType);
+    }
+
+    private static boolean oracleFamilyTypeSourceMatches(String source, String objectType) {
+        String expected = "TYPE_BODY".equals(normalizeObjectSourceType(objectType)) ? "TYPE BODY" : "TYPE";
+        String firstDeclaration = oracleFamilyTypeDeclaration(source.stripLeading());
+        return expected.equals(firstDeclaration);
+    }
+
+    private static String oracleFamilyTypeDeclaration(String source) {
+        String candidate = stripTypeDdlPrefix(source);
+        if (startsWithRoutineDeclaration(candidate, "TYPE BODY")) {
+            return "TYPE BODY";
+        }
+        return startsWithRoutineDeclaration(candidate, "TYPE") ? "TYPE" : "";
+    }
+
+    private static String stripTypeDdlPrefix(String source) {
+        String upper = source.toUpperCase(Locale.ROOT);
+        for (String prefix : List.of("CREATE OR REPLACE ", "CREATE ", "ALTER ")) {
+            if (upper.startsWith(prefix)) {
+                return source.substring(prefix.length()).stripLeading();
+            }
+        }
+        return source;
     }
 
     private String readDamengRoutineObjectType(String schema, String name) {
@@ -1808,12 +1868,20 @@ public final class DamengAgent extends AbstractJdbcAgent {
                 JOIN SYS.SYSOBJECTS o ON o.ID = t.ID
                 JOIN SYS.SYSOBJECTS s ON s.ID = o.SCHID AND s.TYPE$ = 'SCH' AND s.NAME = ?
                 WHERE o.NAME = ?
-                ORDER BY t.SEQNO
                 """.stripIndent().trim();
+            boolean typedType = isOracleFamilyType(objectType);
+            if (typedType) {
+                sql += " AND EXISTS (SELECT 1 FROM ALL_OBJECTS a WHERE a.OBJECT_ID = o.ID"
+                    + " AND a.OWNER = s.NAME AND a.OBJECT_NAME = o.NAME AND a.OBJECT_TYPE = ?)";
+            }
+            sql += " ORDER BY t.SEQNO";
             StringBuilder source = new StringBuilder();
             try (PreparedStatement stmt = requireConnected().prepareStatement(sql)) {
                 stmt.setString(1, schema);
                 stmt.setString(2, name);
+                if (typedType) {
+                    stmt.setString(3, "TYPE_BODY".equals(normalizeObjectSourceType(objectType)) ? "TYPE BODY" : "TYPE");
+                }
                 try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
                         String line = coalesce(readTextColumn(rs, 1));

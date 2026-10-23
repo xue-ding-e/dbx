@@ -2,14 +2,39 @@ import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveVirtualRowIdentifier } from "@/lib/table/virtualRowIdentifier";
 
-const localStorageValues = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (key: string) => localStorageValues.get(key) ?? null,
-  setItem: (key: string, value: string) => localStorageValues.set(key, value),
-  removeItem: (key: string) => localStorageValues.delete(key),
-});
-
+const apiMocks = vi.hoisted(() => ({
+  localStorageValues: new Map<string, string>(),
+  executeMulti: vi.fn(),
+  executeQuery: vi.fn(),
+  beginManualTransaction: vi.fn(),
+  executeInManualTransaction: vi.fn(),
+  cancelQuery: vi.fn(),
+  analyzeEditableQueryEditability: vi.fn(),
+  getColumns: vi.fn(),
+  listIndexes: vi.fn(),
+  listObjects: vi.fn(),
+  listTables: vi.fn(),
+  getConnectionConfig: vi.fn(),
+  lookupLocalCompletionTables: vi.fn(),
+  buildSortedQuerySql: vi.fn(),
+  buildDataGridCountSql: vi.fn(),
+  prepareQueryPaginationExecutionPlan: vi.fn(async (options: { sql: string }) => ({
+    sqlToExecute: options.sql,
+    pageSql: undefined,
+    pageLimit: undefined,
+    pageOffset: undefined,
+    countSql: undefined,
+    useAgentResultSession: false,
+  })),
+  editorSettings: {
+    pageSize: 100,
+    autoCalculateTotalRows: false,
+    queryResultMaxRowsEnabled: true,
+    queryResultMaxRows: 100_000,
+  },
+}));
 const {
+  localStorageValues,
   executeMulti,
   executeQuery,
   beginManualTransaction,
@@ -26,36 +51,12 @@ const {
   buildDataGridCountSql,
   prepareQueryPaginationExecutionPlan,
   editorSettings,
-} = vi.hoisted(() => ({
-  executeMulti: vi.fn(),
-  executeQuery: vi.fn(),
-  beginManualTransaction: vi.fn(),
-  executeInManualTransaction: vi.fn(),
-  cancelQuery: vi.fn(),
-  analyzeEditableQueryEditability: vi.fn(),
-  getColumns: vi.fn(),
-  listIndexes: vi.fn(),
-  listObjects: vi.fn(),
-  listTables: vi.fn(),
-  getConnectionConfig: vi.fn(),
-  lookupLocalCompletionTables: vi.fn(),
-  buildSortedQuerySql: vi.fn(),
-  buildDataGridCountSql: vi.fn(),
-  prepareQueryPaginationExecutionPlan: vi.fn(async (options) => ({
-    sqlToExecute: options.sql,
-    pageSql: undefined,
-    pageLimit: undefined,
-    pageOffset: undefined,
-    countSql: undefined,
-    useAgentResultSession: false,
-  })),
-  editorSettings: {
-    pageSize: 100,
-    autoCalculateTotalRows: false,
-    queryResultMaxRowsEnabled: true,
-    queryResultMaxRows: 100_000,
-  },
-}));
+} = apiMocks;
+vi.stubGlobal("localStorage", {
+  getItem: (key: string) => localStorageValues.get(key) ?? null,
+  setItem: (key: string, value: string) => localStorageValues.set(key, value),
+  removeItem: (key: string) => localStorageValues.delete(key),
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -66,29 +67,29 @@ function deferred<T>() {
 }
 
 vi.mock("@/lib/backend/api", () => ({
-  analyzeEditableQueryEditability,
-  buildDataGridCountSql,
-  buildSortedQuerySql,
+  analyzeEditableQueryEditability: apiMocks.analyzeEditableQueryEditability,
+  buildDataGridCountSql: apiMocks.buildDataGridCountSql,
+  buildSortedQuerySql: apiMocks.buildSortedQuerySql,
   closeClientConnectionSession: vi.fn().mockResolvedValue(undefined),
   closeQuerySession: vi.fn().mockResolvedValue(undefined),
-  beginManualTransaction,
-  cancelQuery,
-  executeInManualTransaction,
-  executeMulti,
-  executeQuery,
-  getColumns,
-  listIndexes,
-  listObjects,
-  listTables,
-  prepareQueryPaginationExecutionPlan,
+  beginManualTransaction: apiMocks.beginManualTransaction,
+  cancelQuery: apiMocks.cancelQuery,
+  executeInManualTransaction: apiMocks.executeInManualTransaction,
+  executeMulti: apiMocks.executeMulti,
+  executeQuery: apiMocks.executeQuery,
+  getColumns: apiMocks.getColumns,
+  listIndexes: apiMocks.listIndexes,
+  listObjects: apiMocks.listObjects,
+  listTables: apiMocks.listTables,
+  prepareQueryPaginationExecutionPlan: apiMocks.prepareQueryPaginationExecutionPlan,
   saveOpenTabsState: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: () => ({
     ensureConnected: vi.fn().mockResolvedValue(undefined),
-    getConfig: getConnectionConfig,
-    lookupLocalCompletionTables,
+    getConfig: apiMocks.getConnectionConfig,
+    lookupLocalCompletionTables: apiMocks.lookupLocalCompletionTables,
     recordConnectionLostError: vi.fn(),
     // 与真实 store 一致：setTableMeta 写入 tableMeta 时记录连接元数据代次
     metadataGenerationFor: () => 0,
@@ -97,7 +98,7 @@ vi.mock("@/stores/connectionStore", () => ({
 
 vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: () => ({
-    editorSettings,
+    editorSettings: apiMocks.editorSettings,
   }),
 }));
 

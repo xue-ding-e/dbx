@@ -178,6 +178,29 @@ class OceanBaseOracleObjectListTest {
     }
 
     @Test
+    void typeBodySourcePreservesQuotedIdentityAndIsReadOnly() {
+        JdbcFixture jdbc = new JdbcFixture();
+        JdbcCall call = jdbc.rows(row("TYPE BODY \"Mixed Type\" AS\n"), row("END;\n"));
+
+        ObjectSource source = jdbc.agent.getObjectSource("Mixed.Owner", "Mixed Type", "TYPE_BODY");
+
+        assertEquals("CREATE OR REPLACE TYPE BODY \"Mixed Type\" AS\nEND;", source.getSource());
+        assertEquals("TYPE_BODY", source.getObject_type());
+        assertFalse(source.isEditable());
+        assertEquals(List.of("Mixed.Owner", "Mixed Type", "TYPE BODY"), call.args);
+        call.assertClosed();
+    }
+
+    @Test
+    void missingTypeSourceFailsInsteadOfReturningAnEmptyEditor() {
+        JdbcFixture jdbc = new JdbcFixture();
+        jdbc.rows();
+        jdbc.rows();
+
+        assertThrows(RuntimeException.class, () -> jdbc.agent.getObjectSource("APP", "MISSING_T", "TYPE"));
+    }
+
+    @Test
     void filteredPagesKeepSameNameSpecAndBodyAndDoNotApplyOffsetTwice() {
         JdbcFixture jdbc = new JdbcFixture();
         List<ObjectInfo> pages = new ArrayList<>();

@@ -34,7 +34,7 @@ import { useQueryEditorCompletionMetadata } from "./useQueryEditorCompletionMeta
 import { ref, onMounted, onBeforeUnmount, onActivated, onDeactivated, watch, shallowRef, computed, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 
-import { Transaction } from "@codemirror/state";
+import { EditorState as CodeMirrorEditorState, Transaction } from "@codemirror/state";
 import type { Text } from "@codemirror/state";
 import type { EditorView as EditorViewType } from "@codemirror/view";
 import { search as cmSearch } from "@codemirror/search";
@@ -2741,6 +2741,18 @@ watch(
     setSemanticDiagnostics([]);
     scheduleSemanticDiagnostics(0);
   },
+);
+
+watch(
+  [view, () => props.tabId, () => props.readOnly],
+  () => {
+    if (!view.value || !codeMirrorRuntime.readOnlyComp || !codeMirrorRuntime.editorViewModule) return;
+    view.value.dispatch({
+      effects: codeMirrorRuntime.readOnlyComp.reconfigure([CodeMirrorEditorState.readOnly.of(!!props.readOnly), codeMirrorRuntime.editorViewModule.EditorView.editable.of(!props.readOnly)]),
+    });
+  },
+  // Reapply after per-tab cached EditorState restoration, even when the prop stays unchanged.
+  { flush: "post" },
 );
 
 watch(

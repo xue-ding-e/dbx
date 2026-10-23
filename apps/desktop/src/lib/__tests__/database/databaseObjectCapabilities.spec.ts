@@ -5,6 +5,7 @@ import {
   normalizeSidebarObjectKind,
   schemaDiffRoutineObjectTypes,
   schemaDiffRoutineObjectTypesIntersection,
+  supportsOracleFamilyTypeManagement,
   sidebarObjectKindsForDatabase,
   supportsPackageMemberExpansion,
   supportsSchemaDiffRoutines,
@@ -32,6 +33,13 @@ describe("databaseObjectCapabilities", () => {
     expect(sidebarObjectKindsForDatabase("dameng")).toEqual(expect.arrayContaining(["MATERIALIZED_VIEW", "SEQUENCE", "PACKAGE", "PACKAGE_BODY"]));
   });
 
+  it.each(["oracle", "oceanbase-oracle", "dameng"] as const)("exposes %s types and bodies through the existing read-only browsing paths", (dbType) => {
+    expect(sidebarObjectKindsForDatabase(dbType)).toEqual(expect.arrayContaining(["TYPE", "TYPE_BODY"]));
+    expect(databaseObjectCapabilities(dbType).sourceReadable).toEqual(expect.arrayContaining(["TYPE", "TYPE_BODY"]));
+    expect(supportsTypeObjectSource(dbType)).toBe(true);
+    expect(customTypeCapabilities(dbType)).toEqual({ details: true, members: true, ddl: false });
+  });
+
   it("exposes synonyms only for database paths with synonym metadata", () => {
     expect(sidebarObjectKindsForDatabase("oracle")).toContain("SYNONYM");
     expect(sidebarObjectKindsForDatabase("xugu")).toContain("SYNONYM");
@@ -42,8 +50,8 @@ describe("databaseObjectCapabilities", () => {
   it("exposes OceanBase Oracle sequences and synonyms through the grouped object path", () => {
     const oceanBaseObjects = sidebarObjectKindsForDatabase("oceanbase-oracle");
 
-    expect(oceanBaseObjects).toEqual(["TABLE", "VIEW", "MATERIALIZED_VIEW", "PROCEDURE", "FUNCTION", "SEQUENCE", "INDEX", "SYNONYM", "PACKAGE", "PACKAGE_BODY"]);
-    expect(databaseObjectCapabilities("oceanbase-oracle").sourceReadable).toEqual(["VIEW", "MATERIALIZED_VIEW", "PROCEDURE", "FUNCTION", "SEQUENCE", "SYNONYM", "PACKAGE", "PACKAGE_BODY"]);
+    expect(oceanBaseObjects).toEqual(["TABLE", "VIEW", "MATERIALIZED_VIEW", "PROCEDURE", "FUNCTION", "SEQUENCE", "INDEX", "SYNONYM", "PACKAGE", "PACKAGE_BODY", "TYPE", "TYPE_BODY"]);
+    expect(databaseObjectCapabilities("oceanbase-oracle").sourceReadable).toEqual(["VIEW", "MATERIALIZED_VIEW", "PROCEDURE", "FUNCTION", "SEQUENCE", "SYNONYM", "PACKAGE", "PACKAGE_BODY", "TYPE", "TYPE_BODY"]);
     expect(
       buildObjectGroupPlaceholderNodes({
         nodeId: "connection:database:APP",
@@ -52,13 +60,13 @@ describe("databaseObjectCapabilities", () => {
         schema: "APP",
         objectTypes: oceanBaseObjects,
       }).map((node) => node.type),
-    ).toEqual(["group-tables", "group-views", "group-materialized-views", "group-procedures", "group-functions", "group-sequences", "group-database-indexes", "group-synonyms", "group-packages"]);
+    ).toEqual(["group-tables", "group-views", "group-materialized-views", "group-procedures", "group-functions", "group-sequences", "group-database-indexes", "group-synonyms", "group-packages", "group-types"]);
   });
 
   it("exposes Oracle sequences through the existing grouped object path", () => {
     const oracleObjects = sidebarObjectKindsForDatabase("oracle");
 
-    expect(oracleObjects).toEqual(["TABLE", "VIEW", "MATERIALIZED_VIEW", "PROCEDURE", "FUNCTION", "SEQUENCE", "INDEX", "SYNONYM", "PACKAGE", "PACKAGE_BODY"]);
+    expect(oracleObjects).toEqual(["TABLE", "VIEW", "MATERIALIZED_VIEW", "PROCEDURE", "FUNCTION", "SEQUENCE", "INDEX", "SYNONYM", "PACKAGE", "PACKAGE_BODY", "TYPE", "TYPE_BODY"]);
     expect(databaseObjectCapabilities("oracle").sourceReadable).toContain("SEQUENCE");
     expect(
       buildObjectGroupPlaceholderNodes({
@@ -133,10 +141,23 @@ describe("databaseObjectCapabilities", () => {
     }
   });
 
-  it("only Xugu TYPE nodes can open object source", () => {
+  it("opens Oracle-family and Xugu TYPE nodes as source while PG types keep details", () => {
     expect(supportsTypeObjectSource("xugu")).toBe(true);
+    for (const dbType of ["oracle", "oceanbase-oracle", "dameng"] as const) {
+      expect(supportsTypeObjectSource(dbType)).toBe(true);
+      expect(databaseObjectCapabilities(dbType).sourceReadable).toEqual(expect.arrayContaining(["TYPE", "TYPE_BODY"]));
+    }
     for (const dbType of ["postgres", "opengauss", "gaussdb", "kingbase", "vastbase", undefined] as const) {
       expect(supportsTypeObjectSource(dbType), String(dbType)).toBe(false);
+    }
+  });
+
+  it("limits controlled type management to Oracle, OceanBase Oracle, and Dameng", () => {
+    for (const dbType of ["oracle", "oceanbase-oracle", "dameng"] as const) {
+      expect(supportsOracleFamilyTypeManagement(dbType), dbType).toBe(true);
+    }
+    for (const dbType of ["xugu", "postgres", "jdbc", undefined] as const) {
+      expect(supportsOracleFamilyTypeManagement(dbType), String(dbType)).toBe(false);
     }
   });
 

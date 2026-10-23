@@ -38,6 +38,7 @@ import {
 } from "@/lib/database/jdbcDialect";
 import { supportsTransfer } from "@/lib/database/databaseFeatureSupport";
 import { transferObjectKindsForDatabase } from "@/lib/database/transferObjectKinds";
+import { sidebarObjectKindsForDatabase } from "@/lib/database/databaseObjectCapabilities";
 
 describe("Kingbase compatibility mode routing", () => {
   it.each([undefined, "", "future_mode"])("does not infer a mode from a version, URL, or unknown mode (%s)", (mode) => {
@@ -201,6 +202,7 @@ describe("jdbc dialect inference", () => {
   it.each([
     ["jdbc:oracle:thin:@//localhost:1521/XE", "oracle"],
     ["jdbc:dm://localhost:5236/DAMENG", "dameng"],
+    ["jdbc:oceanbase:oracle://localhost:2881/APP", "oceanbase-oracle"],
   ] as const)("uses connection-root schemas for %s", (connectionString, dialect) => {
     const connection = {
       db_type: "jdbc" as const,
@@ -212,6 +214,56 @@ describe("jdbc dialect inference", () => {
     expect(connectionUsesDatabaseObjectTreeMode(connection)).toBe(false);
     expect(connectionObjectTreeQuerySchema(connection, "DBX_TEST", "DBX_TEST")).toBe("DBX_TEST");
     expect(connectionObjectTreeNodeSchema(connection, "DBX_TEST", "DBX_TEST")).toBe("DBX_TEST");
+  });
+
+  it("prioritizes explicit OceanBase Oracle mode over conflicting JDBC labels", () => {
+    const connection = {
+      db_type: "jdbc" as const,
+      connection_string: " JDBC:OceanBase:Oracle://localhost:2881/APP ",
+      driver_label: "OceanBase MySQL JDBC",
+      jdbc_driver_class: "com.oceanbase.jdbc.Driver",
+    };
+    expect(inferJdbcDialect(connection)).toBe("oceanbase-oracle");
+    expect(effectiveDatabaseTypeForConnection(connection)).toBe("oceanbase-oracle");
+    expect(connectionUsesConnectionRootSchemaMode(connection)).toBe(true);
+  });
+
+  it("keeps a protected JDBC URL unclassified when the safe connection DTO has no dialect identity", () => {
+    const safeConnection = {
+      db_type: "jdbc" as const,
+      driver_profile: "jdbc",
+      driver_label: "jdbc",
+      connection_string: "<protected>",
+      jdbc_driver_class: "custom.Driver",
+      jdbc_driver_paths: ["/drivers/custom.jar"],
+    };
+    const effectiveType = effectiveDatabaseTypeForConnection(safeConnection);
+
+    expect(inferJdbcDialect(safeConnection)).toBeUndefined();
+    expect(effectiveType).toBe("jdbc");
+    expect(connectionUsesConnectionRootSchemaMode(safeConnection)).toBe(false);
+    expect(sidebarObjectKindsForDatabase(effectiveType)).not.toContain("TYPE");
+    expect(sidebarObjectKindsForDatabase(effectiveType)).not.toContain("TYPE_BODY");
+  });
+
+  it("uses an approved dialect hint only for protected saved JDBC URLs", () => {
+    const protectedConnection = {
+      db_type: "jdbc" as const,
+      connection_string: "__DBX_SAVED_CREDENTIAL__:opaque",
+      jdbc_dialect: "oceanbase-oracle" as const,
+    };
+    expect(effectiveDatabaseTypeForConnection(protectedConnection)).toBe("oceanbase-oracle");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, connection_string: "jdbc:mysql://host/db" })).toBe("mysql");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, connection_string: "" })).toBe("jdbc");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, db_type: "oracle" })).toBe("oracle");
+    expect(effectiveDatabaseTypeForConnection({ ...protectedConnection, jdbc_dialect: "oracle" as never })).toBe("jdbc");
+  });
+
+  it("does not guess Oracle mode from an ordinary OceanBase URL or change MySQL connections", () => {
+    expect(inferJdbcDialect({ db_type: "jdbc", connection_string: "jdbc:oceanbase://localhost:2881/APP", jdbc_driver_class: "com.oceanbase.jdbc.Driver" })).toBeUndefined();
+    expect(effectiveDatabaseTypeForConnection({ db_type: "jdbc", connection_string: "jdbc:mysql://localhost:2881/APP", driver_label: "OceanBase" })).toBe("mysql");
+    expect(effectiveDatabaseTypeForConnection({ db_type: "mysql", driver_profile: "oceanbase" })).toBe("mysql");
+    expect(effectiveDatabaseTypeForConnection({ db_type: "oceanbase-oracle" })).toBe("oceanbase-oracle");
   });
 
   it("detects GaussDB-compatible JDBC connections as schema-aware", () => {

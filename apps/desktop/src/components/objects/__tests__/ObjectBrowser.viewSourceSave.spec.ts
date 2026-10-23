@@ -385,21 +385,20 @@ describe("ObjectBrowser view source save", () => {
   it.each([
     ["PACKAGE BODY", "PACKAGE_BODY"],
     ["MATERIALIZED VIEW", "MATERIALIZED_VIEW"],
+    ["TYPE", "TYPE"],
+    ["TYPE BODY", "TYPE_BODY"],
   ])("opens supported %s through the normalized source-tab request", async (type, kind) => {
     mocks.invalidObjectType = type;
     const host = await mountBrowser(oracleConnection, "ORCL");
     [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("processList.oracleInvalidObjects.title"))?.click();
     await nextTick();
     host.querySelector<HTMLButtonElement>("[data-invalid-object-dialog] button")?.click();
-    expect(mocks.openObjectSourceTabPending).toHaveBeenCalledWith(expect.objectContaining({ request: { name: "P_BAD", objectType: kind } }));
+    expect(mocks.openObjectSourceTabPending).toHaveBeenCalledWith(expect.objectContaining({ schema: "APP", initialEditing: true, request: { name: "P_BAD", objectType: kind } }));
+    expect(mocks.createTab).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(host.querySelector("[data-invalid-object-dialog]")).toBeNull());
   });
 
-  it.each([
-    ["TYPE", "TYPE"],
-    ["TYPE BODY", "TYPE_BODY"],
-    ["TRIGGER", "TRIGGER"],
-  ])("keeps the supported %s repair path usable", async (type, kind) => {
+  it.each([["TRIGGER", "TRIGGER"]])("keeps the supported %s repair path usable", async (type, kind) => {
     mocks.invalidObjectType = type;
     const source = `CREATE OR REPLACE ${type} P_BAD`;
     mocks.getObjectSource.mockResolvedValueOnce({ source, editable: true });
@@ -470,25 +469,47 @@ describe("ObjectBrowser view source save", () => {
     expect(mocks.toast).not.toHaveBeenCalled();
   });
 
-  it("does not create a repair tab or toast when an Oracle TYPE source request returns after unmount", async () => {
+  it("does not create a repair tab or toast when a TRIGGER source request returns after unmount", async () => {
     let release!: (value: { source: string; editable: boolean }) => void;
-    mocks.invalidObjectType = "TYPE";
+    mocks.invalidObjectType = "TRIGGER";
     mocks.getObjectSource.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
     const host = await mountBrowser(oracleConnection, "ORCL");
     const opener = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("processList.oracleInvalidObjects.title"));
     opener?.click();
     await nextTick();
     host.querySelector<HTMLButtonElement>("[data-invalid-object-dialog] button")?.click();
-    await vi.waitFor(() => expect(mocks.getObjectSource).toHaveBeenCalledWith(oracleConnection.id, "ORCL", "APP", "P_BAD", "TYPE"));
+    await vi.waitFor(() => expect(mocks.getObjectSource).toHaveBeenCalledWith(oracleConnection.id, "ORCL", "APP", "P_BAD", "TRIGGER"));
     const mounted = mountedApps.splice(
       mountedApps.findIndex((item) => item.host === host),
       1,
     )[0]!;
     mounted.app.unmount();
-    release({ source: "CREATE TYPE P_BAD AS OBJECT (...)", editable: true });
+    release({ source: "CREATE TRIGGER P_BAD BEFORE INSERT ON T BEGIN NULL; END;", editable: true });
     await Promise.resolve();
     await nextTick();
     expect(mocks.openObjectSourceTabPending).not.toHaveBeenCalled();
+    expect(mocks.toast).not.toHaveBeenCalled();
+    host.remove();
+  });
+
+  it("does not create another TYPE tab or toast when its pending source finishes after unmount", async () => {
+    mocks.invalidObjectType = "TYPE";
+    mocks.deferSourceTabLoad = true;
+    const host = await mountBrowser(oracleConnection, "ORCL");
+    [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("processList.oracleInvalidObjects.title"))?.click();
+    await nextTick();
+    host.querySelector<HTMLButtonElement>("[data-invalid-object-dialog] button")?.click();
+    await vi.waitFor(() => expect(mocks.finishSourceTabLoad).toBeTypeOf("function"));
+    expect(mocks.openObjectSourceTabPending).toHaveBeenCalledOnce();
+    const mounted = mountedApps.splice(
+      mountedApps.findIndex((item) => item.host === host),
+      1,
+    )[0]!;
+    mounted.app.unmount();
+    mocks.finishSourceTabLoad?.();
+    await nextTick();
+    expect(mocks.openObjectSourceTabPending).toHaveBeenCalledOnce();
+    expect(mocks.createTab).not.toHaveBeenCalled();
     expect(mocks.toast).not.toHaveBeenCalled();
     host.remove();
   });

@@ -154,7 +154,8 @@ export function isDocumentBrowserTreeNode(type: TreeNodeType): boolean {
 /**
  * Whether a tree node type may open an object source dialog for the given
  * connection type. TYPE/TYPE_BODY only have a real source implementation on
- * Xugu; other databases list types without a DDL getter this cycle.
+ * Oracle-family databases and Xugu; PostgreSQL-family databases list types
+ * without a CREATE TYPE getter this cycle.
  */
 function canOpenTreeNodeSource(type: TreeNodeType, dbType?: DatabaseType): boolean {
   if (type === "type" || type === "type-body") return supportsTypeObjectSource(dbType);
@@ -172,7 +173,7 @@ export function treeNodeRowAction(type: TreeNodeType, canExpand: boolean, activa
   if (dataNodeTypes.has(type)) return "open-data";
   if (type === "column") return "locate-column";
   // PostgreSQL-family custom types: open read-only details (toggle when expandable).
-  if (type === "type" && customTypeCapabilities(dbType).details) return canExpand ? "toggle" : "none";
+  if (type === "type" && customTypeCapabilities(dbType).details) return canExpand ? "toggle" : supportsTypeObjectSource(dbType) ? "open-source" : "none";
   // Xugu and other databases: expandable package/type nodes toggle their members.
   if ((type === "package" || type === "type") && canExpand) return "toggle";
   if (sourceNodeTypes.has(type) && canOpenTreeNodeSource(type, dbType)) return "open-source";
@@ -208,7 +209,7 @@ export function treeNodeRowDoubleClickAction(type: TreeNodeType, canOpenObjectBr
     if (type === "extension") return "open-extension-details";
     if (type === "event-trigger") return "open-event-trigger-details";
     if (dataNodeTypes.has(type)) return "open-data";
-    if (type === "type" && customTypeCapabilities(dbType).details) return canExpand ? "toggle" : "none";
+    if (type === "type" && customTypeCapabilities(dbType).details) return canExpand ? "toggle" : supportsTypeObjectSource(dbType) ? "open-source" : "none";
     if (sourceNodeTypes.has(type) && canOpenTreeNodeSource(type, dbType)) return "open-source";
     if (savedSqlNodeTypes.has(type)) return "open-saved-sql";
     if (toggleLeafNodeTypes.has(type)) return "toggle";

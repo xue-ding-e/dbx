@@ -12,6 +12,8 @@ import { loadObjectSourceWithRoutineFallback } from "@/lib/table/objectSourceLoa
 import { assertSourceIdentity, beginSourceSave, captureSourceIdentity, renewSourceIdentity, type SourceIdentitySnapshot } from "@/lib/table/objectSourceIdentity";
 import { jdbcRoutineMetadata, xuguRoutineMetadataFromDefinition, type RoutineMetadata } from "@/lib/table/routineParameters";
 import { executeWithProductionSqlGuard } from "@/lib/database/productionExecutionGuard";
+import { isOracleFamilyTypeSource } from "@/lib/database/databaseObjectCapabilities";
+import { requestOracleTypeManagement } from "@/lib/table/oracleTypeManagementRequest";
 import * as api from "@/lib/backend/api";
 import QueryEditor from "@/components/editor/QueryEditor.vue";
 import RoutineMetadataPanel from "@/components/objects/RoutineMetadataPanel.vue";
@@ -87,6 +89,7 @@ onBeforeUnmount(() => {
 });
 
 const canEdit = computed(() => sourceEditable.value && (props.objectType !== "SEQUENCE" || props.databaseType === "oceanbase-oracle"));
+const managedType = computed(() => isOracleFamilyTypeSource(props.databaseType, resolvedObjectType.value));
 const isViewLike = computed(() => props.objectType === "VIEW" || props.objectType === "MATERIALIZED_VIEW");
 const editLabel = computed(() => (isViewLike.value ? t("contextMenu.editView") : t("contextMenu.editObject")));
 const title = computed(() => `${editing.value ? editLabel.value : t("contextMenu.viewSource")} - ${props.name}`);
@@ -215,6 +218,21 @@ async function saveSource() {
     if (!sourceIdentity) return;
     const identity = sourceIdentity;
     assertSourceIdentity(identity);
+    if (isOracleFamilyTypeSource(databaseType, objectType)) {
+      const source = draft.value;
+      const result = await requestOracleTypeManagement({
+        target: { connectionId, database, owner: schema, name, databaseType: databaseType as "oracle" | "oceanbase-oracle" | "dameng" },
+        operation: objectType === "TYPE_BODY" ? "save-body" : "save-spec",
+        source,
+        baseSource: editableText.value,
+        isCurrent: () => serial === loadSerial && props.open && draft.value === source,
+      });
+      if (!result.complete || serial !== loadSerial) return;
+      toast(t("objects.sourceSaved"));
+      emit("saved");
+      await loadSource(false);
+      return;
+    }
     const statements = await buildExecutableObjectSourceStatements({
       databaseType,
       objectType,
@@ -341,7 +359,7 @@ function closeDialog() {
         </Button>
         <Button v-if="editing && section === 'source'" :disabled="saving || !draft.trim()" @click="saveSource">
           <Loader2 v-if="saving" class="h-4 w-4 animate-spin" />
-          {{ t("objects.saveSource") }}
+          {{ t(managedType ? "objects.typeManagementPreviewSave" : "objects.saveSource") }}
         </Button>
       </DialogFooter>
     </DialogContent>

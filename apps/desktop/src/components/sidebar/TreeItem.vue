@@ -118,8 +118,8 @@ import { xuguDatafileDetailRows, xuguTablespaceDetailRows } from "@/lib/sidebar/
 import { useDragSort } from "@/composables/useDragSort";
 import { sidebarTreeRuntimeKey } from "@/lib/sidebar/sidebarTreeRuntime";
 import { treeNodePinKey } from "@/lib/app/pinnedItems";
+import { customTypeCapabilities, supportsOracleTypeAttributeExpansion } from "@/lib/database/databaseObjectCapabilities";
 import { sidebarTreeDisplayLabel, sidebarTreeSecondaryValue } from "@/lib/sidebar/sidebarTreeLabel";
-import { customTypeCapabilities } from "@/lib/database/databaseObjectCapabilities";
 import { shouldActivateTreeNodeOnSingleClick } from "@/lib/sidebar/treeNodeClick";
 
 const { t } = useI18n();
@@ -465,7 +465,7 @@ function displayLabel(node: TreeNode): string {
 }
 
 function treeNodeSecondaryValue(node: TreeNode): string | undefined {
-  return sidebarTreeSecondaryValue(node, t);
+  return sidebarTreeSecondaryValue(node, t, node.connectionId ? effectiveDatabaseTypeForConnection(connectionStore.getConfig(node.connectionId)) : undefined);
 }
 
 function visibleLabel(node: TreeNode): string {
@@ -772,7 +772,7 @@ const canExpand = computed(() => {
   // loadable members; types without members (enum/domain/range/base) do not
   // expand even if the catalog row lists child metadata.
   if (activeNode.value.type === "type" && customTypeCapabilities(currentDatabaseType()).details) {
-    return activeNode.value.hasMembers === true;
+    return activeNode.value.hasMembers === true || (activeNode.value.hasMembers === undefined && supportsOracleTypeAttributeExpansion(currentDatabaseType()));
   }
   return canTreeNodeShowExpander({
     type: activeNode.value.type,

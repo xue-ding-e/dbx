@@ -425,6 +425,49 @@ pub async fn get_custom_type_details(
 }
 
 #[tauri::command]
+pub async fn get_oracle_type_management_snapshot(
+    state: State<'_, Arc<AppState>>,
+    connection_id: String,
+    database: String,
+    owner: String,
+    name: String,
+    known_objects: Option<Vec<db::OracleTypeManagementObjectKey>>,
+) -> Result<db::OracleTypeManagementSnapshot, String> {
+    dbx_core::schema::get_oracle_type_management_snapshot_with_objects_core(
+        &state,
+        &connection_id,
+        &database,
+        &owner,
+        &name,
+        known_objects.as_deref().unwrap_or_default(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub fn build_oracle_type_management_sql(
+    input: db::OracleTypeManagementSqlInput,
+) -> Result<db::OracleTypeManagementSqlResult, String> {
+    dbx_core::schema::build_oracle_type_management_sql(input)
+}
+
+#[tauri::command]
+pub async fn verify_oracle_type_data(
+    state: State<'_, Arc<AppState>>,
+    input: db::OracleTypeDataRequest,
+) -> Result<db::OracleTypeDataResult, String> {
+    dbx_core::schema::verify_oracle_type_data_core(&state, input).await
+}
+
+#[tauri::command]
+pub async fn prepare_oracle_type_evolution(
+    state: State<'_, Arc<AppState>>,
+    input: db::OracleTypeEvolutionRequest,
+) -> Result<db::OracleTypeEvolutionManifest, String> {
+    dbx_core::schema::prepare_oracle_type_evolution_core(&state, input).await
+}
+
+#[tauri::command]
 pub async fn get_columns(
     state: State<'_, Arc<AppState>>,
     connection_id: String,

@@ -13,7 +13,7 @@ export type ObjectBrowserRowAction = "table-info" | "index-info" | "index-editor
  * - otherwise → none
  *
  * TYPE/TYPE_BODY only open source for connections with a real type source
- * implementation (Xugu); other databases list types without a DDL getter.
+ * implementation (Oracle family or Xugu); other databases list types without a DDL getter.
  */
 export function singleClickRowAction(row: ObjectBrowserRow | null | undefined, dbType?: DatabaseType): ObjectBrowserRowAction {
   if (!row) return "none";
@@ -102,8 +102,8 @@ function mongoObjectBrowserRowAction(row: ObjectBrowserRow): ObjectBrowserRowAct
 }
 
 function canOpenSource(row: ObjectBrowserRow, dbType?: DatabaseType): boolean {
-  // Verified PG-family TYPE rows open the read-only details panel instead;
-  // Xugu keeps its source editor entry through supportsTypeObjectSource below.
+  // Verified custom types open the read-only details panel instead; Oracle
+  // family types and Xugu also use the source entry below.
   if (row.type === "TYPE" && customTypeCapabilities(dbType).details) return false;
   if ((row.type === "TYPE" || row.type === "TYPE_BODY") && !supportsTypeObjectSource(dbType)) return false;
   return (

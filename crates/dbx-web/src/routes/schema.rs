@@ -461,6 +461,54 @@ pub async fn get_custom_type_details(
     Ok(Json(result))
 }
 
+pub async fn verify_oracle_type_data(
+    State(state): State<Arc<WebState>>,
+    Json(input): Json<dbx_core::db::OracleTypeDataRequest>,
+) -> Result<Json<dbx_core::db::OracleTypeDataResult>, AppError> {
+    Ok(Json(dbx_core::schema::verify_oracle_type_data_core(&state.app, input).await?))
+}
+
+pub async fn prepare_oracle_type_evolution(
+    State(state): State<Arc<WebState>>,
+    Json(input): Json<dbx_core::db::OracleTypeEvolutionRequest>,
+) -> Result<Json<dbx_core::db::OracleTypeEvolutionManifest>, AppError> {
+    Ok(Json(dbx_core::schema::prepare_oracle_type_evolution_core(&state.app, input).await?))
+}
+
+pub async fn get_oracle_type_management_snapshot(
+    State(state): State<Arc<WebState>>,
+    Query(q): Query<SchemaQuery>,
+) -> Result<Json<dbx_core::db::OracleTypeManagementSnapshot>, AppError> {
+    let result = dbx_core::schema::get_oracle_type_management_snapshot_core(
+        &state.app,
+        &q.connection_id,
+        q.database.as_deref().unwrap_or(""),
+        q.schema.as_deref().unwrap_or(""),
+        q.table.as_deref().unwrap_or(""),
+    )
+    .await
+    .map_err(AppError::from)?;
+    Ok(Json(result))
+}
+
+pub async fn read_oracle_type_management_snapshot(
+    State(state): State<Arc<WebState>>,
+    Json(request): Json<dbx_core::db::OracleTypeManagementSnapshotRequest>,
+) -> Result<Json<dbx_core::db::OracleTypeManagementSnapshot>, AppError> {
+    let target = request.target;
+    let result = dbx_core::schema::get_oracle_type_management_snapshot_with_objects_core(
+        &state.app,
+        &target.connection_id,
+        &target.database,
+        &target.owner,
+        &target.name,
+        &request.known_objects,
+    )
+    .await
+    .map_err(AppError::from)?;
+    Ok(Json(result))
+}
+
 pub(crate) use dbx_core::object_cache::object_metadata_cache_prefix;
 use dbx_core::object_cache::{metadata_cache_segment, OBJECT_METADATA_CACHE_PREFIX};
 

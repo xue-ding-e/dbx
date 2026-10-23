@@ -2,6 +2,7 @@ import type { TreeNode, DatabaseType, CustomTypeTreeMemberMeta } from "@/types/d
 import { isTreeGroupNodeType } from "@/lib/sidebar/treeNodeGroup";
 import { xuguSchemaDisplayName } from "@/lib/sidebar/xuguPublicSynonyms";
 import { elasticsearchIndexAliasLabel } from "@/lib/sidebar/elasticsearchIndexActions";
+import { supportsOracleTypeAttributeExpansion } from "@/lib/database/databaseObjectCapabilities";
 export type SidebarTreeTranslate = (key: string, values?: Record<string, number>) => string;
 
 export function sidebarTreeDisplayLabel(node: TreeNode, t: SidebarTreeTranslate, databaseType?: DatabaseType): string {
@@ -24,8 +25,11 @@ export function sidebarTreeDisplayLabel(node: TreeNode, t: SidebarTreeTranslate,
   return isTreeGroupNodeType(node.type) ? t(node.label) : node.label;
 }
 
-export function sidebarTreeSecondaryValue(node: TreeNode, t: SidebarTreeTranslate): string | undefined {
-  if (node.type === "type" && node.customTypeKind) return t(`customType.kinds.${node.customTypeKind}`);
+export function sidebarTreeSecondaryValue(node: TreeNode, t: SidebarTreeTranslate, databaseType?: DatabaseType): string | undefined {
+  if (node.type === "type" && node.customTypeKind) {
+    const kindKey = supportsOracleTypeAttributeExpansion(databaseType) ? `oracleType.kinds.${node.customTypeKind in { object: true, collection: true } ? node.customTypeKind : "other"}` : `customType.kinds.${node.customTypeKind}`;
+    return t(kindKey);
+  }
   if (node.type === "type-member") return (node.meta as CustomTypeTreeMemberMeta | undefined)?.displayValue;
   if (node.type === "datafile") return node.xuguDatafilePath;
   if (node.type === "elasticsearch-index") return elasticsearchIndexAliasLabel(node);

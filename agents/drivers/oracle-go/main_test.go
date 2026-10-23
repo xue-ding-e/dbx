@@ -2347,25 +2347,32 @@ func TestListSessionUserTablesQueryUsesUserDictionary(t *testing.T) {
 }
 
 func TestListObjectsSQLUsesSplitDictionaryQuery(t *testing.T) {
-	sqlText := strings.ToUpper(oracleListObjectsSQL)
+	query := oracleListObjectsQuery("APP", metadataListConstraints{})
+	sqlText := strings.ToUpper(query.SQL)
 
 	if !strings.Contains(sqlText, "ALL_TABLES") || !strings.Contains(sqlText, "ALL_OBJECTS") {
-		t.Fatalf("object listing should split tables from other objects, got: %s", oracleListObjectsSQL)
+		t.Fatalf("object listing should split tables from other objects, got: %s", query.SQL)
 	}
 	if !strings.Contains(sqlText, "UNION ALL") {
-		t.Fatalf("object listing should union object metadata, got: %s", oracleListObjectsSQL)
+		t.Fatalf("object listing should union object metadata, got: %s", query.SQL)
 	}
 	if strings.Contains(sqlText, "ALL_TAB_COMMENTS") {
-		t.Fatalf("object listing should not load comments during refresh, got: %s", oracleListObjectsSQL)
+		t.Fatalf("object listing should not load comments during refresh, got: %s", query.SQL)
 	}
 	if !strings.Contains(sqlText, "'PACKAGE BODY'") || !strings.Contains(sqlText, "PACKAGE_BODY") {
-		t.Fatalf("object listing should include package bodies with normalized type, got: %s", oracleListObjectsSQL)
+		t.Fatalf("object listing should include package bodies with normalized type, got: %s", query.SQL)
 	}
 	if !strings.Contains(sqlText, "'SEQUENCE'") {
-		t.Fatalf("object listing should include sequences, got: %s", oracleListObjectsSQL)
+		t.Fatalf("object listing should include sequences, got: %s", query.SQL)
+	}
+	if !strings.Contains(sqlText, "'TYPE BODY'") || !strings.Contains(sqlText, "TYPE_BODY") || !strings.Contains(sqlText, "'TYPE'") {
+		t.Fatalf("object listing should include TYPE and normalize TYPE BODY, got: %s", query.SQL)
+	}
+	if !strings.Contains(sqlText, "END, OBJECT_NAME, OBJECT_TYPE") {
+		t.Fatalf("same-name TYPE and TYPE BODY need deterministic ordering, got: %s", query.SQL)
 	}
 	if !strings.Contains(sqlText, "ALL_SYNONYMS") || !strings.Contains(sqlText, "'SYNONYM' AS OBJECT_TYPE") {
-		t.Fatalf("object listing should include schema synonyms, got: %s", oracleListObjectsSQL)
+		t.Fatalf("object listing should include schema synonyms, got: %s", query.SQL)
 	}
 }
 
@@ -2413,7 +2420,7 @@ func TestExactSchemaIndexAllDictionaryPagePreservesMissingParent(t *testing.T) {
 	owner := " Index Owner "
 	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
 		{queryContains: "SYS_CONTEXT('USERENV', 'SESSION_USER')", args: []driver.Value{}, rows: [][]driver.Value{{"Other Owner"}}},
-		{queryContains: "ALL_INDEXES", args: []driver.Value{owner, owner, owner, "INDEX", int64(3), int64(1)}, columns: []string{"OBJECT_NAME", "OBJECT_TYPE", "COMMENTS", "PARENT_SCHEMA", "PARENT_NAME"}, rows: [][]driver.Value{{" Ix (a) ", "INDEX", nil, nil, nil}}},
+		{queryContains: "ALL_INDEXES", args: []driver.Value{owner, owner, owner, owner, "INDEX", int64(3), int64(1)}, columns: []string{"OBJECT_NAME", "OBJECT_TYPE", "COMMENTS", "PARENT_SCHEMA", "PARENT_NAME"}, rows: [][]driver.Value{{" Ix (a) ", "INDEX", nil, nil, nil}}},
 	})
 	s := newServer()
 	s.db = db
@@ -2457,8 +2464,111 @@ func TestExactTableDDLDoesNotBuildAnotherTargetAfterMetadataFailure(t *testing.T
 
 func TestListSessionUserObjectsSQLIncludesSequences(t *testing.T) {
 	sqlText := strings.ToUpper(oracleListObjectsSessionUserBaseSQL)
-	if !strings.Contains(sqlText, "FROM USER_OBJECTS") || !strings.Contains(sqlText, "'SEQUENCE'") {
+	if !strings.Contains(sqlText, "FROM USER_OBJECTS") || !strings.Contains(sqlText, "'SEQUENCE'") || !strings.Contains(sqlText, "'TYPE BODY'") || !strings.Contains(sqlText, "'TYPE'") {
 		t.Fatalf("session-user object listing should include sequences, got: %s", oracleListObjectsSessionUserBaseSQL)
+	}
+}
+
+func TestGetOracleTypeSourceUsesExactIdentityAndCollectionDDLFallback(t *testing.T) {
+	const ddl = `CREATE TYPE "App"."MixedType" AS TABLE OF VARCHAR2(20)`
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{queryContains: "DBMS_XMLGEN.CONVERT", args: []driver.Value{"App", "MixedType", "TYPE"}, rows: [][]driver.Value{{nil}}},
+		{queryContains: "DBMS_METADATA.GET_DDL(:1, :2, :3)", args: []driver.Value{"TYPE", "MixedType", "App"}, rows: [][]driver.Value{{ddl}}},
+	})
+	s := newServer()
+	s.db = db
+	result, err := s.getObjectSource("App", "MixedType", "TYPE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["source"] != ddl || result["editable"] != false || result["name"] != "MixedType" {
+		t.Fatalf("unexpected type source: %#v", result)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d queries, got %d", len(scripted.steps), scripted.next)
+	}
+}
+
+func TestGetOracleTypeBodyReadsLongQuotedNameAsTypeBodyReadonly(t *testing.T) {
+	const name = "Mixed Type"
+	source := "TYPE BODY \"Mixed Type\" AS\n" + strings.Repeat("  MEMBER PROCEDURE P IS BEGIN NULL; END;\n", 1200) + "END;"
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{queryContains: "DBMS_XMLGEN.CONVERT", args: []driver.Value{"App", name, "TYPE BODY"}, rows: [][]driver.Value{{source}}},
+	})
+	s := newServer()
+	s.db = db
+	result, err := s.getObjectSource("App", name, "TYPE_BODY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["source"] != source || result["editable"] != false || result["object_type"] != "TYPE_BODY" {
+		t.Fatalf("unexpected body source: %#v", result)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected exact identity query only; got %d queries", scripted.next)
+	}
+}
+
+func TestGetOracleTypeRejectsEmptySourceWhenMetadataFallbackFails(t *testing.T) {
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{queryContains: "DBMS_XMLGEN.CONVERT", args: []driver.Value{"APP", "EMPTY_T", "TYPE"}, rows: [][]driver.Value{{nil}}},
+		{queryContains: "DBMS_METADATA.GET_DDL(:1, :2, :3)", args: []driver.Value{"TYPE", "EMPTY_T", "APP"}, err: errors.New("metadata unavailable")},
+	})
+	s := newServer()
+	s.db = db
+	result, err := s.getObjectSource("APP", "EMPTY_T", "TYPE")
+	if err == nil || result != nil {
+		t.Fatalf("expected empty/missing type source to fail, got result=%#v err=%v", result, err)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d queries, got %d", len(scripted.steps), scripted.next)
+	}
+}
+
+func TestGetOracleTypeBodyFallsBackAfterDictionaryErrorsWithExactPaddedIdentity(t *testing.T) {
+	const owner = " Mixed Owner "
+	const name = " Mixed Body "
+	const sourceErr = "dictionary denied"
+	const ddl = `CREATE TYPE BODY " Mixed Owner " . " Mixed Body " AS END;`
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{queryContains: "DBMS_XMLGEN.CONVERT", args: []driver.Value{owner, name, "TYPE BODY"}, err: errors.New(sourceErr)},
+		{queryContains: "SELECT TEXT", args: []driver.Value{owner, name, "TYPE BODY"}, err: errors.New("line view denied")},
+		{queryContains: "DBMS_METADATA.GET_DDL(:1, :2, :3)", args: []driver.Value{"TYPE_BODY", name, owner}, rows: [][]driver.Value{{ddl}}},
+	})
+	s := newServer()
+	s.db = db
+	result, err := s.getObjectSource(owner, name, "TYPE_BODY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["schema"] != owner || result["name"] != name || result["source"] != ddl || result["editable"] != false {
+		t.Fatalf("type-body identity/source changed: %#v", result)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d queries, got %d", len(scripted.steps), scripted.next)
+	}
+}
+
+func TestGetOracleTypeFallsBackAfterDictionaryErrorsWithExactPaddedIdentity(t *testing.T) {
+	const owner = " Mixed Owner "
+	const name = " Mixed Type "
+	const ddl = `CREATE TYPE " Mixed Owner " . " Mixed Type " AS OBJECT ( VALUE NUMBER )`
+	db, scripted := openOracleViewSourceTestDB(t, []oracleViewSourceQueryStep{
+		{queryContains: "DBMS_XMLGEN.CONVERT", args: []driver.Value{owner, name, "TYPE"}, err: errors.New("ALL_SOURCE denied")},
+		{queryContains: "SELECT TEXT", args: []driver.Value{owner, name, "TYPE"}, err: errors.New("ALL_SOURCE lines denied")},
+		{queryContains: "DBMS_METADATA.GET_DDL(:1, :2, :3)", args: []driver.Value{"TYPE", name, owner}, rows: [][]driver.Value{{ddl}}},
+	})
+	s := newServer()
+	s.db = db
+	result, err := s.getObjectSource(owner, name, "TYPE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["schema"] != owner || result["name"] != name || result["source"] != ddl || result["editable"] != false {
+		t.Fatalf("type identity/source changed: %#v", result)
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d queries, got %d", len(scripted.steps), scripted.next)
 	}
 }
 
@@ -2470,19 +2580,19 @@ func TestListObjectsQueryAppliesMetadataConstraints(t *testing.T) {
 	})
 	sqlText := strings.ToUpper(query.SQL)
 
-	if !strings.Contains(sqlText, "UPPER(OBJECT_NAME) LIKE :4 ESCAPE '\\'") {
+	if !strings.Contains(sqlText, "UPPER(OBJECT_NAME) LIKE :5 ESCAPE '\\'") {
 		t.Fatalf("object listing should push filter predicate, got: %s", query.SQL)
 	}
-	if !strings.Contains(sqlText, "OBJECT_TYPE IN (:5,:6)") {
+	if !strings.Contains(sqlText, "OBJECT_TYPE IN (:6,:7)") {
 		t.Fatalf("object listing should push object type predicate, got: %s", query.SQL)
 	}
-	if !strings.Contains(sqlText, "ROWNUM <= :7") || !strings.Contains(sqlText, "DBX_RN > :8") {
+	if !strings.Contains(sqlText, "ROWNUM <= :8") || !strings.Contains(sqlText, "DBX_RN > :9") {
 		t.Fatalf("object listing should use rownum pagination, got: %s", query.SQL)
 	}
-	if len(query.Args) != 8 {
+	if len(query.Args) != 9 {
 		t.Fatalf("unexpected args: %#v", query.Args)
 	}
-	if query.Args[0] != "APP" || query.Args[1] != "APP" || query.Args[2] != "APP" || query.Args[3] != "%P%K%G%\\%%" || query.Args[4] != "FUNCTION" || query.Args[5] != "PACKAGE" || query.Args[6] != 25 || query.Args[7] != 0 {
+	if query.Args[0] != "APP" || query.Args[1] != "APP" || query.Args[2] != "APP" || query.Args[3] != "APP" || query.Args[4] != "%P%K%G%\\%%" || query.Args[5] != "FUNCTION" || query.Args[6] != "PACKAGE" || query.Args[7] != 25 || query.Args[8] != 0 {
 		t.Fatalf("object constraints args were not normalized: %#v", query.Args)
 	}
 }
@@ -2536,11 +2646,41 @@ func TestListObjectsQuerySupportsSynonymOnlyFiltering(t *testing.T) {
 	if !strings.Contains(sqlText, "FROM ALL_SYNONYMS") || !strings.Contains(sqlText, "S.OWNER = :3") {
 		t.Fatalf("cross-schema synonym listing should use the selected owner, got: %s", query.SQL)
 	}
-	if !strings.Contains(sqlText, "OBJECT_TYPE IN (:5)") {
+	if !strings.Contains(sqlText, "OBJECT_TYPE IN (:6)") {
 		t.Fatalf("synonym filtering should be pushed into the constrained query, got: %s", query.SQL)
 	}
-	if len(query.Args) != 7 || query.Args[2] != "AP" || query.Args[3] != "%S%P%E%C%" || query.Args[4] != "SYNONYM" || query.Args[5] != 30 || query.Args[6] != 20 {
+	if len(query.Args) != 8 || query.Args[2] != "AP" || query.Args[3] != "AP" || query.Args[4] != "%S%P%E%C%" || query.Args[5] != "SYNONYM" || query.Args[6] != 30 || query.Args[7] != 20 {
 		t.Fatalf("unexpected synonym query args: %#v", query.Args)
+	}
+}
+
+func TestListObjectsPagesSameNameTypeAndBodyUnderExactQuotedOwner(t *testing.T) {
+	const owner = " Mixed Owner "
+	steps := []oracleViewSourceQueryStep{
+		{queryContains: "END, OBJECT_NAME, OBJECT_TYPE", columns: []string{"OBJECT_NAME", "OBJECT_TYPE", "COMMENTS", "PARENT_SCHEMA", "PARENT_NAME"}, args: []driver.Value{"MIXED OWNER", "MIXED OWNER", "MIXED OWNER", owner, "%T%Y%P%E%", "TYPE", "TYPE_BODY", int64(1), int64(0)}, rows: [][]driver.Value{{"Mixed Type", "TYPE", nil, nil, nil}}},
+		{queryContains: "END, OBJECT_NAME, OBJECT_TYPE", columns: []string{"OBJECT_NAME", "OBJECT_TYPE", "COMMENTS", "PARENT_SCHEMA", "PARENT_NAME"}, args: []driver.Value{"MIXED OWNER", "MIXED OWNER", "MIXED OWNER", owner, "%T%Y%P%E%", "TYPE", "TYPE_BODY", int64(2), int64(1)}, rows: [][]driver.Value{{"Mixed Type", "TYPE_BODY", nil, nil, nil}}},
+	}
+	db, scripted := openOracleViewSourceTestDB(t, steps)
+	s := newServer()
+	s.db = db
+	constraints := metadataListConstraints{Filter: "type", Limit: 1, ObjectTypes: []string{"TYPE", "TYPE_BODY"}}
+	specs, err := s.listObjects(owner, constraints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	constraints.Offset = 1
+	bodies, err := s.listObjects(owner, constraints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(specs) != 1 || len(bodies) != 1 || specs[0].Name != bodies[0].Name || specs[0].ObjectType != "TYPE" || bodies[0].ObjectType != "TYPE_BODY" {
+		t.Fatalf("same-name TYPE/BODY page identities lost: specs=%#v bodies=%#v", specs, bodies)
+	}
+	if specs[0].Schema != owner || bodies[0].Schema != owner {
+		t.Fatalf("exact quoted owner not retained: %#v %#v", specs[0], bodies[0])
+	}
+	if scripted.next != len(scripted.steps) {
+		t.Fatalf("expected %d list queries, got %d", len(scripted.steps), scripted.next)
 	}
 }
 
@@ -3748,7 +3888,7 @@ func (c *oracleViewSourceConn) QueryContext(
 		values[index] = arg.Value
 	}
 	if !reflect.DeepEqual(values, step.args) {
-		return nil, fmt.Errorf("unexpected query arguments: got %v, want %v (query %q)", values, step.args, query)
+		return nil, fmt.Errorf("unexpected query arguments: got %#v, want %#v (query %q)", values, step.args, query)
 	}
 	if step.err != nil {
 		return nil, step.err

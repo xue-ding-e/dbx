@@ -38,6 +38,7 @@ Click or double-click an object to open a type-appropriate view:
 - Table or view data
 - Table structure, columns, indexes, foreign keys, triggers, and DDL
 - Source for views, procedures, functions, triggers, and other objects
+- Oracle, OceanBase Oracle, and Dameng TYPE details and read-only TYPE/TYPE BODY source
 - Database-specific administration interfaces
 
 Context menus can also provide:
@@ -86,11 +87,16 @@ Use checkboxes to select multiple objects. Depending on the database, bulk actio
 ## DDL and Source
 
 - **View DDL** prefers definitions returned by the database or driver
-- **Object source** covers views, procedures, functions, triggers, and other editable objects
+- **Object source** covers views, procedures, functions, triggers, and other objects; Oracle, OceanBase Oracle, and Dameng TYPE/TYPE BODY source is read-only
+- In those three databases, open a TYPE row for its attributes, methods, collection details, status, and visible TYPE BODY pairing; use the Source tab to read or copy its definition
+- When a TYPE BODY is listed, open that row to read its source separately from the same-named TYPE
 - Source views support search and can open in the editor when the database and object allow it
 - Saving source or executing DDL passes through read-only, production, and dangerous-operation checks
 
 DBX shows the definition available from the active driver. Formatting, privileges/comments/storage properties, and direct edit support vary by database.
+Metadata sections identify incomplete, unavailable, or unsupported dictionary reads; only a successfully read empty section is presented as empty.
+
+For OceanBase Oracle mode over generic JDBC, use an explicit `jdbc:oceanbase:oracle://` URL so type listing, details, and source use the same dialect. A plain `jdbc:oceanbase://` URL does not identify Oracle mode.
 
 ## Object Tree vs. Object Browser
 
