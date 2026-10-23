@@ -2147,6 +2147,7 @@ export default withEnglishFallback({
       searchFailed: "Поиск не выполнен или превышено время ожидания. Упростите выражение и повторите попытку.",
       caseSensitive: "Учитывать регистр",
       regex: "Регулярное выражение",
+      wholeWord: "Только слово целиком",
       collapseReplace: "Свернуть замену",
       expandReplace: "Развернуть замену",
       prevMatch: "Предыдущее (Shift+Enter)",

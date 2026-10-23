@@ -2119,6 +2119,7 @@ export default withEnglishFallback({
       searchFailed: "Ricerca non riuscita o scaduta. Semplifica l’espressione e riprova.",
       caseSensitive: "Maiuscole/Minuscole",
       regex: "Espressione regolare",
+      wholeWord: "Parola intera",
       collapseReplace: "Comprimi sostituzione",
       expandReplace: "Espandi sostituzione",
       prevMatch: "Precedente (Shift+Enter)",
