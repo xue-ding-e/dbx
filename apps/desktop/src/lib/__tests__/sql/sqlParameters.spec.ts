@@ -1039,6 +1039,35 @@ describe("extractSqlParameters", () => {
     expect(extractSqlParameters("read_loop:LOOP")).toEqual(["LOOP"]);
   });
 
+  it.each([
+    "CREATE PROCEDURE p() run:BEGIN SELECT 1; END;",
+    "DROP PROCEDURE IF EXISTS p; CREATE DEFINER=`root`@`127.0.0.1` PROCEDURE `p`(IN in_username VARCHAR(200))\nrun:BEGIN IF in_username = '' THEN LEAVE run; END IF; END;",
+    "CREATE PROCEDURE `app`.`p`(IN amount DECIMAL(10, 2)) SQL SECURITY INVOKER COMMENT 'begin; :hidden' run:BEGIN SELECT amount; END;",
+    "CREATE /* procedure header */ PROCEDURE p() /* body label */ `run`:BEGIN SELECT 1; END;",
+    "CREATE FUNCTION f() RETURNS INT DETERMINISTIC run:BEGIN RETURN 1; END;",
+    "CREATE FUNCTION f() RETURNS SET('a', 'b') DETERMINISTIC run:BEGIN RETURN 'a'; END;",
+    "CREATE PROCEDURE p() open:BEGIN SELECT 1; END;",
+    "CREATE PROCEDURE p() close:BEGIN SELECT 1; END;",
+    "DELIMITER //\nCREATE PROCEDURE p() run:BEGIN SELECT 1; END//\nDELIMITER ;",
+  ])("preserves compact outer MySQL routine labels (#13242): %s", (sql) => {
+    expect(extractSqlParameters(sql, { databaseType: "mysql" })).toEqual([]);
+    expect(substituteSqlParameters(sql, {}, { databaseType: "mysql" })).toBe(sql);
+  });
+
+  it.each([
+    ["SELECT :BEGIN, :LOOP;", "SELECT 'x', 'y';"],
+    ["CREATE PROCEDURE p() run:BEGIN SELECT :BEGIN, :LOOP; END;", "CREATE PROCEDURE p() run:BEGIN SELECT 'x', 'y'; END;"],
+    ["CREATE PROCEDURE p() SELECT :BEGIN, :LOOP;", "CREATE PROCEDURE p() SELECT 'x', 'y';"],
+    ["CREATE PROCEDURE p() SELECT:BEGIN, :LOOP;", "CREATE PROCEDURE p() SELECT'x', 'y';"],
+    ["CREATE FUNCTION f() RETURNS VARCHAR(20) RETURN CONCAT(:BEGIN, :LOOP);", "CREATE FUNCTION f() RETURNS VARCHAR(20) RETURN CONCAT('x', 'y');"],
+    ["CREATE PROCEDURE p() BEGIN SELECT 1; END; SELECT :BEGIN, :LOOP;", "CREATE PROCEDURE p() BEGIN SELECT 1; END; SELECT 'x', 'y';"],
+    ["SELECT 'CREATE PROCEDURE p()' AS label, :BEGIN, :LOOP;", "SELECT 'CREATE PROCEDURE p()' AS label, 'x', 'y';"],
+    ["/* CREATE PROCEDURE p() */ SELECT :BEGIN, :LOOP;", "/* CREATE PROCEDURE p() */ SELECT 'x', 'y';"],
+  ])("keeps real MySQL parameters named after block keywords: %s", (sql, expected) => {
+    expect(extractSqlParameters(sql, { databaseType: "mysql" })).toEqual(["BEGIN", "LOOP"]);
+    expect(substituteSqlParameters(sql, { BEGIN: { kind: "string", value: "x" }, LOOP: { kind: "string", value: "y" } }, { databaseType: "mysql" })).toBe(expected);
+  });
+
   it("ignores HANA SQLScript variable references", () => {
     const sql = "DO BEGIN Dummy1 = SELECT 1 FROM DUMMY; SELECT * FROM :Dummy1; END";
     expect(extractSqlParameters(sql, { databaseType: "saphana" })).toEqual([]);

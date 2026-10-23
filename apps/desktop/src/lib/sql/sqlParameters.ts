@@ -1,6 +1,7 @@
 import type { DatabaseType } from "@/types/database";
 import { collectSqlDatabaseLinkStarts } from "@/lib/sql/sqlDatabaseLinks";
 import { isOracleSubstitutionDatabase } from "@/lib/sql/sqlVariableSyntax";
+import { tokenizeSqlSemantic } from "@/lib/sql/semantic/tokens";
 
 export type SqlParameterValueKind = "string" | "number" | "boolean" | "null" | "raw";
 
@@ -70,6 +71,7 @@ const SQL_SERVER_TEMP_TABLE_CONTEXT_KEYWORDS = new Set(["table", "from", "join",
 const MYSQL_ROUTINE_LABEL_STATEMENTS = new Set(["begin", "loop", "while", "repeat"]);
 const MYSQL_ROUTINE_LABEL_CONTEXTS = new Set(["begin", "then", "else", "do", "loop", "repeat"]);
 const MYSQL_ROUTINE_LABEL_RE = /(?:`(?:``|[^`])+`|[\p{L}_][\p{L}\p{N}_]*)$/u;
+const MYSQL_ROUTINE_BODY_STATEMENTS = new Set(["begin", "return", "select", "set", "insert", "update", "delete", "replace", "call", "if", "case", "loop", "while", "repeat", "declare", "do", "leave", "iterate", "signal", "resignal", "get", "fetch"]);
 const POSTGRES_QUESTION_PARAMETER_PREFIX_KEYWORDS = new Set([
   "all",
   "and",
@@ -600,7 +602,29 @@ function isMysqlRoutineLabelSeparator(sql: string, colonIndex: number, following
   if (!label) return false;
   const labelStart = colonIndex - label[0].length;
   const prefix = sql.slice(0, labelStart).trimEnd();
-  return prefix.length === 0 || prefix.endsWith(";") || MYSQL_ROUTINE_LABEL_CONTEXTS.has(previousKeyword(sql, labelStart));
+  if (prefix.length === 0 || prefix.endsWith(";") || MYSQL_ROUTINE_LABEL_CONTEXTS.has(previousKeyword(sql, labelStart))) return true;
+  return followingName.toLowerCase() === "begin" && !MYSQL_ROUTINE_BODY_STATEMENTS.has(label[0].toLowerCase()) && isMysqlRoutineHeader(prefix);
+}
+
+function isMysqlRoutineHeader(sql: string): boolean {
+  const tokens = tokenizeSqlSemantic(sql, "mysql", { mysqlBackslashEscape: true, mysqlDoubleQuoteIsString: true }).filter((token) => token.kind !== "comment");
+  let start = tokens.length - 1;
+  while (start >= 0 && tokens[start].text !== ";" && !(tokens[start].kind === "word" && tokens[start].normalized === "create")) start -= 1;
+  if (start < 0 || tokens[start].normalized !== "create") return false;
+
+  const header = tokens.slice(start + 1);
+  const routineIndex = header.findIndex((token) => token.kind === "word" && token.depth === 0 && (token.normalized === "procedure" || token.normalized === "function"));
+  if (routineIndex < 0 || (routineIndex !== 0 && header[0]?.normalized !== "definer")) return false;
+  const parameterStart = header.findIndex((token, index) => index > routineIndex && token.text === "(");
+  if (parameterStart < 0) return false;
+  const parameterEnd = header.findIndex((token, index) => index > parameterStart && token.text === ")" && token.depth === 0);
+  if (parameterEnd < 0) return false;
+
+  // The outer label follows the signature and optional routine characteristics,
+  // before any body statement. Quoted names/comments must not change that context.
+  // The word after RETURNS is a data type, which can itself be SET.
+  const characteristics = header.slice(parameterEnd + 1);
+  return !characteristics.some((token, index) => token.kind === "word" && token.depth === 0 && MYSQL_ROUTINE_BODY_STATEMENTS.has(token.normalized) && characteristics[index - 1]?.normalized !== "returns");
 }
 
 function readMyBatisForeachAt(sql: string, start: number, databaseType?: DatabaseType): { collection: string; render: MyBatisForeach; end: number } | null {

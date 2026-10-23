@@ -181,6 +181,22 @@ describe("useSqlExecution", () => {
     expect(execute).toHaveBeenCalledWith(sql, { tabId: "tab-1" });
   });
 
+  it("executes a MySQL procedure with a compact outer label without opening the parameter dialog (#13242)", async () => {
+    const sql = "DROP PROCEDURE IF EXISTS p;\nCREATE DEFINER=`root`@`127.0.0.1` PROCEDURE p(IN in_username VARCHAR(200))\nrun:BEGIN IF in_username = '' THEN LEAVE run; END IF; SELECT in_username; END;";
+    const activeTab = ref<QueryTab | undefined>({ ...queryTab("app"), sql });
+    const activeConnection = ref<ConnectionConfig | undefined>(connection("mysql"));
+    useSettingsStore().editorSettings.confirmDangerousSqlExecution = false;
+    const execute = vi.spyOn(useQueryStore(), "executeCurrentSql").mockResolvedValue(undefined);
+    vi.spyOn(useHistoryStore(), "add").mockResolvedValue(undefined);
+    const execution = useSqlExecution({ activeTab: computed(() => activeTab.value), activeConnection: computed(() => activeConnection.value), executableSql: computed(() => sql), activeOutputView: ref("result") });
+
+    await execution.tryExecute();
+
+    expect(execution.showSqlParameterDialog.value).toBe(false);
+    expect(execution.sqlParameterNames.value).toEqual([]);
+    expect(execute).toHaveBeenCalledWith(sql, { tabId: "tab-1" });
+  });
+
   it("executes Neo4j graph patterns without a SQL parameter dialog", async () => {
     const sql = 'MATCH (p:Person)-[:WORK_IN]->(c:Company{name:"星云科技"})\nRETURN p.name, p.job, c.name';
     const activeTab = ref<QueryTab | undefined>({ ...queryTab("neo4j"), sql });
