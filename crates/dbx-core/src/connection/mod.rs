@@ -2217,6 +2217,12 @@ impl AppState {
         let state = self.agent_manager.load_state();
         if state.java_runtime.mode == JavaRuntimeMode::Managed && !self.agent_manager.is_jre_installed(DEFAULT_JRE_KEY)
         {
+            // The wrapper falls back to JAVA_HOME / PATH. Do NOT gate this on a
+            // version check here: the runtime env is built before the plugin
+            // executable is known, and non-Java plugin drivers (including the
+            // python fakes in h2_jdbc_tests) launch fine on any Java. A real
+            // Java-21 plugin dying under an older JVM is explained reactively
+            // via the stderr UnsupportedClassVersionError hint.
             return Ok(PluginRuntimeEnv::default());
         }
         let java = self.agent_manager.resolve_java_runtime(&state, DEFAULT_JRE_KEY)?;
@@ -9747,9 +9753,11 @@ sleep 30
             "0.0.0-test",
         );
 
-        let env = state.external_driver_runtime_env("jdbc").unwrap();
-
-        assert_eq!(env.get("DBX_JAVA_BIN"), None);
+        // The fallback validates this machine's JAVA_HOME / PATH Java, which may be older than 21.
+        match state.external_driver_runtime_env("jdbc") {
+            Ok(env) => assert_eq!(env.get("DBX_JAVA_BIN"), None),
+            Err(error) => assert!(error.starts_with("Agent requires Java 21"), "unexpected error: {error}"),
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 
