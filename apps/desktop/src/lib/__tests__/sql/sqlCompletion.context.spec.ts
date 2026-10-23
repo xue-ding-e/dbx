@@ -292,6 +292,51 @@ describe("sqlCompletion keyword snippets", () => {
 
     expect(items.some((item) => item.label === "QUALIFY")).toBe(false);
   });
+
+  describe("clause keywords after a FROM table reference (#13120)", () => {
+    const routineNames = ["wms_handle_order", "WriteHistoryEntry", "WhereUsed", "web_hook", "w_h_e_r", "wh_sync", "group_hist", "order_sync"];
+    const objects = routineNames.flatMap((name) => [
+      { name, schema: "app", type: "procedure" as const, signature: "" },
+      { name: `${name}_fn`, schema: "app", type: "function" as const, signature: "" },
+    ]);
+
+    function rankedItems(sql: string, databaseType: "mysql" | "postgres" | "sqlserver") {
+      const legacy = getSqlCompletionContext(sql, sql.length, { databaseType });
+      const context = sqlCompletionContextFromSemantic(buildSqlSemanticModel(sql, sql.length, { databaseType }), legacy);
+      return buildSqlCompletionItemsFromContext(context, {
+        databaseType,
+        tables: [{ name: "users" }],
+        columnsByTable: new Map([["users", [{ name: "id", table: "users" }]]]),
+        objects,
+        keywordCase: "upper",
+      });
+    }
+
+    it.each([
+      ["SELECT * FROM users w", "WHERE"],
+      ["SELECT * FROM users wh", "WHERE"],
+      ["SELECT * FROM users whe", "WHERE"],
+      ["SELECT * FROM users wher", "WHERE"],
+      ["SELECT * FROM users u wh", "WHERE"],
+      ["SELECT * FROM users AS u gr", "GROUP"],
+      ["SELECT * FROM users ord", "ORDER"],
+    ])("ranks the clause keyword above routines for %s", (sql, keyword) => {
+      for (const databaseType of ["mysql", "postgres", "sqlserver"] as const) {
+        const items = rankedItems(sql, databaseType);
+        const keywordIndex = items.findIndex((item) => item.type === "keyword" && item.label === keyword);
+        const firstRoutineIndex = items.findIndex((item) => item.type === "function");
+        expect(keywordIndex, `${databaseType} ${sql}`).toBeGreaterThanOrEqual(0);
+        expect(items[0]?.type, `${databaseType} ${sql}`).toBe("keyword");
+        if (firstRoutineIndex >= 0) expect(keywordIndex, `${databaseType} ${sql}`).toBeLessThan(firstRoutineIndex);
+      }
+    });
+
+    it("keeps routines ahead of keywords where an expression is expected", () => {
+      const items = rankedItems("SELECT * FROM users WHERE id = wh", "mysql");
+
+      expect(items[0]?.type).toBe("function");
+    });
+  });
 });
 
 describe("SQL Server datepart completion", () => {
