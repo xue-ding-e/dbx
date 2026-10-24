@@ -203,7 +203,6 @@ describe("tableEditing", () => {
   });
 
   it("keys every column like a NULLable UNIQUE KEY model but only makes non-key columns unique", () => {
-    const columns = [column("id"), column("data_type"), column("name")];
     const modelIndex: IndexInfo = { name: "UNIQUE KEY", columns: ["id", "data_type"], is_unique: true, is_primary: false, index_type: "UNIQUE KEY" };
     expect([...uniqueKeyModelColumns("doris", [modelIndex])]).toEqual(["id", "data_type"]);
     expect([...uniqueKeyModelColumns("mysql", [modelIndex])]).toEqual([]);
