@@ -31,6 +31,31 @@ import { DATA_GRID_DEFAULT_VISIBLE_COPY_EXTRACTORS, DATA_GRID_EXTRACTOR_OPTIONS_
 import { DEFAULT_MONO_FONT_FAMILY } from "@/lib/app/appFonts";
 
 describe("normalizeEditorSettings", () => {
+  it("migrates legacy partial DDL settings before applying and tracking the patch", async () => {
+    setActivePinia(createPinia());
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    const settings = useSettingsStore();
+    settings.updateEditorSettings({ excludeDdlStorage: false } as any);
+    expect(settings.editorSettings.includeDdlStorage).toBe(true);
+    settings.updateEditorSettings({ includeDdlStorage: false, excludeDdlStorage: false } as any);
+    expect(settings.editorSettings.includeDdlStorage).toBe(false);
+    expect(settings.editorSettings).not.toHaveProperty("excludeDdlStorage");
+  });
+
+  it("migrates DDL storage choices to positive settings without retaining the legacy key", () => {
+    const defaults = normalizeEditorSettings({});
+    expect(defaults).toMatchObject({ includeDdlStorage: false, compactDdlSql: true, separateDdlIndexes: false });
+    for (const excludeDdlStorage of [true, false]) {
+      const migrated = normalizeEditorSettings({ excludeDdlStorage } as any);
+      expect(migrated.includeDdlStorage).toBe(!excludeDdlStorage);
+      expect(migrated).not.toHaveProperty("excludeDdlStorage");
+      expect(normalizeEditorSettings(JSON.parse(JSON.stringify(migrated))).includeDdlStorage).toBe(!excludeDdlStorage);
+    }
+    expect(normalizeEditorSettings({ includeDdlStorage: true, excludeDdlStorage: true } as any).includeDdlStorage).toBe(true);
+    expect(normalizeEditorSettings({ includeDdlStorage: false, excludeDdlStorage: false } as any).includeDdlStorage).toBe(false);
+    expect(normalizeEditorSettings({ compactDdlSql: false, separateDdlIndexes: true })).toMatchObject({ compactDdlSql: false, separateDdlIndexes: true });
+  });
+
   it("preserves the compact object browser view and rejects unknown modes", () => {
     expect(normalizeEditorSettings({ objectBrowserViewMode: "compact" }).objectBrowserViewMode).toBe("compact");
     expect(normalizeEditorSettings({ objectBrowserViewMode: "unknown" as any }).objectBrowserViewMode).toBe(DEFAULT_EDITOR_SETTINGS.objectBrowserViewMode);

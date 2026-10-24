@@ -97,6 +97,7 @@ import { getCachedTableMetadata, loadTableColumns, loadTableIndexes, loadTableMe
 import { loadObjectDdl } from "@/lib/metadata/objectDdlCache";
 import { MetadataTaskLimiter } from "@/lib/metadata/metadataTaskLimiter";
 import { formatDdlForDisplay } from "@/lib/sql/ddlDisplay";
+import { applyDdlTextPreferences } from "@/lib/sql/ddlPreferences";
 import { buildTableSelectSql, quoteTableDataIdentifier } from "@/lib/table/tableSelectSql";
 import {
   connectionObjectTreeNodeSchema,
@@ -3497,52 +3498,84 @@ export const useQueryStore = defineStore("query", () => {
    * 加载在 store 侧进行，不依赖该 tab 是否处于激活状态；失败就地写入
    * `ddlLoad.error`，由编辑区渲染错误 + Retry，而不是弹 toast。
    */
-  async function loadDdlViewerTab(id: string) {
+  async function loadDdlViewerTab(id: string, force?: boolean) {
     const tab = tabs.value.find((candidate) => candidate.id === id);
     const request = tab?.ddlLoad;
     const ddlViewer = tab?.ddlViewer;
     if (!tab || !request || !ddlViewer || !tab.connectionId) return;
     const { connectionId } = tab;
     const { database } = tab;
+    const catalog = tab.catalog;
+    const schema = ddlViewer.schema;
+    const tableName = ddlViewer.tableName;
+    const objectType = ddlViewer.objectType;
     const settingsStore = useSettingsStore();
-    try {
-      const connectionStore = useConnectionStore();
+    const connectionStore = useConnectionStore();
+    const isCurrent = () => {
+      const current = tabs.value.find((candidate) => candidate.id === id);
+      return current?.ddlLoad === request && current.ddlViewer === ddlViewer && current.connectionId === connectionId && current.database === database && current.catalog === catalog && ddlViewer.schema === schema && ddlViewer.tableName === tableName && ddlViewer.objectType === objectType;
+    };
+    const currentSeparateIndexes = () => {
       const databaseType = effectiveDatabaseTypeForConnection(connectionStore.getConfig(connectionId));
-      const { ddl } = await loadObjectDdl(
-        {
-          connectionId,
-          queryTimeoutSecs: connectionStore.getConfig(connectionId)?.query_timeout_secs,
-          database,
-          schema: ddlViewer.schema || database,
-          tableName: ddlViewer.tableName,
-          objectType: ddlViewer.objectType,
-          catalog: tab.catalog,
-        },
-        // 与弹框打开一致：默认优先使用缓存，开启「每次打开时刷新」才强制重查
-        { force: settingsStore.editorSettings.refreshDdlOnOpen },
-      );
-      const displayed = await formatDdlForDisplay(
-        ddl,
-        {
-          dialect: ddlViewer.formatDialect ?? "generic",
+      return (databaseType === "oracle" || databaseType === "oceanbase-oracle") && settingsStore.editorSettings.separateDdlIndexes;
+    };
+    let refresh = force ?? settingsStore.editorSettings.refreshDdlOnOpen;
+    while (isCurrent()) {
+      const separateIndexes = currentSeparateIndexes();
+      try {
+        const databaseType = effectiveDatabaseTypeForConnection(connectionStore.getConfig(connectionId));
+        const formatOptions = {
+          dialect: ddlViewer.formatDialect ?? ("generic" as const),
           databaseType,
           database,
           catalog: tab.catalog,
           includeDatabaseName: settingsStore.editorSettings.generateSqlIncludeDatabaseName,
           quoteIdentifiers: settingsStore.editorSettings.generateSqlQuoteIdentifiers,
-          excludeDdlStorage: settingsStore.editorSettings.excludeDdlStorage,
-        },
-        settingsStore.editorSettings.sqlFormatter,
-      );
-      // 加载期间 tab 被关掉，或 pending 状态已被一次重试取代：静默丢弃这次结果
-      const current = tabs.value.find((candidate) => candidate.id === id);
-      if (current?.ddlLoad !== request) return;
-      updateSql(id, displayed);
-      markTabClean(current);
-      current.ddlLoad = undefined;
-    } catch (e: any) {
-      const failed = tabs.value.find((candidate) => candidate.id === id);
-      if (failed?.ddlLoad === request) failed.ddlLoad = { startedAt: Date.now(), error: e?.message || String(e) };
+        };
+        const { ddl } = await loadObjectDdl(
+          {
+            connectionId,
+            queryTimeoutSecs: connectionStore.getConfig(connectionId)?.query_timeout_secs,
+            database,
+            schema: ddlViewer.schema || database,
+            tableName: ddlViewer.tableName,
+            objectType: ddlViewer.objectType,
+            catalog: tab.catalog,
+            separateIndexes,
+          },
+          // 与弹框打开一致：默认优先使用缓存，开启「每次打开时刷新」才强制重查
+          { force: refresh },
+        );
+        if (!isCurrent()) return;
+        if (separateIndexes !== currentSeparateIndexes()) {
+          refresh = false;
+          continue;
+        }
+        const displaySource = await formatDdlForDisplay(ddl, formatOptions, settingsStore.editorSettings.sqlFormatter);
+        // 加载期间 tab 被关掉，或 pending 状态已被一次重试取代：静默丢弃这次结果
+        const current = tabs.value.find((candidate) => candidate.id === id);
+        if (!isCurrent() || !current) return;
+        if (separateIndexes !== currentSeparateIndexes()) {
+          refresh = false;
+          continue;
+        }
+        const displayed = applyDdlTextPreferences(displaySource, databaseType, settingsStore.editorSettings);
+        ddlViewer.displaySource = displaySource;
+        ddlViewer.separateIndexes = separateIndexes;
+        updateSql(id, displayed);
+        markTabClean(current);
+        current.ddlLoad = undefined;
+        return;
+      } catch (e: any) {
+        if (!isCurrent()) return;
+        if (separateIndexes !== currentSeparateIndexes()) {
+          refresh = false;
+          continue;
+        }
+        const failed = tabs.value.find((candidate) => candidate.id === id);
+        if (failed?.ddlLoad === request) failed.ddlLoad = { startedAt: Date.now(), error: e?.message || String(e) };
+        return;
+      }
     }
   }
 

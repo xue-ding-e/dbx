@@ -5,6 +5,7 @@ import { getStarRocksCapabilities } from "@/lib/table/starrocksCapabilities";
 import { starRocksAlterOptionsFromDdl, starRocksColumnDefinitionLocked, type StarRocksAlterOptions } from "@/lib/table/starrocksAlterOptions";
 import { getColumnDefaultValuePresets } from "@/lib/table/columnDefaultPresets";
 import { applyDdlStoragePreference } from "@/lib/sql/ddlStorage";
+import { compactDdlSql } from "@/lib/sql/ddlCompact";
 import DdlStorageToggle from "@/components/objects/DdlStorageToggle.vue";
 import StructureIndexColumnPicker from "./StructureIndexColumnPicker.vue";
 import TableColumnPasteDialog from "./TableColumnPasteDialog.vue";
@@ -303,9 +304,15 @@ const foreignKeysLoading = ref(false);
 const constraintsLoading = ref(false);
 const triggersLoading = ref(false);
 const rawDdlContent = ref("");
-const ddlStorageExcluded = ref(settingsStore.editorSettings.excludeDdlStorage);
-const ddlContent = computed(() => applyDdlStoragePreference(rawDdlContent.value, databaseType.value, ddlStorageExcluded.value));
+const ddlStorageIncluded = ref(settingsStore.editorSettings.includeDdlStorage);
+const ddlCompacted = ref(settingsStore.editorSettings.compactDdlSql);
+const ddlIndexesSeparated = ref(settingsStore.editorSettings.separateDdlIndexes);
+const ddlContent = computed(() => {
+  const sql = applyDdlStoragePreference(rawDdlContent.value, databaseType.value, !ddlStorageIncluded.value);
+  return ddlCompacted.value ? compactDdlSql(sql, databaseType.value) : sql;
+});
 const ddlLoading = ref(false);
+const ddlLoadError = ref("");
 let ddlLoadRequestId = 0;
 const ddlEditorContainer = ref<HTMLDivElement>();
 const ddlSearchPanelRef = ref<InstanceType<typeof EditorSearchPanel>>();
@@ -326,12 +333,23 @@ const ddlDraft = ref<string | null>(null);
  * create-table flow has no DDL tab, and an empty baseline only renders the
  * "no records" placeholder, which must never become executable text.
  */
-const ddlEditingEnabled = computed(() => !isCreateMode.value && !!ddlContent.value.trim());
+const ddlEditingEnabled = computed(() => !isCreateMode.value && !ddlLoading.value && !ddlLoadError.value && !!ddlContent.value.trim());
 const ddlDirty = computed(() => ddlDraft.value !== null && ddlDraft.value.trim() !== ddlContent.value.trim());
-watch([() => settingsStore.editorSettings.excludeDdlStorage, ddlDirty], ([exclude, dirty]) => {
-  if (!dirty && ddlStorageExcluded.value !== exclude) {
+watch([() => settingsStore.editorSettings.includeDdlStorage, () => settingsStore.editorSettings.compactDdlSql, () => settingsStore.editorSettings.separateDdlIndexes, ddlDirty], ([include, compact, separate, dirty]) => {
+  if (!dirty && (ddlStorageIncluded.value !== include || ddlCompacted.value !== compact || ddlIndexesSeparated.value !== separate)) {
+    const indexesChanged = ddlIndexesSeparated.value !== separate;
     ddlDraft.value = null;
-    ddlStorageExcluded.value = exclude;
+    ddlStorageIncluded.value = include;
+    ddlCompacted.value = compact;
+    ddlIndexesSeparated.value = separate;
+    if (indexesChanged && (databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle")) {
+      destroyDdlEditor();
+      ddlLoadRequestId++;
+      ddlLoading.value = false;
+      ddlLoadError.value = "";
+      ddlFetched.value = false;
+      if (structureEditorReady && activeTab.value === "ddl") void fetchDdl();
+    }
   }
 });
 
@@ -547,21 +565,29 @@ async function fetchDdl(force = false) {
   if (!props.connectionId || !props.database || !props.tableName || (!force && ddlFetched.value) || !tableMetadataCapabilities.value.ddl) return;
   if (force) destroyDdlEditor();
   const request = ddlRequest();
+  const separateIndexes = (databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle") && ddlIndexesSeparated.value;
   const requestId = ++ddlLoadRequestId;
   const revision = store.connectionStateRevision(request.connectionId);
   const fingerprint = connection.value ? connectionConfigFingerprint(connection.value) : "";
-  const current = () => !primaryKeyUnmounted && requestId === ddlLoadRequestId && JSON.stringify(request) === JSON.stringify(ddlRequest()) && store.connectionStateRevision(request.connectionId) === revision && (connection.value ? connectionConfigFingerprint(connection.value) : "") === fingerprint;
+  const current = () =>
+    !primaryKeyUnmounted &&
+    requestId === ddlLoadRequestId &&
+    JSON.stringify(request) === JSON.stringify(ddlRequest()) &&
+    separateIndexes === ((databaseType.value === "oracle" || databaseType.value === "oceanbase-oracle") && ddlIndexesSeparated.value) &&
+    store.connectionStateRevision(request.connectionId) === revision &&
+    (connection.value ? connectionConfigFingerprint(connection.value) : "") === fingerprint;
   ddlLoading.value = true;
+  ddlLoadError.value = "";
   try {
-    const { ddl } = await loadObjectDdl(request, { force });
+    const { ddl } = await loadObjectDdl({ ...request, separateIndexes }, { force });
     const formatted = await formatStructureDdl(ddl);
     if (!current()) return;
     rawDdlContent.value = formatted;
     ddlFetched.value = true;
   } catch (e: any) {
     if (!current()) return;
-    rawDdlContent.value = `-- Error: ${e?.message || e}`;
-    ddlFetched.value = true;
+    ddlLoadError.value = String(e?.message || e);
+    ddlFetched.value = false;
   } finally {
     if (current()) ddlLoading.value = false;
   }
@@ -2801,7 +2827,9 @@ function createCurrentDraft(initialized = true): TableStructureEditorDraft {
     // refetched, and copying every table's DDL into every draft is pure weight.
     ddlContent: ddlDraft.value === null ? undefined : ddlContent.value,
     rawDdlContent: ddlDraft.value === null ? undefined : rawDdlContent.value,
-    excludeDdlStorage: ddlStorageExcluded.value,
+    includeDdlStorage: ddlStorageIncluded.value,
+    compactDdlSql: ddlCompacted.value,
+    separateDdlIndexes: ddlIndexesSeparated.value,
     newTableName: newTableName.value,
     tableComment: tableComment.value,
     originalTableComment: originalTableComment.value,
@@ -2890,7 +2918,9 @@ function restoreDraft(draft: TableStructureEditorDraft) {
   // would read as dirty (or clean) against the wrong reference text.
   if (draft.ddlContent) {
     rawDdlContent.value = draft.rawDdlContent ?? draft.ddlContent;
-    ddlStorageExcluded.value = draft.excludeDdlStorage ?? false;
+    ddlStorageIncluded.value = draft.includeDdlStorage ?? !(draft.excludeDdlStorage ?? false);
+    ddlCompacted.value = draft.compactDdlSql ?? false;
+    ddlIndexesSeparated.value = draft.separateDdlIndexes ?? false;
     ddlFetched.value = true;
   }
   ddlDraft.value = draft.ddlDraft ?? null;
@@ -6210,6 +6240,7 @@ async function copyPreviewSql() {
 }
 
 async function copyDdlContent() {
+  if (ddlLoading.value || ddlLoadError.value) return;
   // Copy what the editor actually shows, so an edited script is not silently
   // replaced by the database's original DDL.
   const ddl = ddlDraft.value ?? ddlContent.value;
@@ -9399,19 +9430,20 @@ watch(
               {{ t("common.loading") }}
             </div>
             <template v-else>
-              <div v-if="ddlContent && !ddlSearchOpen" class="absolute right-3 top-3 z-10 flex items-center gap-1.5">
-                <DdlStorageToggle :database-type="databaseType" :disabled="ddlDirty" />
+              <div v-if="(ddlContent || ddlLoadError) && !ddlSearchOpen" class="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+                <DdlStorageToggle :database-type="databaseType" :disabled="ddlDirty" :preferences="{ includeDdlStorage: ddlStorageIncluded, compactDdlSql: ddlCompacted, separateDdlIndexes: ddlIndexesSeparated }" />
                 <Button v-if="ddlDirty" variant="outline" size="sm" class="h-7 gap-1 px-2" :title="t('structureEditor.resetDdl')" @click="resetDdlDraft">
                   <RotateCcw class="h-3.5 w-3.5" />
                   {{ t("structureEditor.resetDdl") }}
                 </Button>
-                <Button variant="outline" size="sm" class="h-7 gap-1 px-2" :title="t('grid.copyDdl')" @click="copyDdlContent">
+                <Button variant="outline" size="sm" class="h-7 gap-1 px-2" :disabled="!!ddlLoadError" :title="t('grid.copyDdl')" @click="copyDdlContent">
                   <Copy class="h-3.5 w-3.5" />
                   {{ t("grid.copyDdl") }}
                 </Button>
               </div>
-              <div ref="ddlEditorContainer" class="structure-ddl-editor h-full min-h-full min-w-0 w-full"></div>
-              <EditorSearchPanel v-if="ddlEditorView" ref="ddlSearchPanelRef" :view="ddlEditorView" @open="ddlSearchOpen = true" @close="ddlSearchOpen = false" />
+              <p v-if="ddlLoadError" role="alert" class="pt-10 text-sm text-destructive">{{ ddlLoadError }}</p>
+              <div v-else ref="ddlEditorContainer" class="structure-ddl-editor h-full min-h-full min-w-0 w-full"></div>
+              <EditorSearchPanel v-if="ddlEditorView && !ddlLoadError" ref="ddlSearchPanelRef" :view="ddlEditorView" @open="ddlSearchOpen = true" @close="ddlSearchOpen = false" />
             </template>
           </TabsContent>
         </Tabs>

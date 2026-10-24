@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import QueryTimingDetails from "./QueryTimingDetails.vue";
-import { applyDdlStoragePreference } from "@/lib/sql/ddlStorage";
+import { applyDdlTextPreferences } from "@/lib/sql/ddlPreferences";
 import { applyDdlSearchMarks } from "@/lib/sql/ddlSearchMarks";
 import { isAiPromptImeCompositionEvent } from "@/lib/ai/aiPromptKeyboard";
 import DdlStorageToggle from "@/components/objects/DdlStorageToggle.vue";
@@ -12696,7 +12696,7 @@ const activeTableInfoTab = ref<TableInfoTab>(settingsStore.editorSettings.tableI
 const canPinTableInfo = computed(() => props.context === "table-data");
 const tableInfoDrawerPinned = computed(() => settingsStore.editorSettings.tableInfoDrawerPinned);
 const rawDdlContent = ref("");
-const ddlContent = computed(() => applyDdlStoragePreference(rawDdlContent.value, resolvedDatabaseType.value, settingsStore.editorSettings.excludeDdlStorage));
+const ddlContent = computed(() => applyDdlTextPreferences(rawDdlContent.value, resolvedDatabaseType.value, settingsStore.editorSettings));
 const tableInfoColumns = ref<ColumnInfo[]>(props.tableMeta?.columns ?? []);
 const tableInfoColumnsLoading = ref(false);
 const tableInfoColumnsRequestGeneration = ref(0);
@@ -13025,7 +13025,14 @@ const metadataLoaders = useDataGridTableMetadataLoaders({
   toastMongoIndexRefreshError: (message) => toast(t("contextMenu.mongoIndexRefreshFailed", { message }), 5000),
 });
 
-const { fetchDdl, fetchTableInfoColumns, fetchTableOwner, currentIndexTableIdentity, fetchIndexes, refreshMongoIndexMetadataAfterMutation, currentForeignKeyTableIdentity, fetchForeignKeys: fetchForeignKeysMetadata, fetchTriggers, fetchConstraints, fetchPartitions } = metadataLoaders;
+const { ddlError, fetchDdl, fetchTableInfoColumns, fetchTableOwner, currentIndexTableIdentity, fetchIndexes, refreshMongoIndexMetadataAfterMutation, currentForeignKeyTableIdentity, fetchForeignKeys: fetchForeignKeysMetadata, fetchTriggers, fetchConstraints, fetchPartitions } = metadataLoaders;
+
+watch(
+  () => settingsStore.editorSettings.separateDdlIndexes,
+  () => {
+    if ((resolvedDatabaseType.value === "oracle" || resolvedDatabaseType.value === "oceanbase-oracle") && showTableInfo.value && activeTableInfoTab.value === "ddl") void fetchDdl(false);
+  },
+);
 
 async function fetchTableOverview(force = false) {
   const connectionId = props.connectionId;
@@ -13541,6 +13548,7 @@ if (showTableInfo.value && props.tableMeta && props.connectionId) {
 }
 
 function copyDdl() {
+  if (ddlLoading.value || ddlError.value || !ddlContent.value) return;
   copyText(ddlContent.value);
 }
 
@@ -16357,7 +16365,7 @@ useUpdateBlocker(() => (hasPendingChanges.value || hasPendingDataEditorDraft.val
               <TableProperties class="w-3.5 h-3.5 text-muted-foreground" />
               <span class="text-xs font-medium flex-1 min-w-0 truncate">{{ tableMeta?.tableName }}</span>
               <div v-if="activeTableInfoTab === 'ddl'" class="table-info-actions flex min-w-0 shrink-0 items-center gap-1">
-                <Button variant="ghost" size="sm" class="table-info-action-button h-6 px-2 text-xs" :title="t('grid.copyDdl')" :aria-label="t('grid.copyDdl')" @click="copyDdl">
+                <Button variant="ghost" size="sm" class="table-info-action-button h-6 px-2 text-xs" :disabled="ddlLoading || !!ddlError || !ddlContent" :title="t('grid.copyDdl')" :aria-label="t('grid.copyDdl')" @click="copyDdl">
                   <Copy class="w-3 h-3" />
                   <span class="table-info-action-label">{{ t("grid.copyDdl") }}</span>
                 </Button>

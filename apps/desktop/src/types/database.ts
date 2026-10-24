@@ -2312,6 +2312,9 @@ export interface TableStructureEditorDraft {
   /** Original DDL and display preference retained so restoring a draft cannot change its baseline. */
   rawDdlContent?: string;
   excludeDdlStorage?: boolean;
+  includeDdlStorage?: boolean;
+  compactDdlSql?: boolean;
+  separateDdlIndexes?: boolean;
   /** Edited DDL script, or null/undefined when the DDL tab was left untouched. */
   ddlDraft?: string | null;
   newTableName: string;
@@ -2741,6 +2744,8 @@ export interface QueryTab {
     tableName: string;
     objectType?: ObjectSourceKind;
     formatDialect?: SqlFormatDialect;
+    displaySource?: string;
+    separateIndexes?: boolean;
   };
   /**
    * 「先出 tab 再加载」的中间态：DDL 新标签已经可见，但 DDL 还在路上

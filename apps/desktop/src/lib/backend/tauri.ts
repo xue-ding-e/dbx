@@ -2824,7 +2824,7 @@ export async function listSubpartitions(connectionId: string, database: string, 
   });
 }
 
-export async function getTableDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, portable = false, exactIdentity?: boolean): Promise<string> {
+export async function getTableDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, portable = false, exactIdentity?: boolean, separateIndexes?: boolean): Promise<string> {
   return invoke("get_table_ddl", {
     connectionId,
     database,
@@ -2834,10 +2834,11 @@ export async function getTableDdl(connectionId: string, database: string, schema
     catalog,
     portable,
     ...(exactIdentity ? { exactIdentity: true } : {}),
+    ...(separateIndexes ? { separateIndexes: true } : {}),
   });
 }
 
-export async function getTableDisplayDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string): Promise<string> {
+export async function getTableDisplayDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, separateIndexes?: boolean): Promise<string> {
   return invoke("get_table_ddl", {
     connectionId,
     database,
@@ -2846,6 +2847,7 @@ export async function getTableDisplayDdl(connectionId: string, database: string,
     objectType,
     catalog,
     includePostgresAccess: true,
+    ...(separateIndexes ? { separateIndexes: true } : {}),
     portable: false,
   });
 }

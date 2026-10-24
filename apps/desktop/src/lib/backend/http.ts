@@ -1399,12 +1399,12 @@ export async function listSubpartitions(connectionId: string, database: string, 
   return get(`/api/schema/subpartitions?${qs({ connection_id: connectionId, database, schema, table, catalog })}`);
 }
 
-export async function getTableDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, portable = false, exactIdentity?: boolean): Promise<string> {
-  return get(`/api/schema/ddl?${qs({ connection_id: connectionId, database, schema, table, object_type: objectType, catalog, portable, exact_identity: exactIdentity || undefined })}`);
+export async function getTableDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, portable = false, exactIdentity?: boolean, separateIndexes?: boolean): Promise<string> {
+  return get(`/api/schema/ddl?${qs({ connection_id: connectionId, database, schema, table, object_type: objectType, catalog, portable, exact_identity: exactIdentity || undefined, separate_indexes: separateIndexes || undefined })}`);
 }
 
-export async function getTableDisplayDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string): Promise<string> {
-  return get(`/api/schema/ddl?${qs({ connection_id: connectionId, database, schema, table, object_type: objectType, catalog, include_postgres_access: true })}`);
+export async function getTableDisplayDdl(connectionId: string, database: string, schema: string, table: string, objectType?: ObjectSourceKind, catalog?: string, separateIndexes?: boolean): Promise<string> {
+  return get(`/api/schema/ddl?${qs({ connection_id: connectionId, database, schema, table, object_type: objectType, catalog, include_postgres_access: true, separate_indexes: separateIndexes || undefined })}`);
 }
 
 export async function prepareSchemaDiff(options: SchemaDiffPreparationOptions): Promise<SchemaDiffPreparation> {

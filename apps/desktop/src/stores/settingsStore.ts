@@ -1020,7 +1020,9 @@ export interface EditorSettings {
   tableDdlWordWrap: boolean;
   ddlOpenMode: "dialog" | "tab";
   refreshDdlOnOpen: boolean;
-  excludeDdlStorage: boolean;
+  includeDdlStorage: boolean;
+  compactDdlSql: boolean;
+  separateDdlIndexes: boolean;
   vimModeEnabled: boolean;
   /** 是否允许按 F7 切换浏览器的插入光标浏览模式（关闭时拦截 F7 避免误触）。 */
   caretBrowsingEnabled: boolean;
@@ -1414,7 +1416,9 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   tableDdlWordWrap: true,
   ddlOpenMode: "dialog",
   refreshDdlOnOpen: false,
-  excludeDdlStorage: true,
+  includeDdlStorage: false,
+  compactDdlSql: true,
+  separateDdlIndexes: false,
   vimModeEnabled: false,
   caretBrowsingEnabled: false,
   doubleClickStringSelectionMode: "content",
@@ -1997,6 +2001,7 @@ function normalizeTableInfoTab(value: unknown): TableInfoTab {
 }
 
 export function normalizeEditorSettings(settings: Partial<EditorSettings>, existing?: EditorSettings): EditorSettings {
+  const legacyExcludeDdlStorage = (settings as { excludeDdlStorage?: unknown }).excludeDdlStorage;
   const legacyTimeoutSettings = settings as Partial<EditorSettings> & { queryTimeoutSecs?: unknown; queryTimeoutInheritanceMigrationVersion?: unknown };
   const legacySidebarOpenDatabaseOnSingleClick = (settings as Partial<EditorSettings> & { sidebarOpenDatabaseOnSingleClick?: unknown }).sidebarOpenDatabaseOnSingleClick;
   const legacyDataGridAutoHideFilterBuilder = (settings as Partial<EditorSettings> & { dataGridAutoHideFilterBuilder?: unknown }).dataGridAutoHideFilterBuilder;
@@ -2111,7 +2116,9 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
     wordWrap: settings.wordWrap ?? DEFAULT_EDITOR_SETTINGS.wordWrap,
     showWhitespace: typeof settings.showWhitespace === "boolean" ? settings.showWhitespace : DEFAULT_EDITOR_SETTINGS.showWhitespace,
     tableDdlWordWrap: typeof settings.tableDdlWordWrap === "boolean" ? settings.tableDdlWordWrap : DEFAULT_EDITOR_SETTINGS.tableDdlWordWrap,
-    excludeDdlStorage: typeof settings.excludeDdlStorage === "boolean" ? settings.excludeDdlStorage : DEFAULT_EDITOR_SETTINGS.excludeDdlStorage,
+    includeDdlStorage: typeof settings.includeDdlStorage === "boolean" ? settings.includeDdlStorage : typeof legacyExcludeDdlStorage === "boolean" ? !legacyExcludeDdlStorage : DEFAULT_EDITOR_SETTINGS.includeDdlStorage,
+    compactDdlSql: typeof settings.compactDdlSql === "boolean" ? settings.compactDdlSql : DEFAULT_EDITOR_SETTINGS.compactDdlSql,
+    separateDdlIndexes: typeof settings.separateDdlIndexes === "boolean" ? settings.separateDdlIndexes : DEFAULT_EDITOR_SETTINGS.separateDdlIndexes,
     ddlOpenMode: settings.ddlOpenMode === "tab" ? "tab" : DEFAULT_EDITOR_SETTINGS.ddlOpenMode,
     refreshDdlOnOpen: typeof settings.refreshDdlOnOpen === "boolean" ? settings.refreshDdlOnOpen : DEFAULT_EDITOR_SETTINGS.refreshDdlOnOpen,
     vimModeEnabled: typeof settings.vimModeEnabled === "boolean" ? settings.vimModeEnabled : DEFAULT_EDITOR_SETTINGS.vimModeEnabled,
@@ -2375,13 +2382,16 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
  * through `normalizeEditorSettings`. Translate the removed inverse flag into
  * the current initial-expansion preference on every incremental update path.
  */
-function migrateLegacyFilterEditorExpansionPatch(partial: Partial<EditorSettings>): Partial<EditorSettings> {
-  const patch = partial as Partial<EditorSettings> & { dataGridAutoHideFilterBuilder?: unknown };
-  const { dataGridAutoHideFilterBuilder: legacyAutoHide, ...current } = patch;
-  if (Object.prototype.hasOwnProperty.call(patch, "dataGridKeepFilterEditorExpanded") || typeof legacyAutoHide !== "boolean") {
-    return current;
+function migrateLegacyEditorSettingsPatch(partial: Partial<EditorSettings>): Partial<EditorSettings> {
+  const patch = partial as Partial<EditorSettings> & { dataGridAutoHideFilterBuilder?: unknown; excludeDdlStorage?: unknown };
+  const { dataGridAutoHideFilterBuilder: legacyAutoHide, excludeDdlStorage: legacyExcludeStorage, ...current } = patch;
+  if (!Object.prototype.hasOwnProperty.call(patch, "dataGridKeepFilterEditorExpanded") && typeof legacyAutoHide === "boolean") {
+    current.dataGridKeepFilterEditorExpanded = !legacyAutoHide;
   }
-  return { ...current, dataGridKeepFilterEditorExpanded: !legacyAutoHide };
+  if (typeof current.includeDdlStorage !== "boolean" && typeof legacyExcludeStorage === "boolean") {
+    current.includeDdlStorage = !legacyExcludeStorage;
+  }
+  return current;
 }
 
 function loadLegacyEditorSettings(): EditorSettings | null {
@@ -3037,7 +3047,9 @@ export const useSettingsStore = defineStore("settings", () => {
     if (partial.wordWrap !== undefined) editorSettings.value.wordWrap = partial.wordWrap;
     if (partial.showWhitespace !== undefined) editorSettings.value.showWhitespace = partial.showWhitespace === true;
     if (partial.tableDdlWordWrap !== undefined) editorSettings.value.tableDdlWordWrap = partial.tableDdlWordWrap === true;
-    if (partial.excludeDdlStorage !== undefined) editorSettings.value.excludeDdlStorage = partial.excludeDdlStorage === true;
+    if (partial.includeDdlStorage !== undefined) editorSettings.value.includeDdlStorage = partial.includeDdlStorage === true;
+    if (partial.compactDdlSql !== undefined) editorSettings.value.compactDdlSql = partial.compactDdlSql === true;
+    if (partial.separateDdlIndexes !== undefined) editorSettings.value.separateDdlIndexes = partial.separateDdlIndexes === true;
     if (partial.ddlOpenMode !== undefined) editorSettings.value.ddlOpenMode = partial.ddlOpenMode === "tab" ? "tab" : "dialog";
     if (partial.refreshDdlOnOpen !== undefined) editorSettings.value.refreshDdlOnOpen = partial.refreshDdlOnOpen === true;
     if (partial.vimModeEnabled !== undefined) editorSettings.value.vimModeEnabled = partial.vimModeEnabled === true;
@@ -3267,7 +3279,7 @@ export const useSettingsStore = defineStore("settings", () => {
   }
 
   function updateEditorSettings(partial: Partial<EditorSettings>) {
-    const patch = migrateLegacyFilterEditorExpansionPatch(partial);
+    const patch = migrateLegacyEditorSettingsPatch(partial);
     applyEditorSettingsPatch(patch);
     markEditorSettingsPatch(patch);
     if (!isEditorSettingsLoaded.value) {
@@ -3291,7 +3303,7 @@ export const useSettingsStore = defineStore("settings", () => {
     return enqueueEditorSettingsAtomicMutation(async () => {
       await initEditorSettings();
       const previous = editorSettingsSnapshot(editorSettings.value);
-      const patch = migrateLegacyFilterEditorExpansionPatch(partial);
+      const patch = migrateLegacyEditorSettingsPatch(partial);
       applyEditorSettingsPatch(patch);
       const revision = markEditorSettingsPatch(patch);
       try {

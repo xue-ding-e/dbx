@@ -25,7 +25,10 @@ mod agent_pg_sequences;
 mod external_table_filter_tests;
 mod kingbase;
 mod mongodb_columns;
+mod oracle_ddl_indexes;
 pub mod oracle_routines;
+mod oracle_table_triggers;
+pub use oracle_ddl_indexes::{prepare_schema_sync_oracle_ddl_core, separate_table_ddl_indexes_core};
 mod oracle_type_data;
 mod oracle_type_details;
 mod oracle_type_evolution;
@@ -9088,7 +9091,11 @@ pub async fn list_triggers_core(
             try_sqlserver!(pool_handle, list_triggers, schema, table);
             if let Some(client) = extract_pool!(pool_handle.as_ref(), Agent) {
                 let mut client = client.lock().await;
-                return client.list_triggers(database, schema, table, agent_metadata_timeout(db_config.as_ref())).await;
+                let triggers =
+                    client.list_triggers(database, schema, table, agent_metadata_timeout(db_config.as_ref())).await?;
+                drop(client);
+                drop(pool_handle);
+                return oracle_table_triggers::enrich(state, connection_id, database, schema, table, triggers).await;
             }
         }
 
