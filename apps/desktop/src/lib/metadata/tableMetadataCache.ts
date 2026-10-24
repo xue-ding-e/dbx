@@ -15,6 +15,7 @@ export interface TableMetadata {
   tableType?: string;
   catalog?: string;
   database?: string;
+  databaseType?: DatabaseType;
   columns: ColumnInfo[];
   indexes: IndexInfo[];
   primaryKeys: string[];
@@ -294,7 +295,7 @@ export function tableMetadataToDataTabMeta(metadata: TableMetadata, overrides?: 
     columns: metadata.columns,
     primaryKeys: metadata.primaryKeys,
     ...(metadata.virtualPrimaryKeys?.length ? { virtualPrimaryKeys: metadata.virtualPrimaryKeys } : {}),
-    physicalPrimaryKeys: physicalTablePrimaryKeys(metadata.columns, metadata.indexes),
+    physicalPrimaryKeys: physicalTablePrimaryKeys(metadata.columns, metadata.indexes, metadata.databaseType),
   };
 }
 
@@ -368,12 +369,22 @@ export async function loadTableMetadata(request: TableMetadataRequest): Promise<
         const loadedIndexes = columns.length > 0 ? await ((!resolvedTarget && indexesPromise) || loadTableIndexes(indexRequest).catch(() => undefined)) : [];
         const indexes = loadedIndexes ?? indexFailure();
         const primaryKeys = editableRowIdentifierColumns(request.databaseType as DatabaseType, columns, indexes, columnsResult.tableType);
+        if ((request.databaseType === "doris" || request.databaseType === "starrocks") && primaryKeys.length > 0) {
+          const keySet = new Set(primaryKeys.map((name) => name.toLowerCase()));
+          for (const column of columns) {
+            if (keySet.has(column.name.toLowerCase())) {
+              column.is_primary_key = true;
+              column.is_unique = true;
+            }
+          }
+        }
         return {
           schema: resolvedSchema || undefined,
           tableName: request.tableName,
           tableType: columnsResult.tableType,
           catalog: request.catalog,
           database: request.database,
+          databaseType: request.databaseType as DatabaseType,
           columns,
           indexes,
           primaryKeys,

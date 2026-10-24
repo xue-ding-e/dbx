@@ -38,10 +38,16 @@ export function editablePrimaryKeys(databaseType: DatabaseType | undefined, colu
 }
 
 /** Physical primary keys only; unlike editable row identifiers, never fall back to unique indexes or synthetic keys. */
-export function physicalTablePrimaryKeys(columns: readonly Pick<ColumnInfo, "name" | "is_primary_key">[], indexes: readonly Pick<IndexInfo, "columns" | "is_primary">[] = []): string[] {
+export function physicalTablePrimaryKeys(columns: readonly Pick<ColumnInfo, "name" | "is_primary_key">[], indexes: readonly Pick<IndexInfo, "columns" | "is_primary" | "is_unique" | "index_type" | "name">[] = [], databaseType?: DatabaseType): string[] {
   const columnPrimaryKeys = columns.filter((column) => column.is_primary_key).map((column) => column.name);
   if (columnPrimaryKeys.length > 0) return columnPrimaryKeys;
-  return indexes.find((index) => index.is_primary && index.columns.length > 0)?.columns ?? [];
+  const primaryIndex = indexes.find((index) => index.is_primary && index.columns.length > 0);
+  if (primaryIndex) return primaryIndex.columns;
+  if (databaseType === "doris" || databaseType === "starrocks") {
+    const uniqueKeyModelIndex = indexes.find((index) => (index.is_primary || index.is_unique || index.index_type?.toUpperCase() === "UNIQUE KEY" || index.name?.toUpperCase() === "UNIQUE KEY") && index.columns.length > 0);
+    if (uniqueKeyModelIndex) return uniqueKeyModelIndex.columns;
+  }
+  return [];
 }
 
 export function editableRowIdentifierColumns(databaseType: DatabaseType | undefined, columns: ColumnInfo[], indexes?: IndexInfo[], tableType?: string): string[] {
@@ -49,13 +55,21 @@ export function editableRowIdentifierColumns(databaseType: DatabaseType | undefi
   const oracleRowIdFallback = getDatabaseCapability(databaseType).syntheticKey === "oracle-rowid" && primaryKeys.length === 1 && primaryKeys[0]?.toUpperCase() === DBX_ROWID_COLUMN;
   if (primaryKeys.length > 0 && !oracleRowIdFallback) return primaryKeys;
   const columnByName = new Map(columns.map((column) => [column.name.toLowerCase(), column]));
+  const isUniqueKeyModel = databaseType === "doris" || databaseType === "starrocks";
   const uniqueIndex = indexes
     ?.filter((index) => {
       if (index.filter?.trim() || index.columns.length === 0 || (!index.is_primary && !index.is_unique) || index.key_is_expression?.some(Boolean)) return false;
-      return index.columns.every((name) => columnByName.get(name.toLowerCase())?.is_nullable === false);
+      return index.columns.every((name) => columnByName.has(name.toLowerCase()) && (isUniqueKeyModel || columnByName.get(name.toLowerCase())?.is_nullable === false));
     })
-    .sort((left, right) => Number(right.is_primary) - Number(left.is_primary) || left.columns.length - right.columns.length)[0];
-  return uniqueIndex?.columns.map((name) => columnByName.get(name.toLowerCase())!.name) ?? primaryKeys;
+    .sort((left, right) => {
+      if (isUniqueKeyModel) {
+        const leftIsUniqueKey = left.index_type?.toUpperCase() === "UNIQUE KEY" || left.name?.toUpperCase() === "UNIQUE KEY" || left.is_primary;
+        const rightIsUniqueKey = right.index_type?.toUpperCase() === "UNIQUE KEY" || right.name?.toUpperCase() === "UNIQUE KEY" || right.is_primary;
+        if (leftIsUniqueKey !== rightIsUniqueKey) return Number(rightIsUniqueKey) - Number(leftIsUniqueKey);
+      }
+      return Number(right.is_primary) - Number(left.is_primary) || left.columns.length - right.columns.length;
+    })[0];
+  return uniqueIndex?.columns.map((name) => columnByName.get(name.toLowerCase())?.name ?? name) ?? primaryKeys;
 }
 
 export function isTableDataEditable(databaseType: DatabaseType | undefined, primaryKeys: string[], tableType?: string): boolean {

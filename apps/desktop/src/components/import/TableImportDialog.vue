@@ -32,6 +32,7 @@ import {
 } from "@/lib/table/tableImport";
 import { importPreviewInput, importSourceDisplayName, uploadedImportSourceFromPreview } from "@/lib/import/importSource";
 import { getDataTypeOptions } from "@/lib/table/tableStructureEditorState";
+import { editableRowIdentifierColumns } from "@/lib/table/tableEditing";
 import { metadataSchemaForConnection, tableStructureDatabaseTypeForConnection } from "@/lib/database/jdbcDialect";
 import { isSchemaAware } from "@/lib/database/databaseFeatureSupport";
 import { schemaOptionsForConnection } from "@/composables/useSchemaOptions";
@@ -759,8 +760,28 @@ async function loadTargetColumns() {
   errorMessage.value = "";
   try {
     await store.ensureConnected(props.prefillConnectionId);
-    const columns = await withTimeout(api.getColumns(props.prefillConnectionId, props.prefillDatabase, targetSchema.value, tableName), TARGET_COLUMNS_TIMEOUT_MS);
+    const columnsPromise = withTimeout(api.getColumns(props.prefillConnectionId, props.prefillDatabase, targetSchema.value, tableName), TARGET_COLUMNS_TIMEOUT_MS);
+    const indexesPromise =
+      isUniqueKeyModelDatabase.value && typeof api.listIndexes === "function"
+        ? withTimeout(
+            api.listIndexes(props.prefillConnectionId, props.prefillDatabase, targetSchema.value || "", tableName).catch(() => []),
+            TARGET_COLUMNS_TIMEOUT_MS,
+          )
+        : Promise.resolve([]);
+    const [columns, indexes] = await Promise.all([columnsPromise, indexesPromise]);
     if (requestId !== targetColumnsRequestId) return;
+    if (isUniqueKeyModelDatabase.value && indexes.length > 0) {
+      const keyCols = editableRowIdentifierColumns(structureDatabaseType.value, columns, indexes);
+      if (keyCols.length > 0) {
+        const keySet = new Set(keyCols.map((c) => c.toLowerCase()));
+        for (const col of columns) {
+          if (keySet.has(col.name.toLowerCase())) {
+            col.is_unique = true;
+            col.is_primary_key = true;
+          }
+        }
+      }
+    }
     targetColumns.value = columns;
     loadedTargetTableName.value = tableName;
     applyAutoMapping();

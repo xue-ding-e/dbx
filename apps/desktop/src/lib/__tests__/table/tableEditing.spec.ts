@@ -18,6 +18,7 @@ import {
   isTdengineExistingRowReadonlyColumn,
   isTableDataEditable,
   parseSalesforceColumnExtra,
+  physicalTablePrimaryKeys,
   supportsDataGridTransaction,
   shouldIncludeSyntheticRowId,
   showsKeylessEditWarning,
@@ -160,6 +161,32 @@ describe("tableEditing", () => {
     expect(editableRowIdentifierColumns("postgres", columns, [index(["email"])])).toEqual([]);
     expect(editableRowIdentifierColumns("postgres", columns, [{ ...index(["tenant_id"]), key_is_expression: [true] }])).toEqual([]);
     expect(editableRowIdentifierColumns("postgres", columns, [index(["missing"])])).toEqual([]);
+  });
+
+  it("recognizes Doris/StarRocks composite unique keys with nullable columns as row identifier", () => {
+    // In Doris/StarRocks, UNIQUE KEY columns default to nullable in DDL
+    const columns = [column("id"), column("data_type")];
+    const dorisUniqueIndex: IndexInfo = {
+      name: "UNIQUE KEY",
+      columns: ["id", "data_type"],
+      is_unique: true,
+      is_primary: false,
+      index_type: "UNIQUE KEY",
+    };
+
+    expect(editableRowIdentifierColumns("doris", columns, [dorisUniqueIndex])).toEqual(["id", "data_type"]);
+    expect(editableRowIdentifierColumns("starrocks", columns, [dorisUniqueIndex])).toEqual(["id", "data_type"]);
+    // Standard engines like MySQL reject nullable unique index columns
+    expect(editableRowIdentifierColumns("mysql", columns, [dorisUniqueIndex])).toEqual([]);
+
+    // Shows keyless edit warning is false when primaryKeys are resolved
+    expect(showsKeylessEditWarning("doris", ["id", "data_type"], "TABLE")).toBe(false);
+    expect(showsKeylessEditWarning("doris", [], "TABLE")).toBe(true);
+
+    // physicalTablePrimaryKeys resolves the unique key model index for Doris/StarRocks
+    expect(physicalTablePrimaryKeys(columns, [dorisUniqueIndex], "doris")).toEqual(["id", "data_type"]);
+    expect(physicalTablePrimaryKeys(columns, [dorisUniqueIndex], "starrocks")).toEqual(["id", "data_type"]);
+    expect(physicalTablePrimaryKeys(columns, [dorisUniqueIndex], "mysql")).toEqual([]);
   });
 
   it.each(["oracle", "oceanbase-oracle"] as const)("prefers physical %s indexes over the ROWID fallback", (databaseType) => {
