@@ -2765,7 +2765,9 @@ export const useQueryStore = defineStore("query", () => {
     const handoffs = await api.listDetachedTabHandoffs().catch(() => []);
     for (const handoff of handoffs) {
       if (!handoff || handoff.schemaVersion !== 1 || !handoff.tabId || !handoff.tab || typeof handoff.tab.id !== "string" || handoff.tab.id !== handoff.tabId) continue;
-      if (validConnectionIds && handoff.tab.mode !== "query" && !validConnectionIds.has(handoff.tab.connectionId)) continue;
+      // 与恢复持久化页签同理：带 detachedConnectionName 的非 SQL 页签是按删除策略特意保留的，
+      // 等新建同名连接后重绑，不能因为连接暂时不存在就丢弃。
+      if (validConnectionIds && handoff.tab.mode !== "query" && !handoff.tab.detachedConnectionName && !validConnectionIds.has(handoff.tab.connectionId)) continue;
       try {
         await adoptDetachedTab(handoff);
         await api.deleteDetachedTabHandoff(handoff.tabId);
@@ -5744,18 +5746,20 @@ export const useQueryStore = defineStore("query", () => {
    * 关闭一律走非 force 路径（`closeScopedTabsWhere` → `beginBatchClose`）：干净页签立即关闭，
    * 未保存的 SQL 草稿与表结构草稿都要经保存/放弃确认，删除连接不能静默丢改动。
    *
-   * 该连接下的 SQL 页签都会记录原连接名（`detachedConnectionName`），便于新建同名连接后
-   * 重新绑定；包括因用户在确认框中选择取消而残留的页签。
+   * 该连接下的**所有**页签都会记录原连接名（`detachedConnectionName`），便于新建同名连接后
+   * 重新绑定；包括因用户在确认框中选择取消而残留的页签。数据/结构等非 SQL 页签同样要标记：
+   * `keep-all-tabs` 会把它们一并保留，不标记就会一直指向已删除的连接
+   * （"Connection config not found"）。
    */
   function detachConnectionTabsForDelete(connectionId: string, options: { keep?: DeletedConnectionTabKeepMode; connectionName?: string } = {}) {
     const keepMode = options.keep ?? "none";
     const keep = keepMode === "all" ? () => true : keepMode === "pinned-sql" ? (tab: QueryTab) => tab.mode === "query" && tab.pinned === true : keepMode === "sql" ? (tab: QueryTab) => tab.mode === "query" : () => false;
     const connectionName = options.connectionName?.trim();
-    // 先给该连接下的 SQL 页签打上脱离标记。关闭流程可能因为「未保存」确认被用户取消，
+    // 先给该连接下的页签打上脱离标记。关闭流程可能因为「未保存」确认被用户取消，
     // 取消后残留的页签同样需要能按连接名重绑到新建的同名连接。
     if (connectionName) {
       for (const tab of tabs.value) {
-        if (tab.connectionId !== connectionId || tab.mode !== "query") continue;
+        if (tab.connectionId !== connectionId) continue;
         tab.detachedConnectionName = connectionName;
       }
     }
