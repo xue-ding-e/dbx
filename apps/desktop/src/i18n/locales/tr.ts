@@ -1612,6 +1612,7 @@ export default withEnglishFallback({
       addNextSelectionOccurrence: "Sonraki eşleşmeyi ekle",
       selectAllSelectionOccurrences: "Tüm eşleşmeleri seç",
       selectCurrentStatement: "Geçerli ifadeyi seç",
+      copyCurrentStatement: "Geçerli ifadeyi kopyala",
       expandSelectStar: "* ifadesini sütunlara genişlet",
       expandSelectStarUnavailable: "Bu tablonun sütunları yüklenemedi",
       findReplace: "Bul/Değiştir",

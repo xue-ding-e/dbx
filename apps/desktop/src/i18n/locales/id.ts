@@ -1882,6 +1882,7 @@ export default withEnglishFallback({
       addNextSelectionOccurrence: "Tambah kemunculan berikutnya",
       selectAllSelectionOccurrences: "Pilih semua kemunculan",
       selectCurrentStatement: "Pilih pernyataan saat ini",
+      copyCurrentStatement: "Salin pernyataan saat ini",
       expandSelectStar: "Perluas * menjadi kolom",
       expandSelectStarUnavailable: "Tidak dapat memuat kolom untuk tabel ini",
       findReplace: "Cari/Ganti",

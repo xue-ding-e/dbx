@@ -1614,6 +1614,7 @@ export default withEnglishFallback({
       addNextSelectionOccurrence: "Növbəti uyğunluğu əlavə et",
       selectAllSelectionOccurrences: "Bütün uyğunluqları seç",
       selectCurrentStatement: "Cari ifadəni seç",
+      copyCurrentStatement: "Cari ifadəni kopyala",
       expandSelectStar: "* işarəsini sütunlarla əvəz et",
       expandSelectStarUnavailable: "Bu cədvəlin sütunlarını yükləmək mümkün deyil",
       findReplace: "Tap/əvəz et",
