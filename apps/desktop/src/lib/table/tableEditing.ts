@@ -76,11 +76,7 @@ export function uniqueKeyModelColumns(databaseType: DatabaseType | undefined, in
 }
 
 /** Key columns the engine uses for row identity; no synthetic fallbacks, unlike editable row identifiers. */
-export function physicalTablePrimaryKeys(
-  columns: readonly Pick<ColumnInfo, "name" | "is_primary_key">[],
-  indexes: readonly Pick<IndexInfo, "columns" | "is_primary" | "is_unique" | "index_type" | "name">[] = [],
-  databaseType?: DatabaseType,
-): string[] {
+export function physicalTablePrimaryKeys(columns: readonly Pick<ColumnInfo, "name" | "is_primary_key">[], indexes: readonly Pick<IndexInfo, "columns" | "is_primary" | "is_unique" | "index_type" | "name">[] = [], databaseType?: DatabaseType): string[] {
   const columnPrimaryKeys = columns.filter((column) => column.is_primary_key).map((column) => column.name);
   if (columnPrimaryKeys.length > 0) return columnPrimaryKeys;
   const primaryIndex = indexes.find((index) => index.is_primary && index.columns.length > 0);
