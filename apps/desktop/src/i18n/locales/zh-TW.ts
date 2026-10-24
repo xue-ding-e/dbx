@@ -6458,6 +6458,7 @@ export default withEnglishFallback({
     previewReadyPartial: "已預覽 {rows} 列、{columns} 欄，總列數將在匯入時確認",
     previewPartial: "已預覽 {rows} 列",
     rowsImported: "列已匯入",
+    currentFile: "當前匯入檔案",
     file: "檔案",
     rows: "列數",
     mapped: "已映射",

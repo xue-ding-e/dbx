@@ -7136,6 +7136,7 @@ export default withEnglishFallback({
     previewReadyPartial: "Previewed {rows} rows, {columns} columns; total will be confirmed during import",
     previewPartial: "Previewed {rows} rows",
     rowsImported: "rows imported",
+    currentFile: "現在のファイル",
     file: "ファイル",
     rows: "行数",
     mapped: "マッピング済み",

@@ -8598,6 +8598,7 @@ export default withEnglishFallback({
     previewReadyPartial: "Показано строк: {rows}, столбцов: {columns}; итог будет подтверждён во время импорта",
     previewPartial: "Показано строк: {rows}",
     rowsImported: "строк импортировано",
+    currentFile: "Текущий файл",
     file: "Файл",
     rows: "Строки",
     mapped: "Сопоставлено",

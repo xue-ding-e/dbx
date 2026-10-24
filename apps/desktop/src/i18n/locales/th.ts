@@ -8958,6 +8958,7 @@ export default withEnglishFallback({
     previewReadyPartial: "Preview แล้ว Rows {rows} รายการ, Columns {columns} รายการ จำนวนทั้งหมดจะยืนยันระหว่างนำเข้า",
     previewPartial: "Preview แล้ว Rows {rows} รายการ",
     rowsImported: "Rows ที่นำเข้า",
+    currentFile: "ไฟล์ปัจจุบัน",
     file: "ไฟล์",
     rows: "แถว",
     mapped: "Mapped",

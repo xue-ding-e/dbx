@@ -7327,6 +7327,7 @@ export default withEnglishFallback({
     previewReadyPartial: "Previewed {rows} rows, {columns} columns; total will be confirmed during import",
     previewPartial: "Previewed {rows} rows",
     rowsImported: "rows imported",
+    currentFile: "Archivo actual",
     file: "Archivo",
     rows: "Filas",
     mapped: "Mapeadas",

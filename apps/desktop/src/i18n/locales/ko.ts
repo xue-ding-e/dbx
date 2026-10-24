@@ -7162,6 +7162,7 @@ export default withEnglishFallback({
     previewReadyPartial: "{rows}행, {columns}열 미리보기; 전체는 가져오는 동안 확인됩니다",
     previewPartial: "{rows}행 미리보기",
     rowsImported: "가져온 행",
+    currentFile: "현재 파일",
     file: "파일",
     rows: "행",
     mapped: "매핑됨",

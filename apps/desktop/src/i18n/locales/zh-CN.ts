@@ -8320,6 +8320,7 @@ export default withEnglishFallback({
     previewReadyPartial: "已预览 {rows} 行、{columns} 列，总行数将在导入时确认",
     previewPartial: "已预览 {rows} 行",
     rowsImported: "行已导入",
+    currentFile: "当前导入文件",
     file: "文件",
     rows: "行数",
     mapped: "已映射",
