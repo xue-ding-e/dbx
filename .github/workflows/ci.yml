@@ -1176,6 +1176,9 @@ jobs:
       - name: JDBC plugin package check
         run: ./plugins/jdbc/package.sh
 
+      - name: JDBC response recovery tests
+        run: bash ./plugins/jdbc/gradlew -p plugins/jdbc --no-daemon test --tests app.dbx.jdbc.LargeResponseRecoveryTest --tests app.dbx.jdbc.StatementCancelTest --tests app.dbx.jdbc.DeferredLobValuesTest
+
   offline-jdbc-release:
     needs: changes
     if: needs.changes.outputs.offline_jdbc == 'true'

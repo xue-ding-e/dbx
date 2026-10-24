@@ -5566,6 +5566,7 @@ async fn execute_result_set_with_text_protocol_on_conn(
         return Ok(MySqlQueryResult::exact(QueryResult {
             columns: vec![],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -5611,6 +5612,7 @@ async fn execute_result_set_with_text_protocol_on_conn(
         return Ok(MySqlQueryResult::exact(QueryResult {
             columns,
             column_types,
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns,
             spatial_values,
@@ -5708,6 +5710,7 @@ async fn execute_result_set_with_text_protocol_on_conn(
         result: QueryResult {
             columns,
             column_types,
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns,
             spatial_values,
@@ -5842,6 +5845,7 @@ async fn execute_result_sets_with_text_protocol_on_conn(
             result: QueryResult {
                 columns,
                 column_types,
+                deferred_large_value_cells: Vec::new(),
                 column_sortables: vec![],
                 spatial_columns,
                 spatial_values,
@@ -5870,6 +5874,7 @@ async fn execute_result_sets_with_text_protocol_on_conn(
         results.push(MySqlQueryResult::exact(QueryResult {
             columns: vec![],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -6057,6 +6062,7 @@ async fn execute_result_set_with_prepared_protocol_on_conn(
         result: QueryResult {
             columns,
             column_types,
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns,
             spatial_values,
@@ -6408,6 +6414,7 @@ pub async fn execute_transaction_statement_on_conn(
         QueryResult {
             columns,
             column_types,
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: Vec::new(),
             spatial_values: Vec::new(),
@@ -6444,6 +6451,7 @@ pub async fn execute_transaction_statement_on_conn(
         QueryResult {
             columns,
             column_types,
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns,
             spatial_values,
@@ -6597,6 +6605,7 @@ async fn execute_query_on_conn_with_limits_progress_resolved(
                             return Ok(MySqlQueryResult::exact(QueryResult {
                                 columns: vec![],
                                 column_types: Vec::new(),
+                                deferred_large_value_cells: Vec::new(),
                                 column_sortables: vec![],
                                 spatial_columns: vec![],
                                 spatial_values: vec![],
@@ -6636,6 +6645,7 @@ async fn execute_query_on_conn_with_limits_progress_resolved(
         Ok(MySqlQueryResult::exact(QueryResult {
             columns: vec![],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -6770,6 +6780,7 @@ pub async fn execute_non_result_batch_on_conn(
         let current_result = QueryResult {
             columns: vec![],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],

@@ -433,7 +433,7 @@ export function useSidebarDataOpenRuntime() {
           catalog: node.catalog,
           columns: columns.map((column) => column.name),
           primaryKeys,
-          ...tableDataLargeValuePreviewOptions(effectiveDbType, columns, primaryKeys, limit),
+          ...tableDataLargeValuePreviewOptions(effectiveDbType, columns, primaryKeys, limit, config?.db_type === "jdbc"),
           includeDatabaseName: settingsStore.editorSettings.generateSqlIncludeDatabaseName,
           limit,
           includeRowId: withRowId,

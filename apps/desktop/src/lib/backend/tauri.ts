@@ -2065,6 +2065,7 @@ export async function executeMulti(
     maxResultBytes?: number;
     resultKeyColumns?: string[];
     tableDataPreview?: boolean;
+    deferLobs?: boolean;
     resultSessionId?: string;
     clientSessionId?: string;
     timeoutSecs?: number;
@@ -2141,6 +2142,7 @@ export async function executeMultiWithProgress(
     maxResultBytes?: number;
     resultKeyColumns?: string[];
     tableDataPreview?: boolean;
+    deferLobs?: boolean;
     resultSessionId?: string;
     clientSessionId?: string;
     timeoutSecs?: number;
@@ -2282,6 +2284,7 @@ export async function executeInManualTransaction(
   executionId?: string,
   timeoutSecs?: number,
   boundStatements?: BlobBoundStatement[],
+  deferLobs?: boolean,
 ): Promise<QueryResult[]> {
   return invokeBackend("execute_in_manual_transaction", {
     txnSessionId,
@@ -2296,6 +2299,7 @@ export async function executeInManualTransaction(
     executionId,
     timeoutSecs,
     boundStatements,
+    deferLobs,
   });
 }
 

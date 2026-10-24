@@ -1612,6 +1612,7 @@ export async function executeMulti(
     maxResultBytes?: number;
     resultKeyColumns?: string[];
     tableDataPreview?: boolean;
+    deferLobs?: boolean;
     resultSessionId?: string;
     clientSessionId?: string;
     timeoutSecs?: number;
@@ -1668,6 +1669,7 @@ export async function executeMultiWithProgress(
     maxResultBytes?: number;
     resultKeyColumns?: string[];
     tableDataPreview?: boolean;
+    deferLobs?: boolean;
     resultSessionId?: string;
     clientSessionId?: string;
     timeoutSecs?: number;
@@ -1839,6 +1841,7 @@ export async function executeInManualTransaction(
   _executionId?: string,
   _timeoutSecs?: number,
   _boundStatements?: BlobBoundStatement[],
+  _deferLobs?: boolean,
 ): Promise<QueryResult[]> {
   throw new Error("Manual transaction management is only available in the desktop app.");
 }

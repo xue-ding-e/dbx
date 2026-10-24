@@ -2576,6 +2576,7 @@ for line in sys.stdin:
         QueryResult {
             columns: columns.into_iter().map(str::to_string).collect(),
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: Vec::new(),
             spatial_values: Vec::new(),

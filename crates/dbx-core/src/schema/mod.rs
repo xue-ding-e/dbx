@@ -3314,6 +3314,7 @@ mod tests {
         db::QueryResult {
             columns: columns.iter().map(|column| (*column).to_string()).collect(),
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: Vec::new(),
             spatial_values: Vec::new(),
@@ -4433,6 +4434,7 @@ done
         let result = db::QueryResult {
             columns: vec!["Table".to_string(), "Extra".to_string(), "CREATE TABLE".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -4463,6 +4465,7 @@ done
         let result = db::QueryResult {
             columns: vec!["Table".to_string(), "Create Table".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -4492,6 +4495,7 @@ done
         let result = db::QueryResult {
             columns: vec!["name".to_string(), "definition".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -4518,6 +4522,7 @@ done
         let result = db::QueryResult {
             columns: vec!["View".to_string(), "Extra".to_string(), "CREATE VIEW".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -4548,6 +4553,7 @@ done
         let result = db::QueryResult {
             columns: vec!["name".to_string(), "definition".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -5639,6 +5645,7 @@ for line in sys.stdin:
         let result = super::db::QueryResult {
             columns: vec!["table_name".to_string(), "table_type".to_string()],
             column_types: vec![],
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -5677,6 +5684,7 @@ for line in sys.stdin:
                 "comment".to_string(),
             ],
             column_types: vec![],
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -5931,6 +5939,7 @@ for line in sys.stdin:
         let result = db::QueryResult {
             columns: vec!["COMMENTS".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -5951,6 +5960,7 @@ for line in sys.stdin:
         let empty = db::QueryResult {
             columns: vec!["COMMENTS".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -5979,6 +5989,7 @@ for line in sys.stdin:
         let result = db::QueryResult {
             columns: vec!["AUTO_INCREMENT".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -6024,6 +6035,7 @@ for line in sys.stdin:
         let result = db::QueryResult {
             columns: vec!["TABLE_NAME".to_string(), "COMMENTS".to_string()],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -6198,6 +6210,7 @@ for line in sys.stdin:
                 "COMMENTS".to_string(),
             ],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -6517,6 +6530,7 @@ done
                 "TOTAL_BYTES".to_string(),
             ],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],
@@ -6695,6 +6709,7 @@ done
                 "TOTAL_BYTES".to_string(),
             ],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],

@@ -15210,6 +15210,7 @@ CREATE TABLE "Other"."prefix""Source"."NAME" ("ID" INT);"#;
         db::QueryResult {
             columns: Vec::new(),
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: Vec::new(),
             spatial_columns: vec![],
             spatial_values: vec![],

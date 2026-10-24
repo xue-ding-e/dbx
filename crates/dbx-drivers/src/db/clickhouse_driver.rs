@@ -602,6 +602,7 @@ fn limited_query_result(result: ChJsonResult, execution_time_ms: u128, max_rows:
     QueryResult {
         columns,
         column_types,
+        deferred_large_value_cells: Vec::new(),
         column_sortables: vec![],
         spatial_columns: vec![],
         spatial_values: vec![],
@@ -865,6 +866,7 @@ pub async fn execute_query_with_max_rows(
         Ok(QueryResult {
             columns: vec![],
             column_types: Vec::new(),
+            deferred_large_value_cells: Vec::new(),
             column_sortables: vec![],
             spatial_columns: vec![],
             spatial_values: vec![],
