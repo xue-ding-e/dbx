@@ -3596,6 +3596,7 @@ export default {
     noColumnsFound: "No columns found",
     queryError: "Query Error",
     saveErrorTitle: "Failed to Save Changes",
+    saveCompleted: "Changes saved; the result was refreshed.",
     dataUnavailable: "Table data needs to be reloaded.",
     viewSnapshotSelectionNotRestored: "The previous view was restored, but its selection was too large to keep.",
     cachedResultUnavailable: "The cached result is missing or incompatible.",

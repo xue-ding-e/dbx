@@ -616,6 +616,8 @@ interface DataGridProps {
   /** Document stores (e.g. MongoDB) count exactly on demand without SQL tableMeta/countSql. */
   countTotalRows?: () => Promise<number | undefined>;
   loading?: boolean;
+  /** Tab that owns this grid; a running save is tracked by tab (#13226). */
+  tabId?: string;
   cacheKey?: string;
   columnWidthCacheKey?: string;
   pendingStateKey?: string;
@@ -4660,6 +4662,7 @@ const editor = useDataGridEditor({
   ensureManualTransactionSession: computed(() => props.ensureManualTransactionSession),
   onManualTransactionMutation: () => props.onManualTransactionMutation?.(),
   onSaveConflict: (message) => toast(message, 5000),
+  onAdoptedSaveCompleted: () => toast(t("grid.saveCompleted"), 3000),
   sql: computed(() => props.sql),
   searchText,
   whereFilterInput,
@@ -4677,6 +4680,10 @@ const editor = useDataGridEditor({
   pageSize,
   currentPage,
   cacheKey: computed(() => props.pendingStateKey ?? props.cacheKey),
+  // A save outlives a tab switch that unmounts this grid, so it is tracked by
+  // tab and result payload rather than by component instance (#13226).
+  tabId: computed(() => props.tabId),
+  resultViewGeneration: computed(() => props.viewGeneration),
   onResultPayloadMutated: () => queryStore.invalidateResultEstimateForPayload(props.result),
   refreshSavedRows,
   prepareSaveBaseline: async (changes) => {
