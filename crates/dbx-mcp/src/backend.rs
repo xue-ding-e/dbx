@@ -3644,6 +3644,7 @@ mod tests {
                     start_position: Some(PeekStartPosition::Offset),
                     partition: Some(2),
                     offset: Some(17),
+                    timestamp: None,
                 },
             )
             .await
