@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
+import com.google.gson.Gson;
+import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,6 +27,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
@@ -36,6 +41,13 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.admin.AlterConfigOp;
+import org.apache.kafka.clients.admin.Admin;
+import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.ListConsumerGroupsResult;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.clients.admin.internals.CoordinatorKey;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.DescribeConsumerGroupsResult;
 import org.apache.kafka.clients.admin.Config;
@@ -44,6 +56,7 @@ import org.apache.kafka.clients.admin.RaftVoterEndpoint;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.admin.TopicListing;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
@@ -59,6 +72,8 @@ import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 class KafkaAgentTest {
@@ -166,6 +181,85 @@ class KafkaAgentTest {
         assertTrue(descriptions.isEmpty());
         assertEquals(groupIds, failed);
         assertTrue(elapsed < 1000, "waited " + elapsed + "ms; five groups must share one 300ms deadline");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void consumerGroupQueriesKeepCommittedTopicsWhenDescriptionsTimeOut(boolean snapshot) throws Exception {
+        TopicPartition partition = new TopicPartition("orders", 0);
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        try {
+            Admin admin = (Admin) Proxy.newProxyInstance(Admin.class.getClassLoader(), new Class<?>[] {Admin.class},
+                (proxy, method, args) -> {
+                    return switch (method.getName()) {
+                        case "listConsumerGroups" -> {
+                            var constructor = ListConsumerGroupsResult.class.getDeclaredConstructor(KafkaFuture.class);
+                            constructor.setAccessible(true);
+                            yield constructor.newInstance(KafkaFuture.completedFuture(List.of(
+                                new ConsumerGroupListing("orders-service", false),
+                                new ConsumerGroupListing("slow-group", false)
+                            )));
+                        }
+                        case "describeConsumerGroups" -> new DescribeConsumerGroupsResult(Map.of(
+                            "orders-service", KafkaFuture.completedFuture(new ConsumerGroupDescription(
+                                "orders-service", false, List.of(), "", ConsumerGroupState.EMPTY, Node.noNode()
+                            )),
+                            "slow-group", new KafkaFutureImpl<>()
+                        ));
+                        case "listConsumerGroupOffsets" -> {
+                            // Model an offsets response that needs a small amount of network time.
+                            // If descriptions consumed the deadline before this request was sent,
+                            // the broker cannot return even these independently available offsets.
+                            int timeout = ((ListConsumerGroupOffsetsOptions) args[1]).timeoutMs();
+                            KafkaFutureImpl<Map<TopicPartition, OffsetAndMetadata>> offsets = new KafkaFutureImpl<>();
+                            executor.schedule(() -> {
+                                if (timeout < 50) {
+                                    offsets.completeExceptionally(new org.apache.kafka.common.errors.TimeoutException("offsets deadline expired"));
+                                } else {
+                                    offsets.complete(Map.of(partition, new OffsetAndMetadata(3)));
+                                }
+                            }, Math.min(50, timeout), TimeUnit.MILLISECONDS);
+                            var constructor = ListConsumerGroupOffsetsResult.class.getDeclaredConstructor(Map.class);
+                            constructor.setAccessible(true);
+                            yield constructor.newInstance(Map.of(
+                                CoordinatorKey.byGroupId("orders-service"), offsets,
+                                CoordinatorKey.byGroupId("slow-group"), offsets
+                            ));
+                        }
+                        case "listOffsets" -> new ListOffsetsResult(Map.of(
+                            partition, KafkaFuture.completedFuture(new ListOffsetsResult.ListOffsetsResultInfo(5, -1, Optional.empty()))
+                        ));
+                        default -> throw new UnsupportedOperationException(method.getName());
+                    };
+                });
+            JsonObject params = new JsonObject();
+            params.addProperty("timeout_ms", 300);
+            params.addProperty("topic", "orders");
+            Object result = snapshot
+                ? KafkaAgent.getConsumerGroupSnapshot(params, admin)
+                : KafkaAgent.listConsumerGroups(params, admin);
+            var groups = new Gson().toJsonTree(result).getAsJsonObject().getAsJsonArray("groups");
+            assertEquals(2, groups.size());
+            for (var row : groups) {
+                JsonObject group = row.getAsJsonObject();
+                if (snapshot) {
+                    assertEquals(1, group.getAsJsonArray("topics").size(), "committed topic survives description timeout");
+                    assertEquals("orders", group.getAsJsonArray("topics").get(0).getAsString());
+                    assertEquals(3, group.getAsJsonArray("partitions").get(0).getAsJsonObject().get("currentOffset").getAsInt());
+                    if (group.get("groupId").getAsString().equals("slow-group")) {
+                        assertTrue(group.get("error").getAsString().contains("Consumer group details unavailable"));
+                        assertFalse(group.has("memberCount"));
+                    }
+                } else {
+                    assertEquals(!group.get("groupId").getAsString().equals("slow-group"), group.get("membersAvailable").getAsBoolean());
+                    assertEquals(1, group.getAsJsonArray("committedOffsets").size(), "committed offsets survive description timeout");
+                    assertEquals("orders", group.getAsJsonArray("committedOffsets").get(0).getAsJsonObject().get("topic").getAsString());
+                    assertEquals(3, group.getAsJsonArray("committedOffsets").get(0).getAsJsonObject().get("offset").getAsInt());
+                }
+            }
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

@@ -238,7 +238,7 @@ export interface SubscriptionInfo {
   consumers: ConsumerInfo[];
   /** RocketMQ subscribed topics (cluster-wide listing). */
   topics?: string[];
-  /** RocketMQ online consumer client count. */
+  /** Online clients for RocketMQ groups or Kafka topic subscriptions; absent when unavailable. */
   onlineMembers?: number;
   /** RocketMQ consumer group delivery type: NORMAL / FIFO / SYSTEM. */
   consumerGroupType?: string;

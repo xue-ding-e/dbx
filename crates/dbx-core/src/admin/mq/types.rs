@@ -580,7 +580,8 @@ pub struct SubscriptionInfo {
     /// RocketMQ: subscribed topic names for this consumer group (cluster-wide listing).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub topics: Vec<String>,
-    /// RocketMQ: online consumer client count (cluster-wide listing).
+    /// Online consumer client count for RocketMQ groups or Kafka topic subscriptions.
+    /// Absent when member information is unavailable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub online_members: Option<u32>,
     /// RocketMQ: NORMAL / FIFO / SYSTEM (aligned with Dashboard).

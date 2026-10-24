@@ -609,6 +609,7 @@ onBeforeUnmount(() => {
                   <span v-if="sub.onlineMembers == null" class="text-muted">-</span>
                   <span v-else>{{ sub.onlineMembers }}</span>
                 </template>
+                <span v-else-if="mqSystemKind === 'kafka' && sub.onlineMembers == null" class="text-muted">-</span>
                 <template v-else>{{ t("mqSubscriptions.consumerCount", { count: sub.consumers.length }) }}</template>
               </td>
               <td class="actions">
