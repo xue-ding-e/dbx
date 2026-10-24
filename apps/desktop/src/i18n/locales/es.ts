@@ -3293,6 +3293,7 @@ export default withEnglishFallback({
     copyExtractorHeaderName: "Nombre",
     copyExtractorHeaderDescription: "Descripción",
     copyExtractorHeaderBoth: "Nombre y descripción",
+    copyExtractorHeaderTwoRows: "Nombre y descripción (dos filas)",
     copyExtractorHeaderCase: "Mayúsculas del encabezado",
     copyExtractorHeaderPreserve: "Mantener",
     copyExtractorHeaderUpper: "Mayúsculas",

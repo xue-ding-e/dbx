@@ -2540,6 +2540,7 @@ export default withEnglishFallback({
     copyExtractorHeaderName: "Имя",
     copyExtractorHeaderDescription: "Описание",
     copyExtractorHeaderBoth: "Имя и описание",
+    copyExtractorHeaderTwoRows: "Имя и описание (две строки)",
     copyExtractorHeaderCase: "Регистр заголовка",
     copyExtractorHeaderPreserve: "Сохранить",
     copyExtractorHeaderUpper: "Верхний регистр",
