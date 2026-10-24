@@ -38,7 +38,14 @@ vi.mock("@/stores/productionSafetyStore", () => ({
 
 type Editor = ReturnType<typeof useDataGridEditor>;
 
-const TABLE_META = { tableName: "orders", columns: [{ name: "id", data_type: "int" }, { name: "status", data_type: "varchar" }], primaryKeys: ["id"] };
+const TABLE_META = {
+  tableName: "orders",
+  columns: [
+    { name: "id", data_type: "int" },
+    { name: "status", data_type: "varchar" },
+  ],
+  primaryKeys: ["id"],
+};
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -458,5 +465,4 @@ describe("useDataGridEditor save across a grid unmount (#13226)", () => {
     third.unmount();
     expect(pendingDataGridSaveCount()).toBe(0);
   });
-
 });

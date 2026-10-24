@@ -2198,7 +2198,6 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
     settlePendingSave(snapshot, completed, record);
   }
 
-
   function tableHistoryTarget() {
     if (joinedWriteTargets.value?.length) return [...new Set(joinedWriteTargets.value.map(({ tableMeta: target }) => [target.database, target.schema, target.tableName].filter(Boolean).join(".")))].join(", ");
     if (!tableMeta.value) return "";
