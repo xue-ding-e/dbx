@@ -2,8 +2,9 @@ use super::*;
 
 mod analysis;
 pub use analysis::{
-    analyze_oracle_routine_draft, OracleDraftIssue, OracleDraftName, OracleDraftParameter, OracleDraftQuery,
-    OracleDraftReference, OracleDraftReferenceRole, OracleRoutineDraftAnalysis,
+    analyze_oracle_package_body_draft, analyze_oracle_routine_draft, OracleDraftIssue, OracleDraftName,
+    OracleDraftPackageCall, OracleDraftPackageMember, OracleDraftPackageMemberKind, OracleDraftParameter,
+    OracleDraftQuery, OracleDraftReference, OracleDraftReferenceRole, OracleRoutineDraftAnalysis,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,8 +23,14 @@ pub fn validate_oracle_routine_target_definition(
     input: EditableObjectSourceSqlInput,
     require_replace: Option<bool>,
 ) -> Result<(), String> {
-    if !matches!(input.object_type, ObjectSourceKind::Procedure | ObjectSourceKind::Function) {
-        return Err("The approved statement must define one standalone routine".into());
+    if !matches!(
+        input.object_type,
+        ObjectSourceKind::Procedure
+            | ObjectSourceKind::Function
+            | ObjectSourceKind::Package
+            | ObjectSourceKind::PackageBody
+    ) {
+        return Err("The approved statement must define one routine or package".into());
     }
     validate_oracle_executable_object_source(OracleObjectSourceValidationInput {
         database_type: input.database_type,
@@ -54,9 +61,15 @@ pub fn validate_oracle_routine_target_definition(
 /// separate from this executable target draft.
 pub fn prepare_oracle_routine_definition(input: OracleRoutineDefinitionInput) -> Result<String, String> {
     if !matches!(input.database_type, DatabaseType::Oracle | DatabaseType::OceanbaseOracle)
-        || !matches!(input.object_type, ObjectSourceKind::Procedure | ObjectSourceKind::Function)
+        || !matches!(
+            input.object_type,
+            ObjectSourceKind::Procedure
+                | ObjectSourceKind::Function
+                | ObjectSourceKind::Package
+                | ObjectSourceKind::PackageBody
+        )
     {
-        return Err("Oracle routine adaptation requires a standalone procedure or function".into());
+        return Err("Oracle routine adaptation requires a procedure, function or package".into());
     }
     if input.source_owner.is_empty() || input.target_owner.is_empty() || input.name.is_empty() {
         return Err("Oracle routine adaptation requires an exact owner and name".into());
@@ -95,11 +108,13 @@ pub fn prepare_oracle_routine_definition(input: OracleRoutineDefinitionInput) ->
     }) {
         position += 1;
     }
-    if !token_at(position).is_some_and(|token| token_unquoted_word_is(token, object_type_keyword(&input.object_type))) {
-        return Err("Routine declaration kind must be an unquoted PROCEDURE or FUNCTION keyword".into());
+    for keyword in object_type_keyword(&input.object_type).split_whitespace() {
+        if !token_at(position).is_some_and(|token| token_unquoted_word_is(token, keyword)) {
+            return Err("Routine declaration kind must use its exact unquoted keywords".into());
+        }
+        edits.push((significant[position].span, keyword.to_string()));
+        position += 1;
     }
-    edits.push((significant[position].span, object_type_keyword(&input.object_type).to_string()));
-    position += 1;
     if token_at(position + 1) == Some(&Token::Period) {
         edits.push((significant[position].span, quote_postgres_identifier(&input.target_owner)));
         edits.push((significant[position + 2].span, quote_postgres_identifier(&input.name)));
@@ -291,5 +306,55 @@ BEGIN RETURN q'[Source.Owner.Mixed.Func  text]'; END;
         assert!(check(&create.replacen("CREATE", "CREATE OR REPLACE", 1), Some(false)).is_err());
         assert!(check(create.strip_prefix("CREATE ").unwrap(), None).is_err());
         assert!(check(&create.replacen("CREATE", "CREATE OR REPLACE", 1), None).is_ok());
+    }
+
+    #[test]
+    fn package_body_adaptation_preserves_the_complete_static_business_body() {
+        let source = include_str!("../../tests/fixtures/oracle_package_flow_body.sql");
+        let mut definition = input(source);
+        definition.object_type = ObjectSourceKind::PackageBody;
+        definition.name = "PKG_FLOW".into();
+        let sql = prepare_oracle_routine_definition(definition).unwrap();
+        assert!(sql.contains("PACKAGE BODY \"Target.Owner\".\"PKG_FLOW\" AS"));
+        assert_eq!(sql[sql.find('\n').unwrap()..].trim_end(), source[source.find('\n').unwrap()..].trim_end());
+    }
+
+    #[test]
+    fn package_specification_comparison_preserves_literals_and_kind() {
+        let mut source = input("CREATE PACKAGE \"Source.Owner\".\"Mixed.Func\" AS label CONSTANT VARCHAR2(50) := q'[Source.Owner 中文😀]'; END \"Mixed.Func\";");
+        source.object_type = ObjectSourceKind::Package;
+        let mut target = source.clone();
+        target.source_owner = "Target.Owner".into();
+        target.source = target.source.replacen("\"Source.Owner\".", "\"Target.Owner\".", 1);
+        assert_eq!(
+            comparable_oracle_routine_definition(source.clone()).unwrap(),
+            comparable_oracle_routine_definition(target.clone()).unwrap()
+        );
+        target.source = target.source.replace("中文😀", "changed");
+        assert_ne!(
+            comparable_oracle_routine_definition(source).unwrap(),
+            comparable_oracle_routine_definition(target).unwrap()
+        );
+    }
+
+    #[test]
+    fn package_target_validation_rejects_wrong_kind_and_additional_statements() {
+        let source = "CREATE PACKAGE \"Target.Owner\".\"Mixed.Func\" AS n NUMBER; END \"Mixed.Func\";";
+        let check = |source: &str, kind| {
+            validate_oracle_routine_target_definition(
+                EditableObjectSourceSqlInput {
+                    database_type: DatabaseType::OceanbaseOracle,
+                    object_type: kind,
+                    schema: Some("Target.Owner".into()),
+                    name: "Mixed.Func".into(),
+                    source: source.into(),
+                },
+                Some(false),
+            )
+        };
+        assert!(check(source, ObjectSourceKind::Package).is_ok());
+        assert!(check(source, ObjectSourceKind::PackageBody).is_err());
+        assert!(check(source.strip_prefix("CREATE ").unwrap(), ObjectSourceKind::Package).is_err());
+        assert!(check(&format!("{source}\nBEGIN NULL; END;"), ObjectSourceKind::Package).is_err());
     }
 }

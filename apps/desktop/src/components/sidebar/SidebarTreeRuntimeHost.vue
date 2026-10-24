@@ -208,7 +208,7 @@ import { buildRenameObjectSql, buildRenameDatabaseSql, buildRenameDatabasePrefli
 import { prepareOracleViewRename, executeOracleViewRename, OracleViewRenameFailure, type OracleViewRenamePlan } from "@/lib/table/oracleViewRename";
 import { prepareOracleRoutineRename, executeOracleRoutineRename, OracleRoutineRenameFailure, type OracleRoutineRenamePlan } from "@/lib/table/oracleRoutineRename";
 import { prepareOracleTableRename, executeOracleTableRename, OracleTableRenameFailure, type OracleTableRenamePlan } from "@/lib/table/oracleTableRename";
-import { executeOraclePackageSaveAs, OraclePackageSaveAsFailure, prepareOraclePackageSaveAs, type OraclePackageSaveAsPlan } from "@/lib/table/oraclePackageSaveAs";
+import { prepareOraclePackageSaveAsExecution, OraclePackageSaveAsFailure, prepareOraclePackageSaveAs, type OraclePackageSaveAsPlan } from "@/lib/table/oraclePackageSaveAs";
 import { buildRoutineRenameObjectSourceStatements, executeObjectSourceSave, supportsSourceBackedRoutineRename } from "@/lib/table/objectSourceEditor";
 import { freezeSourceIdentities } from "@/lib/table/objectSourceIdentity";
 import { buildViewDdl } from "@/lib/table/viewDdl";
@@ -4136,24 +4136,14 @@ async function confirmPackageSaveAs() {
       packageSaveAsName.value.trim() === plan.target.newName
     );
   };
+  let prepared: Awaited<ReturnType<typeof prepareOraclePackageSaveAsExecution>> | undefined;
   try {
     await connectionStore.ensureConnected(target.connectionId);
+    prepared = await prepareOraclePackageSaveAsExecution(plan, isCurrentPlan);
+    const execute = prepared;
     const executed = await executeTreeNodeSqlWithProductionGuard(target, plan.statements.join("\n\n"), {
       execute: async () => {
-        await executeOraclePackageSaveAs(plan, () => {
-          const current = packageSaveAsTarget.value;
-          return (
-            packageSaveAsPlan.value === plan &&
-            packageSaveAsOpen.value &&
-            !!current &&
-            current.connectionId === plan.target.connectionId &&
-            current.database === plan.target.database &&
-            (current.schema || current.database) === plan.target.schema &&
-            (current.objectName || current.label) === plan.target.oldName &&
-            packageSaveAsName.value.trim() === plan.target.newName &&
-            databaseTypeForNode(current) === plan.target.databaseType
-          );
-        });
+        await execute();
         return { columns: [], rows: [], affected_rows: 0, execution_time_ms: 0 };
       },
     });
@@ -4175,6 +4165,7 @@ async function confirmPackageSaveAs() {
       }
     }
   } finally {
+    await prepared?.dispose();
     packageSaveAsExecuting.value = false;
   }
 }

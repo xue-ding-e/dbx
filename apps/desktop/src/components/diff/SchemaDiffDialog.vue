@@ -34,6 +34,9 @@ import { normalizeSchemaDiffCompareOptions } from "@/types/schemaDiff";
 import {
   createOracleRoutineDeployment,
   editOracleRoutineDraft,
+  editOraclePackageOptions,
+  includeOraclePackageCompanion,
+  reviewOraclePackageTargetDraft,
   executeOracleRoutineDeployment,
   observeOracleRoutineDeployment,
   oracleRoutineActiveStep,
@@ -44,7 +47,7 @@ import {
   synchronizeOracleRoutineSelection,
   validateOracleRoutineDeployment,
 } from "@/lib/schema/oracleRoutineDeploy";
-import type { SchemaDiffCompareOptions, SchemaDiffConfig, FieldMappingEntry, SchemaDiffTableMapping, SchemaDiffRoutineMapping } from "@/types/schemaDiff";
+import type { SchemaDiffCompareOptions, SchemaDiffConfig, FieldMappingEntry, SchemaDiffTableMapping, SchemaDiffRoutineMapping, OracleRoutineKind, OracleRoutineIdentity } from "@/types/schemaDiff";
 import { getSchemaDiffSession, schemaDiffSessionObjects, startSchemaDiffSession, type SchemaDiffSession } from "@/composables/useSchemaDiffSession";
 import type { DatabaseType, ObjectSourceKind } from "@/types/database";
 import {
@@ -189,7 +192,9 @@ const tableActionableCount = computed(() => countSchemaDiffActionableObjects(tab
 const routineActionableCount = computed(() => countSchemaDiffActionableObjects(routineDiffObjects.value));
 const tablesCompareEnabled = computed(() => !!schemaDiffPanelOptions.value.tables);
 const routinesCompareEnabled = computed(() => !!schemaDiffPanelOptions.value.functions);
-const canEnableRoutinesCompare = computed(() => schemaDiffRoutineObjectTypesIntersection(schemaDiffRoutineProductType(sourceDbType.value, sourceEngineDbType.value), schemaDiffRoutineProductType(targetDbType.value, targetEngineDbType.value)).length > 0);
+const canEnableRoutinesCompare = computed(
+  () => schemaDiffRoutineObjectTypesIntersection(schemaDiffRoutineProductType(sourceDbType.value, sourceEngineDbType.value), schemaDiffRoutineProductType(targetDbType.value, targetEngineDbType.value), schemaDiffPanelOptions.value.routineObjectKinds).length > 0,
+);
 const effectiveRoutinesEnabled = computed(() => routinesCompareEnabled.value && canEnableRoutinesCompare.value);
 const showTableResultTab = computed(() => tablesCompareEnabled.value);
 const showRoutineResultTab = computed(() => effectiveRoutinesEnabled.value);
@@ -209,7 +214,6 @@ const routineTargetIsCurrent = computed(() => {
   return (
     !!snapshots?.source &&
     !!snapshots.target &&
-    snapshots.source.endpoint.databaseType === snapshots.target.endpoint.databaseType &&
     snapshots.source.endpoint.connectionId === sourceConnectionId.value &&
     snapshots.source.endpoint.database === sourceDatabase.value &&
     snapshots.source.endpoint.schema === sourceSchema.value &&
@@ -225,7 +229,9 @@ const routineReadIssues = computed(() => {
   if (!isOracleRoutineComparison.value) return [];
   return (["source", "target"] as const).flatMap((side) => {
     const snapshot = comparisonSession.value?.routineSnapshots?.[side];
-    const object = snapshot?.objects.find((object) => object.version.identity.name === selectedObject.value?.name);
+    const selected = selectedObject.value;
+    const name = side === "source" ? (selected?.sourceName ?? selected?.name) : (selected?.targetName ?? selected?.name);
+    const object = snapshot?.objects.find((object) => object.version.identity.name === name && object.version.identity.kind === selected?.routineType);
     return [...(snapshot?.issues ?? []), ...(object?.issues ?? [])].map((issue) => ({ side, message: issue.message }));
   });
 });
@@ -339,8 +345,8 @@ const dialogStyle = computed(() => {
   }
   if (step.value === "result") {
     return {
-      width: savedSize?.width || "1100px",
-      height: savedSize?.height || "820px",
+      width: parseFloat(savedSize?.width) > 0 ? savedSize.width : "1100px",
+      height: parseFloat(savedSize?.height) > 0 ? savedSize.height : "820px",
       maxWidth: "calc(100vw - 2rem)",
       maxHeight: "calc(100vh - 2rem)",
     };
@@ -380,6 +386,7 @@ function setupResizeObserver() {
   resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) continue;
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = window.setTimeout(() => {
         localStorage.setItem(
@@ -443,7 +450,14 @@ const selectedTreeObject = computed(() => {
   return findSchemaDiffObject(diffObjects.value, selectedObjectId.value);
 });
 
-const canDeployRoutines = computed(() => (isOracleRoutineComparison.value ? routineTargetIsCurrent.value : isSchemaDiffPostgresLike(targetDbType.value)));
+const canDeployRoutines = computed(() => {
+  if (!isOracleRoutineComparison.value) return isSchemaDiffPostgresLike(targetDbType.value);
+  if (!routineTargetIsCurrent.value) return false;
+  const snapshots = comparisonSession.value!.routineSnapshots!;
+  if (snapshots.source!.endpoint.databaseType === snapshots.target!.endpoint.databaseType) return true;
+  const kinds = comparisonSession.value!.config.options.routineObjectKinds;
+  return !!kinds?.length && kinds.every((kind) => kind === "PACKAGE" || kind === "PACKAGE_BODY") && routineDiffObjects.value.every((object) => object.routineType === "PACKAGE" || object.routineType === "PACKAGE_BODY");
+});
 
 const canDeploy = computed(() => {
   // MySQL/SQL Server routine sync is deferred (copy DDL only). Postgres-family
@@ -585,7 +599,7 @@ function applySchemaDiffSession(session: SchemaDiffSession | undefined): void {
   compatibilityWarnings.value = session.result.compatibilityWarnings ?? [];
   permissionDiffs.value = session.result.permissionDiffs ?? [];
   dependencyGraph.value = normalizeSchemaDiffDependencyGraph(session.result.dependencyGraph);
-  diffObjects.value = schemaDiffSessionObjects(session.result);
+  diffObjects.value = schemaDiffSessionObjects(session.result, session.routineDeployment);
   if (session.routineDeployment) {
     for (const object of diffObjects.value) {
       const saved = session.routineDeployment.drafts.find((draft) => draft.objectId === object.id);
@@ -815,6 +829,12 @@ function handleSelectedTablesUpdate(value?: string[]) {
 function handleSelectedRoutinesUpdate(value?: string[]) {
   if (activeConfig.value) {
     updateActiveConfigOptions(normalizeSchemaDiffCompareOptions({ ...activeConfig.value.options, selectedRoutines: value }, getDbType()));
+  }
+}
+
+function handleRoutineSelectionUpdate(value: { objectKinds: OracleRoutineKind[]; selectedObjects?: Pick<OracleRoutineIdentity, "name" | "kind">[] }) {
+  if (activeConfig.value) {
+    updateActiveConfigOptions(normalizeSchemaDiffCompareOptions({ ...activeConfig.value.options, routineObjectKinds: value.objectKinds, selectedRoutineObjects: value.selectedObjects, selectedRoutines: undefined, routineMappings: [] }, getDbType()));
   }
 }
 
@@ -1201,7 +1221,7 @@ async function handleSelectObject(reviewObject: SchemaDiffObject) {
   // fallback must not silently replace that evidence with an unverified source.
   if (isOracleRoutineComparison.value) return;
 
-  const preferredKind: ObjectSourceKind = obj.routineType === "PROCEDURE" ? "PROCEDURE" : "FUNCTION";
+  const preferredKind: ObjectSourceKind = obj.routineType ?? "FUNCTION";
 
   async function fetchRoutineDdl(connectionId: string, database: string, schema: string, name: string): Promise<string | undefined> {
     try {
@@ -1510,6 +1530,7 @@ const targetConnectionInfo = computed(() => {
           @update:routine-mappings="handleRoutineMappingsUpdate"
           @update:selected-tables="handleSelectedTablesUpdate"
           @update:selected-routines="handleSelectedRoutinesUpdate"
+          @update:routine-selection="handleRoutineSelectionUpdate"
           @update:compare-scope="handleCompareScopeUpdate"
           @open-field-mapping="showFieldMappingDialog = true"
         />
@@ -1709,6 +1730,9 @@ const targetConnectionInfo = computed(() => {
               }
             "
             @validate-routines="routineDeployment && validateOracleRoutineDeployment(routineDeployment)"
+            @include-package-companion="(id, source) => routineDeployment && includeOraclePackageCompanion(routineDeployment, id, source)"
+            @update-package-options="(id, options) => routineDeployment && editOraclePackageOptions(routineDeployment, id, options)"
+            @review-package-target="(id) => routineDeployment && reviewOraclePackageTargetDraft(routineDeployment, id)"
             @refresh-routines="routineDeployment && refreshOracleRoutineDeployment(routineDeployment)"
             @observe-routine="(id) => routineDeployment && observeOracleRoutineDeployment(routineDeployment, id)"
             @recover-routine="(id) => routineDeployment && prepareOracleRoutineRecovery(routineDeployment, id)"

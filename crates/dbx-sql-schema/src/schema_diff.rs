@@ -20,12 +20,15 @@ use crate::table_structure_sql::{
     build_sqlserver_drop_default_constraint_sql, build_sqlserver_table_comment_sql, sqlserver_unicode_string_literal,
 };
 use crate::types::{
-    ColumnInfo, ForeignKeyInfo, FunctionInfo, IndexInfo, OwnerInfo, RuleInfo, SequenceInfo, TableInfo, TriggerInfo,
+    ColumnInfo, ForeignKeyInfo, FunctionInfo, IndexInfo, ObjectSourceKind, OwnerInfo, RuleInfo, SequenceInfo,
+    TableInfo, TriggerInfo,
 };
 
 mod oracle_routines;
 mod sqlserver_dependencies;
-pub use oracle_routines::{diff_oracle_routines, oracle_routine_diff_sql, OracleRoutineCompareContext};
+pub use oracle_routines::{
+    diff_oracle_routines, oracle_routine_diff_sql, OracleRoutineCompareContext, OracleRoutineCompareIdentity,
+};
 
 use sqlserver_dependencies::build_dependency_aware_alter_column_batch;
 
@@ -168,6 +171,8 @@ pub struct FunctionDiff {
     #[serde(rename = "type")]
     pub diff_type: String,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_kind: Option<ObjectSourceKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<FunctionInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2236,6 +2241,16 @@ pub fn prepare_schema_diff(options: SchemaDiffPreparationOptions) -> SchemaDiffP
     );
     if let Some(context) = &options.oracle_routines {
         for diff in &function_diffs {
+            if diff.diff_type == "removed"
+                && diff.program_kind == Some(ObjectSourceKind::PackageBody)
+                && function_diffs.iter().any(|other| {
+                    other.name == diff.name
+                        && other.diff_type == "removed"
+                        && other.program_kind == Some(ObjectSourceKind::Package)
+                })
+            {
+                continue;
+            }
             if let Ok(sql) = oracle_routine_diff_sql(diff, context) {
                 if !sql.is_empty() {
                     if !sync_sql.is_empty() {
@@ -4067,6 +4082,7 @@ pub fn diff_functions(source: &[FunctionInfo], target: &[FunctionInfo]) -> Vec<F
         let Some(target_fn) = target_map.get(&key) else {
             diffs.push(FunctionDiff {
                 diff_type: "added".to_string(),
+                program_kind: None,
                 name: source_fn.name.clone(),
                 source: Some(source_fn.clone()),
                 target: None,
@@ -4088,6 +4104,7 @@ pub fn diff_functions(source: &[FunctionInfo], target: &[FunctionInfo]) -> Vec<F
         if !changes.is_empty() {
             diffs.push(FunctionDiff {
                 diff_type: "modified".to_string(),
+                program_kind: None,
                 name: source_fn.name.clone(),
                 source: Some(source_fn.clone()),
                 target: Some((*target_fn).clone()),
@@ -4101,6 +4118,7 @@ pub fn diff_functions(source: &[FunctionInfo], target: &[FunctionInfo]) -> Vec<F
         if !source_map.contains_key(&key) {
             diffs.push(FunctionDiff {
                 diff_type: "removed".to_string(),
+                program_kind: None,
                 name: target_fn.name.clone(),
                 source: None,
                 target: Some(target_fn.clone()),
@@ -6904,6 +6922,10 @@ fn generate_schema_sync_sql_inner(
         lines.push(String::new());
         lines.push("-- Functions".to_string());
         for diff in function_diffs {
+            if matches!(diff.program_kind, Some(ObjectSourceKind::Package | ObjectSourceKind::PackageBody)) {
+                lines.push("-- Package DDL requires a reviewed package plan.".into());
+                continue;
+            }
             match diff.diff_type.as_str() {
                 "added" | "modified" => {
                     if let Some(source) = &diff.source {
@@ -8372,6 +8394,7 @@ mod tests {
     fn sqlserver_function_and_sequence_changes_use_tsql_verbs() {
         let function = FunctionDiff {
             diff_type: "modified".into(),
+            program_kind: None,
             name: "next_value".into(),
             source: Some(FunctionInfo {
                 name: "next_value".into(),
@@ -8385,6 +8408,7 @@ mod tests {
         };
         let removed_function = FunctionDiff {
             diff_type: "removed".into(),
+            program_kind: None,
             name: "old_value".into(),
             source: None,
             target: None,
@@ -8723,6 +8747,7 @@ mod tests {
 
         let native_function = FunctionDiff {
             diff_type: "modified".into(),
+            program_kind: None,
             name: "next_value".into(),
             source: Some(FunctionInfo {
                 name: "next_value".into(),
@@ -8770,6 +8795,7 @@ mod tests {
 
         let foreign_function = FunctionDiff {
             diff_type: "added".into(),
+            program_kind: None,
             name: "pg_only".into(),
             source: Some(FunctionInfo {
                 name: "pg_only".into(),
@@ -15473,6 +15499,7 @@ mod tests {
     fn postgres_function_sequence_rule_owner_use_profile_templates() {
         let fn_diff = FunctionDiff {
             diff_type: "added".into(),
+            program_kind: None,
             name: "f1".into(),
             source: Some(FunctionInfo {
                 name: "f1".into(),
@@ -15543,6 +15570,7 @@ mod tests {
     fn postgres_function_sync_reuses_native_functiondef_header_once() {
         let function = |arguments: &str, definition: &str| FunctionDiff {
             diff_type: "added".into(),
+            program_kind: None,
             name: "armor".into(),
             source: Some(FunctionInfo {
                 name: "armor".into(),
@@ -15588,6 +15616,7 @@ mod tests {
     fn mysql_skips_function_sequence_when_templates_absent() {
         let fn_diff = FunctionDiff {
             diff_type: "added".into(),
+            program_kind: None,
             name: "f1".into(),
             source: Some(FunctionInfo {
                 name: "f1".into(),

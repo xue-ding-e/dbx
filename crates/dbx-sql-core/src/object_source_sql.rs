@@ -10,8 +10,9 @@ use crate::types::ObjectSourceKind;
 
 mod oracle_routines;
 pub use oracle_routines::{
-    analyze_oracle_routine_draft, comparable_oracle_routine_definition, prepare_oracle_routine_definition,
-    validate_oracle_routine_target_definition, OracleDraftIssue, OracleDraftName, OracleDraftParameter,
+    analyze_oracle_package_body_draft, analyze_oracle_routine_draft, comparable_oracle_routine_definition,
+    prepare_oracle_routine_definition, validate_oracle_routine_target_definition, OracleDraftIssue, OracleDraftName,
+    OracleDraftPackageCall, OracleDraftPackageMember, OracleDraftPackageMemberKind, OracleDraftParameter,
     OracleDraftQuery, OracleDraftReference, OracleDraftReferenceRole, OracleRoutineDefinitionInput,
     OracleRoutineDraftAnalysis,
 };
@@ -628,9 +629,15 @@ pub fn validate_oracle_executable_object_source(input: OracleObjectSourceValidat
 
 pub fn fingerprint_oracle_routine_object_source(input: EditableObjectSourceSqlInput) -> Result<String, String> {
     if !matches!(input.database_type, DatabaseType::Oracle | DatabaseType::OceanbaseOracle)
-        || !matches!(input.object_type, ObjectSourceKind::Procedure | ObjectSourceKind::Function)
+        || !matches!(
+            input.object_type,
+            ObjectSourceKind::Procedure
+                | ObjectSourceKind::Function
+                | ObjectSourceKind::Package
+                | ObjectSourceKind::PackageBody
+        )
     {
-        return Err("Routine source fingerprinting is supported only for Oracle procedures and functions.".into());
+        return Err("Routine source fingerprinting is supported only for Oracle routines and packages.".into());
     }
     validate_oracle_object_source(
         input.database_type,

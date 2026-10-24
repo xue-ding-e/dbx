@@ -11989,15 +11989,37 @@ async fn managed_object_source<T: serde::de::DeserializeOwned + Send + 'static>(
     object_type: &db::ObjectSourceKind,
     signature: Option<&str>,
     relation_name: Option<&str>,
+    include_source_origin: bool,
     timeout: Option<Duration>,
 ) -> Result<T, String> {
     match pool {
         PoolKind::Agent(client) => {
-            client
-                .lock()
-                .await
-                .get_object_source_with_identity(database, schema, name, object_type, signature, relation_name, timeout)
-                .await
+            let mut client = client.lock().await;
+            if include_source_origin {
+                client
+                    .get_object_source_with_origin(
+                        database,
+                        schema,
+                        name,
+                        object_type,
+                        signature,
+                        relation_name,
+                        timeout,
+                    )
+                    .await
+            } else {
+                client
+                    .get_object_source_with_identity(
+                        database,
+                        schema,
+                        name,
+                        object_type,
+                        signature,
+                        relation_name,
+                        timeout,
+                    )
+                    .await
+            }
         }
         PoolKind::ExternalDriver { config, session, .. } => {
             let mut params = serde_json::json!({
@@ -12010,6 +12032,9 @@ async fn managed_object_source<T: serde::de::DeserializeOwned + Send + 'static>(
             // An empty signature identifies the zero-argument overload; absence means unknown.
             if let Some(signature) = signature {
                 params["signature"] = serde_json::Value::String(signature.to_string());
+            }
+            if include_source_origin {
+                params["include_source_origin"] = serde_json::json!(true);
             }
             session.invoke_with_timeout("getObjectSource", params, timeout).await
         }
@@ -12066,6 +12091,7 @@ async fn get_object_source_once(
                 &object_type,
                 signature,
                 None,
+                false,
                 agent_metadata_timeout(Some(config.as_ref())),
             )
             .await?;
@@ -12126,6 +12152,7 @@ async fn get_object_source_once(
                     &object_type,
                     signature,
                     relation_name,
+                    false,
                     agent_metadata_timeout(db_config.as_ref()),
                 )
                 .await?;

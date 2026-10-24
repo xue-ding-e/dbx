@@ -5,6 +5,7 @@ import type { MultiDbExecutionTarget, MultiDbResultRunExecution } from "@/types/
 import type { DatabaseType } from "@/types/generated/databaseTypes";
 import type { PluginAiRecommendation } from "@/types/pluginAiRecommendations";
 import type { GraphResult } from "@/lib/graph/graphResult";
+import type { OracleRoutinePlanDraft } from "@/types/schemaDiff";
 
 export type { DatabaseType } from "@/types/generated/databaseTypes";
 
@@ -2973,6 +2974,8 @@ export interface SavedSqlLibrary {
 }
 
 /** Serializable configuration of a saved data-transfer task. */
+export type TransferPackageDraft = Pick<OracleRoutinePlanDraft, "identity" | "sourceName" | "sql" | "packageBodySource" | "packageContract" | "confirmPackagePair"> & { reviewedTargetDraft?: boolean };
+
 export interface TransferTaskConfig {
   sourceConnectionId: string;
   /** Undefined means the connection's built-in/default catalog. */
@@ -2985,6 +2988,7 @@ export interface TransferTaskConfig {
   targetSchema?: string;
   /** Selected object names grouped by object kind (TABLE, VIEW, ...). */
   objects: Partial<Record<TransferObjectKind, string[]>>;
+  oraclePackageDrafts?: TransferPackageDraft[];
   content: TransferContent;
   mode: TransferMode;
   targetTableNameCase: TransferTableNameCase;

@@ -901,7 +901,8 @@ public final class DbxJdbcPlugin {
                 database,
                 metadataText(params, "schema", exactIdentity),
                 exactIdentity ? metadataText(params, "name", true) : requireText(params, "name"),
-                requireText(params, "object_type"), exactIdentity
+                requireText(params, "object_type"), exactIdentity,
+                params.path("include_source_origin").asBoolean(false)
             );
             case "getColumns" -> getColumns(
                 connection,
@@ -5317,6 +5318,11 @@ public final class DbxJdbcPlugin {
 
     private static JsonNode getObjectSource(JsonNode connection, String database, String schema, String name, String objectType, boolean exactIdentity)
         throws SQLException {
+        return getObjectSource(connection, database, schema, name, objectType, exactIdentity, false);
+    }
+
+    private static JsonNode getObjectSource(JsonNode connection, String database, String schema, String name, String objectType, boolean exactIdentity, boolean includeOrigin)
+        throws SQLException {
         Connection conn = openConnection(connection);
         if (driverQuirks(connection).useOracleMetadata()) {
             String metadataType = oracleMetadataObjectType(objectType);
@@ -5325,6 +5331,9 @@ public final class DbxJdbcPlugin {
                 return oracleTypeSource(conn, owner, name, metadataType);
             }
             String owner = exactIdentity ? schema : oracleEffectiveSchema(conn, schema);
+            if (includeOrigin && "PACKAGE".equals(metadataType)) {
+                metadataType = "PACKAGE_SPEC";
+            }
             String sql = "SELECT DBMS_METADATA.GET_DDL(?, ?, ?) FROM DUAL";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, metadataType);
@@ -5339,6 +5348,9 @@ public final class DbxJdbcPlugin {
                     item.put("object_type", objectType);
                     putNullable(item, "schema", owner);
                     putNullable(item, "source", rs.getString(1));
+                    if (includeOrigin) {
+                        item.put("source_origin", "oracle-metadata");
+                    }
                     return item;
                 }
             }

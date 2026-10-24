@@ -122,7 +122,7 @@ import OracleTableRenamePreview from "@/components/objects/OracleTableRenamePrev
 import OracleRoutineRenamePreview from "@/components/objects/OracleRoutineRenamePreview.vue";
 import OraclePackageSaveAsDialog from "@/components/objects/OraclePackageSaveAsDialog.vue";
 import OracleInvalidObjectsDialog from "@/components/objects/OracleInvalidObjectsDialog.vue";
-import { executeOraclePackageSaveAs, OraclePackageSaveAsFailure, prepareOraclePackageSaveAs, type OraclePackageSaveAsPlan } from "@/lib/table/oraclePackageSaveAs";
+import { prepareOraclePackageSaveAsExecution, OraclePackageSaveAsFailure, prepareOraclePackageSaveAs, type OraclePackageSaveAsPlan } from "@/lib/table/oraclePackageSaveAs";
 import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
 import { autoRevealExportedPathIfConfigured, promptExportSavePath } from "@/lib/export/exportPath";
 import { generateDatabaseExportId } from "@/lib/export/databaseExport";
@@ -2366,18 +2366,12 @@ async function confirmPackageSaveAs() {
       packageSaveAsName.value.trim() === plan.target.newName
     );
   };
+  let prepared: Awaited<ReturnType<typeof prepareOraclePackageSaveAsExecution>> | undefined;
   try {
+    prepared = await prepareOraclePackageSaveAsExecution(plan, isCurrentPlan);
+    const execute = prepared;
     const executed = await executeObjectBrowserSqlWithProductionGuard(plan.statements.join("\n\n"), async () => {
-      await executeOraclePackageSaveAs(
-        plan,
-        () =>
-          packageSaveAsPlan.value === plan &&
-          packageSaveAsOpen.value &&
-          packageSaveAsTarget.value?.name === plan.target.oldName &&
-          props.connection.id === plan.target.connectionId &&
-          props.database === plan.target.database &&
-          (row.schema || selectedSchema.value || props.database) === plan.target.schema,
-      );
+      await execute();
       return true;
     });
     if (!executed) return;
@@ -2400,6 +2394,7 @@ async function confirmPackageSaveAs() {
       }
     }
   } finally {
+    await prepared?.dispose();
     packageSaveAsExecuting.value = false;
   }
 }

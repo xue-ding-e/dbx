@@ -789,13 +789,15 @@ pub async fn load_schema_diff_routines(
     database: String,
     schema: String,
     selected_routines: Option<Vec<String>>,
+    object_kinds: Option<Vec<db::ObjectSourceKind>>,
+    selected_objects: Option<Vec<dbx_core::schema::oracle_routines::RoutineSelection>>,
 ) -> Result<dbx_core::schema::oracle_routines::RoutineSnapshot, String> {
-    dbx_core::schema::oracle_routines::load_selected_schema_diff_routines_core(
+    dbx_core::schema::oracle_routines::load_schema_diff_routines_with_options_core(
         &state,
         &connection_id,
         &database,
         &schema,
-        selected_routines.as_deref(),
+        dbx_core::schema::oracle_routines::RoutineReadOptions { object_kinds, selected_objects, selected_routines },
     )
     .await
 }
