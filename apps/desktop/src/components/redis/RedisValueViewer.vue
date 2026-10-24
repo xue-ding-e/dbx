@@ -3932,7 +3932,6 @@ useUpdateBlocker(() => (hasUnsavedRedisDraft.value || editingTtl.value || saving
 
     <DangerConfirmDialog v-model:open="showDeleteConfirm" :message="t('dangerDialog.deleteMessage')" :details-text="deleteDetailsText" :sql="deleteSql" :confirm-label="t('dangerDialog.deleteConfirm')" @confirm="confirmDelete" />
 
-
     <Dialog :open="showRenameKeyDialog" @update:open="handleRenameKeyDialogOpenChange">
       <DialogContent class="sm:max-w-md" :show-close-button="!renamingKey" :style="editorFontFamilyStyle">
         <DialogHeader>
