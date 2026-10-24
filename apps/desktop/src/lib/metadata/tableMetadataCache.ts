@@ -1,6 +1,6 @@
 import type { ColumnInfo, DatabaseType, IndexInfo, QueryTab } from "@/types/database";
 import * as api from "@/lib/backend/api";
-import { editableRowIdentifierColumns, physicalTablePrimaryKeys } from "@/lib/table/tableEditing";
+import { editableRowIdentifierColumns, physicalTablePrimaryKeys, uniqueKeyModelColumns } from "@/lib/table/tableEditing";
 import { loadVirtualRowIdentifier } from "@/lib/table/virtualRowIdentifier";
 import { createMetadataLoadTrace, logMetadataLoadTrace, MetadataLoadCoordinator, type MetadataLoadCacheStatus, type MetadataLoadTraceLogger } from "./metadataLoadCoordinator";
 import { metadataScopeKey, metadataScopeParts, type MetadataScopeInput } from "./metadataLoadScope";
@@ -362,21 +362,23 @@ export async function loadTableMetadata(request: TableMetadataRequest): Promise<
         };
         const indexesPromise = resolveReportedSchema || resolveSynonymTarget ? undefined : loadTableIndexes(request).catch(() => undefined);
         const columnsResult = await columnsPromise;
-        const columns = columnsResult.columns;
+        let columns = columnsResult.columns;
         const resolvedTarget = columns.find((column) => column.resolved_table);
         const resolvedSchema = resolveReportedSchema ? columns.find((column) => column.resolved_schema)?.resolved_schema : request.schema;
         const indexRequest = { ...request, schema: resolvedTarget?.resolved_schema ?? (resolvedSchema || request.currentSchema), tableName: resolvedTarget?.resolved_table ?? request.tableName };
         const loadedIndexes = columns.length > 0 ? await ((!resolvedTarget && indexesPromise) || loadTableIndexes(indexRequest).catch(() => undefined)) : [];
         const indexes = loadedIndexes ?? indexFailure();
-        const primaryKeys = editableRowIdentifierColumns(request.databaseType as DatabaseType, columns, indexes, columnsResult.tableType);
-        if ((request.databaseType === "doris" || request.databaseType === "starrocks") && primaryKeys.length > 0) {
-          const keySet = new Set(primaryKeys.map((name) => name.toLowerCase()));
-          for (const column of columns) {
-            if (keySet.has(column.name.toLowerCase())) {
-              column.is_primary_key = true;
-              column.is_unique = true;
-            }
-          }
+        let primaryKeys = editableRowIdentifierColumns(request.databaseType as DatabaseType, columns, indexes, columnsResult.tableType);
+        // Doris/StarRocks UNIQUE KEY columns are NULLable and never reported as
+        // primary keys, yet they are the engine's key. Surface them through
+        // `is_unique` only: the data generator, CREATE/DDL export, transfer and the
+        // ER diagram read `is_primary_key` as a literal PRIMARY KEY, and `columns`
+        // may reference the cached columns facet, so rewriting the flag would leak
+        // into those paths and into every later metadata load.
+        const keyColumns = uniqueKeyModelColumns(request.databaseType as DatabaseType, indexes);
+        if (keyColumns.size > 0) {
+          if (primaryKeys.length === 0) primaryKeys = columns.filter((column) => keyColumns.has(column.name.toLowerCase())).map((column) => column.name);
+          columns = columns.map((column) => (keyColumns.has(column.name.toLowerCase()) && !column.is_unique ? { ...column, is_unique: true } : column));
         }
         return {
           schema: resolvedSchema || undefined,

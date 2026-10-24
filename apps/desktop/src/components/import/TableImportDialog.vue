@@ -32,7 +32,7 @@ import {
 } from "@/lib/table/tableImport";
 import { importPreviewInput, importSourceDisplayName, uploadedImportSourceFromPreview } from "@/lib/import/importSource";
 import { getDataTypeOptions } from "@/lib/table/tableStructureEditorState";
-import { editableRowIdentifierColumns } from "@/lib/table/tableEditing";
+import { uniqueKeyModelColumns } from "@/lib/table/tableEditing";
 import { metadataSchemaForConnection, tableStructureDatabaseTypeForConnection } from "@/lib/database/jdbcDialect";
 import { isSchemaAware } from "@/lib/database/databaseFeatureSupport";
 import { schemaOptionsForConnection } from "@/composables/useSchemaOptions";
@@ -768,20 +768,14 @@ async function loadTargetColumns() {
             TARGET_COLUMNS_TIMEOUT_MS,
           )
         : Promise.resolve([]);
-    const [columns, indexes] = await Promise.all([columnsPromise, indexesPromise]);
+    const [loadedColumns, indexes] = await Promise.all([columnsPromise, indexesPromise]);
     if (requestId !== targetColumnsRequestId) return;
-    if (isUniqueKeyModelDatabase.value && indexes.length > 0) {
-      const keyCols = editableRowIdentifierColumns(structureDatabaseType.value, columns, indexes);
-      if (keyCols.length > 0) {
-        const keySet = new Set(keyCols.map((c) => c.toLowerCase()));
-        for (const col of columns) {
-          if (keySet.has(col.name.toLowerCase())) {
-            col.is_unique = true;
-            col.is_primary_key = true;
-          }
-        }
-      }
-    }
+    // Doris/StarRocks UNIQUE KEY columns are the conflict key but are NULLable and
+    // not reported as primary keys. Flag only `is_unique`: this array is not
+    // copied, so writing `is_primary_key` here would also make unrelated metadata
+    // readers treat the column as a literal PRIMARY KEY.
+    const keyColumns = uniqueKeyModelColumns(structureDatabaseType.value, indexes);
+    const columns = keyColumns.size > 0 ? loadedColumns.map((column) => (keyColumns.has(column.name.toLowerCase()) ? { ...column, is_unique: true } : column)) : loadedColumns;
     targetColumns.value = columns;
     loadedTargetTableName.value = tableName;
     applyAutoMapping();
