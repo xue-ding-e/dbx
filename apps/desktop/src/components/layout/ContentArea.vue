@@ -165,6 +165,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useProductionSafetyStore } from "@/stores/productionSafetyStore";
 import type { ContentAreaSurfaceEmits, ContentAreaSurfaceProps } from "@/components/layout/querySurfaces";
 import { TABLE_FONT_SIZE_MAX, TABLE_FONT_SIZE_MIN, useSettingsStore, type DataGridRowNumberMode, type DataGridSearchMode, type ResultRunDisplayMode } from "@/stores/settingsStore";
+import { applySqlKeywordCase, loadSqlKeywordSpans } from "@/lib/sql/sqlKeywordCase";
 import { useToast } from "@/composables/useToast";
 import { isTauriRuntime } from "@/lib/backend/tauriRuntime";
 import { canCancelQueryExecution, isActiveResultLoading, queryExecutionLabelKey, shouldShowCancelAction } from "@/lib/sql/queryExecutionState";
@@ -482,11 +483,20 @@ function viewTableSql(preview: DataGridSqlPreview) {
   };
 }
 
-function openTableSqlInNewQuery(sql: string) {
+async function openTableSqlInNewQuery(sql: string) {
   const snapshot = tableSqlPreview.value;
   if (!snapshot?.connectionId || !sql.trim()) return;
   tableSqlPreview.value = null;
-  queryStore.createTab(snapshot.connectionId, snapshot.database, undefined, "query", snapshot.schema, sql, snapshot.catalog, { forceNew: true, schemaQualifiesSql: true });
+  // The grid's preview SQL is generated uppercase; a query tab opened from it
+  // should still honor the formatter's keyword case setting (issue #13235).
+  const keywordCase = settingsStore.editorSettings.sqlFormatter.keywordCase;
+  let sqlForTab = sql;
+  if (keywordCase === "lower" || keywordCase === "upper") {
+    const dialect = sqlFormatDialectForDbType(activeEffectiveDatabaseType.value);
+    const spans = await loadSqlKeywordSpans(sql, dialect);
+    if (spans) sqlForTab = applySqlKeywordCase(sql, { from: 0, to: sql.length }, keywordCase, spans);
+  }
+  queryStore.createTab(snapshot.connectionId, snapshot.database, undefined, "query", snapshot.schema, sqlForTab, snapshot.catalog, { forceNew: true, schemaQualifiesSql: true });
 }
 
 watch(
