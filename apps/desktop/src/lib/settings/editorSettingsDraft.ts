@@ -125,6 +125,7 @@ export const EDITOR_SETTINGS_DRAFT_KEYS = [
   "disconnectTabHandlingMode",
   "deleteConnectionTabHandlingMode",
   "rememberConnectionDatabaseOnDelete",
+  "deepLinkConnectionConfirmMode",
   "dataTabReuseMode",
   "openDataTabsNextToActive",
   "prefillNewQueryWithSelect",

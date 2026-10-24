@@ -868,6 +868,17 @@ export type DeleteConnectionTabHandlingMode = (typeof DELETE_CONNECTION_TAB_HAND
 const CLICK_TABLE_NAVIGATION_TARGETS = ["data", "ddl"] as const;
 export type ClickTableNavigationTarget = (typeof CLICK_TABLE_NAVIGATION_TARGETS)[number];
 
+/**
+ * 通过连接深链（`dbx://connection/new`）打开连接时，哪些情况跳过确认直接保存。
+ *
+ * - `always`：新建与更新都要在弹窗里确认（默认）
+ * - `create`：仅新建连接免确认；带 `id` 的更新链接仍要确认（更新会改动已保存的配置）
+ * - `update`：仅带 `id` 的更新链接免确认；新建仍要确认
+ * - `all`：所有连接深链都免确认
+ */
+const DEEP_LINK_CONNECTION_CONFIRM_MODES = ["always", "create", "update", "all"] as const;
+export type DeepLinkConnectionConfirmMode = (typeof DEEP_LINK_CONNECTION_CONFIRM_MODES)[number];
+
 export interface CustomThemeColors {
   keyword: string;
   field: string;
@@ -1178,6 +1189,11 @@ export interface EditorSettings {
   rememberConnectionDatabaseOnDelete: boolean;
   /** 已记住的「连接名 → { 数据库名, 数据库类型 }」映射，用于新建同名连接时自动选中数据库。 */
   rememberedConnectionDatabases: Record<string, RememberedConnectionDatabase>;
+  /**
+   * 通过连接深链（`dbx://connection/new`，含带 `id` 的更新链接）打开连接时，
+   * 哪些情况跳过确认直接保存。见 {@link DeepLinkConnectionConfirmMode}。
+   */
+  deepLinkConnectionConfirmMode: DeepLinkConnectionConfirmMode;
   dataTabReuseMode: DataTabReuseMode;
   openDataTabsNextToActive: boolean;
   prefillNewQueryWithSelect: boolean;
@@ -1531,6 +1547,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   deleteConnectionTabHandlingMode: "close-tabs",
   rememberConnectionDatabaseOnDelete: true,
   rememberedConnectionDatabases: {},
+  deepLinkConnectionConfirmMode: "always",
   dataTabReuseMode: DEFAULT_DATA_TAB_REUSE_MODE,
   openDataTabsNextToActive: false,
   prefillNewQueryWithSelect: true,
@@ -1796,6 +1813,24 @@ function normalizeDeleteConnectionTabHandlingMode(value: unknown): DeleteConnect
   if (value === "keep-pinned" || value === "keep-fixed-tabs") return "keep-pinned-sql-tabs";
   if (value === "keep-all") return "keep-all-tabs";
   return DEFAULT_EDITOR_SETTINGS.deleteConnectionTabHandlingMode;
+}
+
+/**
+ * 深链免确认模式。
+ *
+ * `legacyAutoCreate` 是上一版布尔开关 `deepLinkConnectionAutoCreate` 的值：
+ * 它只覆盖新建连接，所以 `true` 收敛成 `create`、`false` 收敛成 `always`。
+ */
+function normalizeDeepLinkConnectionConfirmMode(value: unknown, legacyAutoCreate?: unknown): DeepLinkConnectionConfirmMode {
+  if (DEEP_LINK_CONNECTION_CONFIRM_MODES.includes(value as DeepLinkConnectionConfirmMode)) {
+    return value as DeepLinkConnectionConfirmMode;
+  }
+  // 兼容早期试验值。
+  if (value === "never" || value === "none") return "always";
+  if (value === "create-only") return "create";
+  if (value === "update-only") return "update";
+  if (legacyAutoCreate === true) return "create";
+  return DEFAULT_EDITOR_SETTINGS.deepLinkConnectionConfirmMode;
 }
 
 /** 记住的连接名 → 数据库映射：只保留合法条目，并限制条目数量避免无限增长。 */
@@ -2234,6 +2269,11 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
     deleteConnectionTabHandlingMode: normalizeDeleteConnectionTabHandlingMode(settings.deleteConnectionTabHandlingMode),
     rememberConnectionDatabaseOnDelete: typeof settings.rememberConnectionDatabaseOnDelete === "boolean" ? settings.rememberConnectionDatabaseOnDelete : DEFAULT_EDITOR_SETTINGS.rememberConnectionDatabaseOnDelete,
     rememberedConnectionDatabases: normalizeRememberedConnectionDatabases(settings.rememberedConnectionDatabases),
+    deepLinkConnectionConfirmMode: normalizeDeepLinkConnectionConfirmMode(
+      settings.deepLinkConnectionConfirmMode,
+      // 上一版布尔开关，已从类型里移除，只在这里读一次做迁移。
+      (settings as { deepLinkConnectionAutoCreate?: unknown }).deepLinkConnectionAutoCreate,
+    ),
     dataTabReuseMode: normalizeDataTabReuseMode(
       settings.dataTabReuseMode,
       (
@@ -3144,6 +3184,7 @@ export const useSettingsStore = defineStore("settings", () => {
     if (partial.deleteConnectionTabHandlingMode !== undefined) editorSettings.value.deleteConnectionTabHandlingMode = normalizeDeleteConnectionTabHandlingMode(partial.deleteConnectionTabHandlingMode);
     if (partial.rememberConnectionDatabaseOnDelete !== undefined) editorSettings.value.rememberConnectionDatabaseOnDelete = partial.rememberConnectionDatabaseOnDelete === true;
     if (partial.rememberedConnectionDatabases !== undefined) editorSettings.value.rememberedConnectionDatabases = normalizeRememberedConnectionDatabases(partial.rememberedConnectionDatabases);
+    if (partial.deepLinkConnectionConfirmMode !== undefined) editorSettings.value.deepLinkConnectionConfirmMode = normalizeDeepLinkConnectionConfirmMode(partial.deepLinkConnectionConfirmMode);
     if (partial.dataTabReuseMode !== undefined) editorSettings.value.dataTabReuseMode = normalizeDataTabReuseMode(partial.dataTabReuseMode);
     if (partial.openDataTabsNextToActive !== undefined) editorSettings.value.openDataTabsNextToActive = partial.openDataTabsNextToActive === true;
     if (partial.prefillNewQueryWithSelect !== undefined) editorSettings.value.prefillNewQueryWithSelect = partial.prefillNewQueryWithSelect;

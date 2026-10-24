@@ -92,6 +92,7 @@ import {
   type InterfaceLayout,
   type DisconnectTabHandlingMode,
   type DeleteConnectionTabHandlingMode,
+  type DeepLinkConnectionConfirmMode,
   type DataTabReuseMode,
   type DataGridFilterEditorView,
   type DataGridToolbarLayout,
@@ -988,6 +989,7 @@ const editAutoReloadRestoredDataTabsOnOpen = ref(settingsStore.editorSettings.au
 const editDisconnectTabHandlingMode = ref<DisconnectTabHandlingMode>(settingsStore.editorSettings.disconnectTabHandlingMode);
 const editDeleteConnectionTabHandlingMode = ref<DeleteConnectionTabHandlingMode>(settingsStore.editorSettings.deleteConnectionTabHandlingMode);
 const editRememberConnectionDatabaseOnDelete = ref(settingsStore.editorSettings.rememberConnectionDatabaseOnDelete);
+const editDeepLinkConnectionConfirmMode = ref<DeepLinkConnectionConfirmMode>(settingsStore.editorSettings.deepLinkConnectionConfirmMode);
 // 「记住的连接名 → 数据库」是累积数据而非偏好设置，不进弹窗草稿；这里直接读写 store，
 // 让清除操作立即生效，不受弹窗的保存/取消影响。
 const rememberedConnectionDatabaseCount = computed(() => Object.keys(settingsStore.editorSettings.rememberedConnectionDatabases).length);
@@ -1094,6 +1096,18 @@ const deleteConnectionTabHandlingModeDescriptionKey = computed(() => {
   }
 
   return "deleteConnectionTabHandlingModeCloseTabsDescription";
+});
+const deepLinkConnectionConfirmModeDescriptionKey = computed(() => {
+  switch (editDeepLinkConnectionConfirmMode.value) {
+    case "create":
+      return "deepLinkConnectionConfirmModeCreateDescription";
+    case "update":
+      return "deepLinkConnectionConfirmModeUpdateDescription";
+    case "all":
+      return "deepLinkConnectionConfirmModeAllDescription";
+  }
+
+  return "deepLinkConnectionConfirmModeAlwaysDescription";
 });
 const normalizedEditTableColumnTemplateFields = computed(() => tableColumnTemplateRowsToSettings(editTableColumnTemplateRows.value));
 const visibleTableColumnTemplateRows = computed(() =>
@@ -1306,6 +1320,7 @@ function currentEditorSettingsDraft(): EditorSettingsDraft {
     disconnectTabHandlingMode: editDisconnectTabHandlingMode.value,
     deleteConnectionTabHandlingMode: editDeleteConnectionTabHandlingMode.value,
     rememberConnectionDatabaseOnDelete: editRememberConnectionDatabaseOnDelete.value,
+    deepLinkConnectionConfirmMode: editDeepLinkConnectionConfirmMode.value,
     dataTabReuseMode: editDataTabReuseMode.value,
     openDataTabsNextToActive: editOpenDataTabsNextToActive.value,
     prefillNewQueryWithSelect: editPrefillNewQueryWithSelect.value,
@@ -2010,6 +2025,7 @@ function syncEditorSettingsDraftFromStore() {
   editDisconnectTabHandlingMode.value = settingsStore.editorSettings.disconnectTabHandlingMode;
   editDeleteConnectionTabHandlingMode.value = settingsStore.editorSettings.deleteConnectionTabHandlingMode;
   editRememberConnectionDatabaseOnDelete.value = settingsStore.editorSettings.rememberConnectionDatabaseOnDelete;
+  editDeepLinkConnectionConfirmMode.value = settingsStore.editorSettings.deepLinkConnectionConfirmMode;
   editDataTabReuseMode.value = settingsStore.editorSettings.dataTabReuseMode;
   editOpenDataTabsNextToActive.value = settingsStore.editorSettings.openDataTabsNextToActive;
   editPrefillNewQueryWithSelect.value = settingsStore.editorSettings.prefillNewQueryWithSelect;
@@ -2182,6 +2198,7 @@ const editorSettingsDraftRefs: EditorSettingsDraftRefMap = {
   disconnectTabHandlingMode: editDisconnectTabHandlingMode,
   deleteConnectionTabHandlingMode: editDeleteConnectionTabHandlingMode,
   rememberConnectionDatabaseOnDelete: editRememberConnectionDatabaseOnDelete,
+  deepLinkConnectionConfirmMode: editDeepLinkConnectionConfirmMode,
   dataTabReuseMode: editDataTabReuseMode,
   openDataTabsNextToActive: editOpenDataTabsNextToActive,
   prefillNewQueryWithSelect: editPrefillNewQueryWithSelect,
@@ -2771,6 +2788,7 @@ function resetDefaultsForTab(tab: SettingsCategory) {
     editDisconnectTabHandlingMode.value = DEFAULT_EDITOR_SETTINGS.disconnectTabHandlingMode;
     editDeleteConnectionTabHandlingMode.value = DEFAULT_EDITOR_SETTINGS.deleteConnectionTabHandlingMode;
     editRememberConnectionDatabaseOnDelete.value = DEFAULT_EDITOR_SETTINGS.rememberConnectionDatabaseOnDelete;
+    editDeepLinkConnectionConfirmMode.value = DEFAULT_EDITOR_SETTINGS.deepLinkConnectionConfirmMode;
     editDataTabReuseMode.value = DEFAULT_EDITOR_SETTINGS.dataTabReuseMode;
     editOpenDataTabsNextToActive.value = DEFAULT_EDITOR_SETTINGS.openDataTabsNextToActive;
     editPrefillNewQueryWithSelect.value = DEFAULT_EDITOR_SETTINGS.prefillNewQueryWithSelect;
@@ -2995,6 +3013,7 @@ function resetAllDefaults() {
   editDisconnectTabHandlingMode.value = DEFAULT_EDITOR_SETTINGS.disconnectTabHandlingMode;
   editDeleteConnectionTabHandlingMode.value = DEFAULT_EDITOR_SETTINGS.deleteConnectionTabHandlingMode;
   editRememberConnectionDatabaseOnDelete.value = DEFAULT_EDITOR_SETTINGS.rememberConnectionDatabaseOnDelete;
+  editDeepLinkConnectionConfirmMode.value = DEFAULT_EDITOR_SETTINGS.deepLinkConnectionConfirmMode;
   editDataTabReuseMode.value = DEFAULT_EDITOR_SETTINGS.dataTabReuseMode;
   editOpenDataTabsNextToActive.value = DEFAULT_EDITOR_SETTINGS.openDataTabsNextToActive;
   editPrefillNewQueryWithSelect.value = DEFAULT_EDITOR_SETTINGS.prefillNewQueryWithSelect;
@@ -9403,6 +9422,28 @@ onUnmounted(() => {
                   </div>
                 </div>
                 <Switch id="remember-connection-database-on-delete" v-model="editRememberConnectionDatabaseOnDelete" />
+              </div>
+              <div class="settings-item space-y-2 rounded-md border bg-muted/20 px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <Label for="deeplink-connection-confirm-mode">{{ t("settings.deepLinkConnectionConfirmMode") }}</Label>
+                  <HelpTooltip :label="t('settings.deepLinkConnectionConfirmMode')">
+                    {{ t("settings.deepLinkConnectionConfirmModeDescription") }}
+                  </HelpTooltip>
+                </div>
+                <Select :model-value="editDeepLinkConnectionConfirmMode" @update:model-value="(value) => (editDeepLinkConnectionConfirmMode = value as DeepLinkConnectionConfirmMode)">
+                  <SelectTrigger id="deeplink-connection-confirm-mode" class="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="always">{{ t("settings.deepLinkConnectionConfirmModeAlways") }}</SelectItem>
+                    <SelectItem value="create">{{ t("settings.deepLinkConnectionConfirmModeCreate") }}</SelectItem>
+                    <SelectItem value="update">{{ t("settings.deepLinkConnectionConfirmModeUpdate") }}</SelectItem>
+                    <SelectItem value="all">{{ t("settings.deepLinkConnectionConfirmModeAll") }}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p class="text-xs text-muted-foreground">
+                  {{ t(`settings.${deepLinkConnectionConfirmModeDescriptionKey}`) }}
+                </p>
               </div>
               <div class="settings-item space-y-2 rounded-md border bg-muted/20 px-3 py-2">
                 <div class="flex items-center gap-2">

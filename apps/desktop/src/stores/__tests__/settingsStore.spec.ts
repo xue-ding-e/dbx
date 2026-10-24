@@ -590,6 +590,19 @@ describe("normalizeEditorSettings", () => {
     expect(normalizeEditorSettings({ deleteConnectionTabHandlingMode: "keep-all" } as any).deleteConnectionTabHandlingMode).toBe("keep-all-tabs");
   });
 
+  it("defaults DeepLink confirmation to always and maps the legacy boolean switch", () => {
+    // 默认都要确认：深链打开连接仍然要用户在弹窗里确认一次。
+    expect(normalizeEditorSettings({}).deepLinkConnectionConfirmMode).toBe("always");
+    for (const mode of ["always", "create", "update", "all"] as const) {
+      expect(normalizeEditorSettings({ deepLinkConnectionConfirmMode: mode }).deepLinkConnectionConfirmMode).toBe(mode);
+    }
+    // 上一版的布尔开关只覆盖新建连接，true 收敛成 create。
+    expect(normalizeEditorSettings({ deepLinkConnectionAutoCreate: true } as any).deepLinkConnectionConfirmMode).toBe("create");
+    expect(normalizeEditorSettings({ deepLinkConnectionAutoCreate: false } as any).deepLinkConnectionConfirmMode).toBe("always");
+    // 非法值一律回落默认值。
+    expect(normalizeEditorSettings({ deepLinkConnectionConfirmMode: "sometimes" } as any).deepLinkConnectionConfirmMode).toBe("always");
+  });
+
   it("remembers connection databases by default and sanitizes the stored map", () => {
     expect(normalizeEditorSettings({}).rememberConnectionDatabaseOnDelete).toBe(true);
     expect(normalizeEditorSettings({ rememberConnectionDatabaseOnDelete: false }).rememberConnectionDatabaseOnDelete).toBe(false);

@@ -206,6 +206,7 @@ const SETTINGS_TRANSFER_CATEGORY_KEYS: Record<SettingsTransferCategoryId, readon
     "disconnectTabHandlingMode",
     "deleteConnectionTabHandlingMode",
     "rememberConnectionDatabaseOnDelete",
+    "deepLinkConnectionConfirmMode",
     "dataTabReuseMode",
     "openDataTabsNextToActive",
     "clickTableNavigationTarget",
