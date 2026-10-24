@@ -1930,10 +1930,12 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
 
   async function finishInterruptedSaveChanges(snapshot: PendingSaveSnapshot, record?: PendingSaveRecord) {
     snapshot.newRowRefs.forEach((row) => savingNewRows.delete(row));
-    await finishSaveChanges();
+    // Settle the registry record before finishing: the queued auto-save below
+    // must not see this instance as still busy (#13226 quick-entry regression).
+    onPendingSaveSettled(snapshot, false, record);
     // The changes stay pending for a retry, and the grid that shows them stops
     // waiting for this save (#13226).
-    onPendingSaveSettled(snapshot, false, record);
+    await finishSaveChanges();
   }
 
   function saveStatementOptions(snapshot = snapshotPendingSaveChanges()) {
@@ -2545,6 +2547,9 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
       if (shouldReloadAfterSave) {
         reloadCurrentData();
       }
+      // Custom saves must release the registry record before the queued
+      // quick-entry save below runs, exactly like the SQL success path (#13226).
+      onPendingSaveSettled(snapshot, true, saveRecord);
       await finishSaveChanges(snapshot);
       return;
     }
@@ -2771,8 +2776,10 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
     if (shouldReloadAfterSqlSave && !savedRowsRefreshed) {
       reloadAfterSave(saveRecord);
     }
-    await finishSaveChanges(snapshot);
+    // Settle first: a queued quick-entry auto-save must start after this save,
+    // not be swallowed by the still-running registry record (#13226).
     onPendingSaveSettled(snapshot, true, saveRecord);
+    await finishSaveChanges(snapshot);
     // These deletes reached a terminal result. Refresh and report the mismatch
     // instead of leaving a missing ROWID queued for an impossible retry.
     if (deleteConflict) saveError.value = deleteConflict;
