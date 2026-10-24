@@ -1252,6 +1252,9 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "MySQLがmTLSを要求する場合、クライアント証明書と秘密鍵の両方を指定する必要があります。",
     mysqlTlsConnectionFailureHint: "MySQLサーバーがTLSを要求しない場合は、接続を編集し、TLSモードを無効にしてから再試行してください。",
+    mysqlUnsupportedTlsVersionHint:
+      "DBX組み込みのMySQLドライバーはTLS 1.2/1.3をサポートします。このサーバーは古いTLSのみをサポートしている可能性があります。サーバーTLSを更新・再設定するか、互換クライアントまたはTLS変換プロキシを使用してください。TLSを無効にできるのはREQUIRE SSLが設定されていないアカウントのみです。それ以外は1045が返る場合があります。SSHだけではREQUIRE SSLを満たせません。",
+    mysqlDisabledTlsAccessDeniedHint: "TLSが無効の場合、1045はパスワードや権限の誤りだけでなく、アカウントのSSL要件を示す場合があります。接続可能な管理者セッションからアカウントのSHOW GRANTSを確認してください。SSHだけではREQUIRE SSLを満たせません。",
     mysqlUnsupportedCertVersionHint: "厳密な検証では、このサーバー証明書のバージョンはサポートされていません。X.509 v3証明書に置き換えるか、信頼できるネットワークでのみ「必須」モードを使用してください。",
     mysqlClientCertBrowse: "クライアント証明書を選択",
     mysqlClientKeyBrowse: "クライアント秘密鍵を選択",

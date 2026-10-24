@@ -1256,6 +1256,8 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "MySQL 要求 mTLS 時，用戶端憑證和私鑰必須一起填寫。",
     mysqlTlsConnectionFailureHint: "如果 MySQL 伺服器不要求 TLS，請編輯連線，在 TLS 模式中選擇「停用」後重試。",
+    mysqlUnsupportedTlsVersionHint: "DBX 內建 MySQL 驅動程式支援 TLS 1.2/1.3，此伺服器可能只支援較舊的 TLS 版本。請升級或調整伺服器 TLS 設定，或使用相容用戶端、TLS 協定轉換代理。只有帳號未設定 REQUIRE SSL 時才能停用 TLS，否則 MySQL 可能回傳 1045。僅使用 SSH 通道無法滿足 REQUIRE SSL。",
+    mysqlDisabledTlsAccessDeniedHint: "停用 TLS 時，1045 除了可能表示密碼或授權有誤，也可能表示帳號要求 SSL。請透過其他可連線的管理員工作階段檢查該帳號的 SHOW GRANTS。僅使用 SSH 通道無法滿足 REQUIRE SSL。",
     mysqlUnsupportedCertVersionHint: "伺服器憑證版本不受嚴格驗證支援。請更換為 X.509 v3 憑證，或僅在可信任網路中改用「必要」模式。",
     mysqlClientCertBrowse: "選擇用戶端憑證",
     mysqlClientKeyBrowse: "選擇用戶端私鑰",

@@ -812,6 +812,9 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "MySQL mTLS gerektirdiğinde istemci sertifikası ve özel anahtarı birlikte verilmelidir.",
     mysqlTlsConnectionFailureHint: "MySQL sunucusu TLS gerektirmiyorsa bağlantıyı düzenleyin, TLS Modunu Devre dışı yapın ve tekrar deneyin.",
+    mysqlUnsupportedTlsVersionHint:
+      "DBX'in yerleşik MySQL sürücüsü TLS 1.2/1.3'ü destekler; bu sunucu yalnızca eski sürümleri destekliyor olabilir. Sunucu TLS ayarlarını yükseltin veya yeniden yapılandırın ya da uyumlu bir istemci veya TLS dönüştürme vekili kullanın. TLS yalnızca hesapta REQUIRE SSL yoksa devre dışı bırakılabilir; aksi halde MySQL 1045 döndürebilir. Tek başına SSH, REQUIRE SSL koşulunu karşılamaz.",
+    mysqlDisabledTlsAccessDeniedHint: "TLS devre dışıyken 1045, yanlış parola veya izinlerin yanı sıra hesabın SSL gerektirdiğini de gösterebilir. Çalışan bir yönetici oturumundan hesabın SHOW GRANTS çıktısını kontrol edin. Tek başına SSH, REQUIRE SSL koşulunu karşılamaz.",
     mysqlUnsupportedCertVersionHint: "Katı doğrulama bu sunucu sertifikası sürümünü desteklemiyor. Sertifikayı X.509 v3 ile değiştirin veya Zorunlu modu yalnızca güvenilir bir ağda kullanın.",
     mysqlClientCertBrowse: "İstemci sertifikası seçin",
     mysqlClientKeyBrowse: "İstemci özel anahtarı seçin",

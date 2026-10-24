@@ -1430,6 +1430,9 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "ต้องระบุใบรับรอง Client และ Private Key พร้อมกันเมื่อ MySQL ต้องใช้ mTLS",
     mysqlTlsConnectionFailureHint: "หาก Server MySQL ไม่ต้องใช้ TLS ให้แก้ไขการเชื่อมต่อ ตั้งโหมด TLS เป็น Disabled แล้วลองอีกครั้ง",
+    mysqlUnsupportedTlsVersionHint:
+      "ไดรเวอร์ MySQL ในตัว DBX รองรับ TLS 1.2/1.3 แต่เซิร์ฟเวอร์นี้อาจรองรับเฉพาะเวอร์ชันเก่า โปรดอัปเกรดหรือปรับการตั้งค่า TLS ของเซิร์ฟเวอร์ หรือใช้ไคลเอนต์ที่เข้ากันได้หรือพร็อกซีแปลง TLS ปิด TLS ได้เฉพาะเมื่อบัญชีไม่มี REQUIRE SSL มิฉะนั้น MySQL อาจส่งข้อผิดพลาด 1045 การใช้ SSH เพียงอย่างเดียวไม่เป็นไปตามข้อกำหนด REQUIRE SSL",
+    mysqlDisabledTlsAccessDeniedHint: "เมื่อปิด TLS ข้อผิดพลาด 1045 อาจหมายถึงบัญชีต้องใช้ SSL ไม่ใช่เพียงรหัสผ่านหรือสิทธิ์ไม่ถูกต้อง โปรดตรวจสอบ SHOW GRANTS ของบัญชีจากเซสชันผู้ดูแลระบบที่เชื่อมต่อได้ การใช้ SSH เพียงอย่างเดียวไม่เป็นไปตามข้อกำหนด REQUIRE SSL",
     mysqlUnsupportedCertVersionHint: "การตรวจสอบแบบ Strict ไม่รองรับใบรับรอง Server เวอร์ชันนี้ แทนที่ด้วยใบรับรอง X.509 v3 หรือใช้โหมด Required เฉพาะบนเครือข่ายที่เชื่อถือได้",
     mysqlClientCertBrowse: "เลือกใบรับรอง Client",
     mysqlClientKeyBrowse: "เลือก Private Key ของ Client",

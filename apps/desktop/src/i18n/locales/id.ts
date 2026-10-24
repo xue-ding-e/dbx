@@ -1070,6 +1070,9 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "Sertifikat klien dan private key harus diberikan bersamaan saat MySQL memerlukan mTLS.",
     mysqlTlsConnectionFailureHint: "Jika server MySQL tidak memerlukan TLS, edit koneksi, tetapkan Mode TLS ke Dinonaktifkan, lalu coba lagi.",
+    mysqlUnsupportedTlsVersionHint:
+      "Driver MySQL bawaan DBX mendukung TLS 1.2/1.3; server ini mungkin hanya mendukung versi lama. Tingkatkan atau konfigurasi ulang TLS server, atau gunakan klien kompatibel atau proksi konversi TLS. TLS hanya dapat dinonaktifkan jika akun tidak memiliki REQUIRE SSL; jika tidak, MySQL dapat mengembalikan 1045. SSH saja tidak memenuhi REQUIRE SSL.",
+    mysqlDisabledTlsAccessDeniedHint: "Saat TLS dinonaktifkan, 1045 dapat berarti akun memerlukan SSL, bukan hanya kata sandi atau izin yang salah. Periksa SHOW GRANTS akun dari sesi administrator yang berfungsi. SSH saja tidak memenuhi REQUIRE SSL.",
     mysqlUnsupportedCertVersionHint: "Verifikasi ketat tidak mendukung versi sertifikat server ini. Gantilah dengan sertifikat X.509 v3, atau gunakan mode Wajib hanya pada jaringan tepercaya.",
     mysqlClientCertBrowse: "Pilih sertifikat klien",
     mysqlClientKeyBrowse: "Pilih private key klien",

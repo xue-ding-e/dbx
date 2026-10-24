@@ -1448,6 +1448,8 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "MySQL 要求 mTLS 时，客户端证书和私钥必须一起填写。",
     mysqlTlsConnectionFailureHint: "如果 MySQL 服务端不要求 TLS，请编辑连接，在 TLS 模式中选择“禁用”后重试。",
+    mysqlUnsupportedTlsVersionHint: "DBX 内置 MySQL 驱动支持 TLS 1.2/1.3，此服务端可能只支持更旧的 TLS 版本。请升级或调整服务端 TLS 配置，或使用兼容客户端、TLS 协议转换代理。只有账号未配置 REQUIRE SSL 时才能禁用 TLS，否则 MySQL 可能返回 1045。仅使用 SSH 隧道不能满足 REQUIRE SSL。",
+    mysqlDisabledTlsAccessDeniedHint: "禁用 TLS 时，1045 除了可能表示密码或授权有误，也可能表示账号要求 SSL。请通过其他可连接的管理员会话检查该账号的 SHOW GRANTS。仅使用 SSH 隧道不能满足 REQUIRE SSL。",
     mysqlUnsupportedCertVersionHint: "服务端证书版本不受严格校验支持。请更换为 X.509 v3 证书，或仅在可信网络中改用“必需”模式。",
     mysqlClientCertBrowse: "选择客户端证书",
     mysqlClientKeyBrowse: "选择客户端私钥",

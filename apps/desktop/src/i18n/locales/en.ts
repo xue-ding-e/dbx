@@ -1513,6 +1513,9 @@ export default {
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "Client certificate and private key must be provided together when MySQL requires mTLS.",
     mysqlTlsConnectionFailureHint: "If the MySQL server does not require TLS, edit the connection, set TLS Mode to Disabled, and try again.",
+    mysqlUnsupportedTlsVersionHint:
+      "DBX's built-in MySQL driver supports TLS 1.2/1.3; this server may only support older TLS versions. Upgrade or reconfigure server TLS, or use a compatible client or TLS-converting proxy. Disabling TLS only works if the account does not REQUIRE SSL; otherwise MySQL may return 1045. SSH alone does not satisfy REQUIRE SSL.",
+    mysqlDisabledTlsAccessDeniedHint: "With TLS disabled, 1045 may mean the account requires SSL, not only an incorrect password or grants. From a working administrator session, check the account's SHOW GRANTS. SSH alone does not satisfy REQUIRE SSL.",
     mysqlUnsupportedCertVersionHint: "Strict verification does not support this server certificate version. Replace it with an X.509 v3 certificate, or use Required mode only on a trusted network.",
     mysqlClientCertBrowse: "Choose client certificate",
     mysqlClientKeyBrowse: "Choose client private key",

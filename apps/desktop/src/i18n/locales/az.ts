@@ -812,6 +812,9 @@ export default withEnglishFallback({
     mysqlClientKeyPlaceholder: "/path/to/client.key",
     mysqlClientCertHint: "MySQL mTLS tələb etdikdə müştəri sertifikatı və məxfi açar birlikdə təqdim edilməlidir.",
     mysqlTlsConnectionFailureHint: "MySQL serveri TLS tələb etmirsə, əlaqəni redaktə edin, TLS rejimini deaktiv edin və yenidən cəhd edin.",
+    mysqlUnsupportedTlsVersionHint:
+      "DBX-in daxili MySQL drayveri TLS 1.2/1.3 dəstəkləyir; bu server yalnız köhnə versiyaları dəstəkləyə bilər. Server TLS-ni yeniləyin və ya yenidən qurun, yaxud uyğun müştəri və ya TLS çevirici proksi istifadə edin. TLS yalnız hesabda REQUIRE SSL olmadıqda söndürülə bilər; əks halda MySQL 1045 qaytara bilər. Təkcə SSH, REQUIRE SSL tələbini ödəmir.",
+    mysqlDisabledTlsAccessDeniedHint: "TLS söndürüldükdə 1045 yalnız yanlış parol və ya icazələr deyil, hesabın SSL tələb etdiyini də göstərə bilər. İşləyən administrator sessiyasından hesabın SHOW GRANTS nəticəsini yoxlayın. Təkcə SSH, REQUIRE SSL tələbini ödəmir.",
     mysqlUnsupportedCertVersionHint: "Ciddi yoxlama bu server sertifikatı versiyasını dəstəkləmir. Onu X.509 v3 sertifikatı ilə əvəz edin və ya yalnız etibarlı şəbəkədə məcburi rejimdən istifadə edin.",
     mysqlClientCertBrowse: "Müştəri sertifikatını seçin",
     mysqlClientKeyBrowse: "Müştərinin məxfi açarını seçin",
