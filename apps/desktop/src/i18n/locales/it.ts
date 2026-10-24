@@ -8811,6 +8811,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Richiede un valore per sostituire i segnaposto con nome.",
     sqlVariableSyntax_shell: "Segnaposto stile shell",
     sqlVariableSyntax_shellDescription: "Richiede un valore per sostituire i segnaposto in stile shell.",
+    sqlVariableSyntax_bracketedShell: "Segnaposto stile shell tra parentesi quadre",
+    sqlVariableSyntax_bracketedShellDescription: "Richiede un valore per sostituire i segnaposto in stile shell tra parentesi quadre; le parentesi quadre vengono rimosse in fase di sostituzione.",
     sqlVariableSyntax_mybatis: "Segnaposto stile MyBatis",
     sqlVariableSyntax_mybatisDescription: "Richiede un valore per sostituire i segnaposto in stile MyBatis.",
     sqlVariableSyntax_sqlserver: "Segnaposto stile SQL Server",

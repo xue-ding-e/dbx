@@ -9047,6 +9047,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Minta nilai untuk mensubstitusi placeholder bernama.",
     sqlVariableSyntax_shell: "Placeholder bergaya shell",
     sqlVariableSyntax_shellDescription: "Minta nilai untuk mensubstitusi placeholder bergaya shell.",
+    sqlVariableSyntax_bracketedShell: "Placeholder bergaya shell dalam kurung siku",
+    sqlVariableSyntax_bracketedShellDescription: "Minta nilai untuk mensubstitusi placeholder bergaya shell dalam kurung siku; kurung siku dihapus saat substitusi.",
     sqlVariableSyntax_mybatis: "Placeholder bergaya MyBatis",
     sqlVariableSyntax_mybatisDescription: "Minta nilai untuk mensubstitusi placeholder bergaya MyBatis.",
     sqlVariableSyntax_sqlserver: "Placeholder bergaya SQL Server",

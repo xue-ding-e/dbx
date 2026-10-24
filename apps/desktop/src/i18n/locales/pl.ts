@@ -9085,6 +9085,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Pytaj o wartość do podstawienia dla nazwanych symboli zastępczych.",
     sqlVariableSyntax_shell: "Symbol zastępczy w stylu powłoki (shell)",
     sqlVariableSyntax_shellDescription: "Pytaj o wartość do podstawienia dla symboli zastępczych w stylu powłoki.",
+    sqlVariableSyntax_bracketedShell: "Symbol zastępczy w stylu powłoki w nawiasach kwadratowych",
+    sqlVariableSyntax_bracketedShellDescription: "Pytaj o wartość do podstawienia dla symboli zastępczych w stylu powłoki w nawiasach kwadratowych; nawiasy są usuwane podczas podstawiania.",
     sqlVariableSyntax_mybatis: "Symbol zastępczy w stylu MyBatis",
     sqlVariableSyntax_mybatisDescription: "Pytaj o wartość do podstawienia dla symboli zastępczych w stylu MyBatis.",
     sqlVariableSyntax_sqlserver: "Symbol zastępczy w stylu SQL Server",

@@ -10439,6 +10439,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Запрашивать значение для подстановки именованных заполнителей.",
     sqlVariableSyntax_shell: "Заполнитель в стиле shell",
     sqlVariableSyntax_shellDescription: "Запрашивать значение для подстановки заполнителей в стиле shell.",
+    sqlVariableSyntax_bracketedShell: "Заполнитель в стиле shell в квадратных скобках",
+    sqlVariableSyntax_bracketedShellDescription: "Запрашивать значение для подстановки заполнителей в стиле shell в квадратных скобках; скобки удаляются при подстановке.",
     sqlVariableSyntax_mybatis: "Заполнитель в стиле MyBatis",
     sqlVariableSyntax_mybatisDescription: "Запрашивать значение для подстановки заполнителей в стиле MyBatis.",
     sqlVariableSyntax_sqlserver: "Заполнитель в стиле SQL Server",

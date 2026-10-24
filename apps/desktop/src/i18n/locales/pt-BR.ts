@@ -8809,6 +8809,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Solicita um valor para substituir os espaços reservados nomeados.",
     sqlVariableSyntax_shell: "Espaço reservado estilo shell",
     sqlVariableSyntax_shellDescription: "Solicita um valor para substituir os espaços reservados de estilo shell.",
+    sqlVariableSyntax_bracketedShell: "Espaço reservado estilo shell entre colchetes",
+    sqlVariableSyntax_bracketedShellDescription: "Solicita um valor para substituir os espaços reservados de estilo shell entre colchetes; os colchetes são removidos na substituição.",
     sqlVariableSyntax_mybatis: "Espaço reservado estilo MyBatis",
     sqlVariableSyntax_mybatisDescription: "Solicita um valor para substituir os espaços reservados de estilo MyBatis.",
     sqlVariableSyntax_sqlserver: "Espaço reservado estilo SQL Server",

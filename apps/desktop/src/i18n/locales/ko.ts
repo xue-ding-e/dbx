@@ -8973,6 +8973,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "이름 있는 자리표시자를 치환할 값을 입력하라는 메시지를 표시합니다.",
     sqlVariableSyntax_shell: "셸 스타일 자리표시자",
     sqlVariableSyntax_shellDescription: "셸 스타일 자리표시자를 치환할 값을 입력하라는 메시지를 표시합니다.",
+    sqlVariableSyntax_bracketedShell: "대괄호 셸 스타일 자리표시자",
+    sqlVariableSyntax_bracketedShellDescription: "대괄호 셸 스타일 자리표시자를 치환할 값을 입력하라는 메시지를 표시합니다. 치환 시 대괄호는 제거됩니다.",
     sqlVariableSyntax_mybatis: "MyBatis 스타일 자리표시자",
     sqlVariableSyntax_mybatisDescription: "MyBatis 스타일 자리표시자를 치환할 값을 입력하라는 메시지를 표시합니다.",
     sqlVariableSyntax_sqlserver: "SQL Server 스타일 자리표시자",

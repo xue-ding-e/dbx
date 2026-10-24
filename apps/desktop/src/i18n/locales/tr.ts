@@ -8135,6 +8135,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Adlandırılmış yer tutucuları değiştirmek için değer sor.",
     sqlVariableSyntax_shell: "Kabuk biçemli yer tutucu",
     sqlVariableSyntax_shellDescription: "Kabuk biçemli yer tutucuları değiştirmek için değer sor.",
+    sqlVariableSyntax_bracketedShell: "Köşeli parantezli kabuk biçemli yer tutucu",
+    sqlVariableSyntax_bracketedShellDescription: "Köşeli parantezli kabuk biçemli yer tutucuları değiştirmek için değer sor; köşeli parantezler değişim sırasında kaldırılır.",
     sqlVariableSyntax_mybatis: "MyBatis biçemli yer tutucu",
     sqlVariableSyntax_mybatisDescription: "MyBatis biçemli yer tutucuları değiştirmek için değer sor.",
     sqlVariableSyntax_sqlserver: "SQL Server biçemli yer tutucu",

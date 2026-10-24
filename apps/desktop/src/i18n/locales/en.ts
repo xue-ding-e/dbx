@@ -10258,6 +10258,8 @@ export default {
     sqlVariableSyntax_namedDescription: "Prompt for a value to substitute named placeholders.",
     sqlVariableSyntax_shell: "Shell-style placeholder",
     sqlVariableSyntax_shellDescription: "Prompt for a value to substitute shell-style placeholders.",
+    sqlVariableSyntax_bracketedShell: "Bracketed shell placeholder",
+    sqlVariableSyntax_bracketedShellDescription: "Prompt for a value to substitute bracketed shell placeholders; the brackets are removed on substitution.",
     sqlVariableSyntax_mybatis: "MyBatis-style placeholder",
     sqlVariableSyntax_mybatisDescription: "Prompt for a value to substitute MyBatis-style placeholders.",
     sqlVariableSyntax_sqlserver: "SQL Server-style placeholder",

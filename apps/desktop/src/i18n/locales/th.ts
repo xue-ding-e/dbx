@@ -10831,6 +10831,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "ขอค่าเพื่อแทนที่ Placeholder แบบชื่อ",
     sqlVariableSyntax_shell: "Placeholder แบบ Shell",
     sqlVariableSyntax_shellDescription: "ขอค่าเพื่อแทนที่ Placeholder แบบ Shell",
+    sqlVariableSyntax_bracketedShell: "Placeholder แบบ Shell ในวงเล็บเหลี่ยม",
+    sqlVariableSyntax_bracketedShellDescription: "ขอค่าเพื่อแทนที่ Placeholder แบบ Shell ในวงเล็บเหลี่ยม; วงเล็บเหลี่ยมจะถูกลบออกเมื่อแทนที่",
     sqlVariableSyntax_mybatis: "Placeholder แบบ MyBatis",
     sqlVariableSyntax_mybatisDescription: "ขอค่าเพื่อแทนที่ Placeholder แบบ MyBatis",
     sqlVariableSyntax_sqlserver: "Placeholder แบบ SQL Server",

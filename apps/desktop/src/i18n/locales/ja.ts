@@ -8808,6 +8808,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "名前付きプレースホルダーを置き換える値の入力を求めます。",
     sqlVariableSyntax_shell: "シェル形式プレースホルダー",
     sqlVariableSyntax_shellDescription: "シェル形式プレースホルダーを置き換える値の入力を求めます。",
+    sqlVariableSyntax_bracketedShell: "角括弧シェル形式プレースホルダー",
+    sqlVariableSyntax_bracketedShellDescription: "角括弧シェル形式プレースホルダーを置き換える値の入力を求めます。置換時に角括弧は除去されます。",
     sqlVariableSyntax_mybatis: "MyBatis 形式プレースホルダー",
     sqlVariableSyntax_mybatisDescription: "MyBatis 形式プレースホルダーを置き換える値の入力を求めます。",
     sqlVariableSyntax_sqlserver: "SQL Server 形式プレースホルダー",

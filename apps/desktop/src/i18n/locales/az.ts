@@ -8237,6 +8237,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Adlandırılmış yer tutucuları əvəz etmək üçün dəyər soruş.",
     sqlVariableSyntax_shell: "Əmr örtüyü üslublu yer tutucu",
     sqlVariableSyntax_shellDescription: "Əmr örtüyü üslublu yer tutucuları əvəz etmək üçün dəyər soruş.",
+    sqlVariableSyntax_bracketedShell: "Mötərizəli əmr örtüyü üslublu yer tutucu",
+    sqlVariableSyntax_bracketedShellDescription: "Mötərizəli əmr örtüyü üslublu yer tutucuları əvəz etmək üçün dəyər soruş; mötərizələr əvəzetmə zamanı çıxarılır.",
     sqlVariableSyntax_mybatis: "MyBatis üslublu yer tutucu",
     sqlVariableSyntax_mybatisDescription: "MyBatis üslublu yer tutucuları əvəz etmək üçün dəyər soruş.",
     sqlVariableSyntax_sqlserver: "SQL Server üslublu yer tutucu",

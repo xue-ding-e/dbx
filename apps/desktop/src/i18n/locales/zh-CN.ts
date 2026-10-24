@@ -10221,6 +10221,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "为命名占位符提示输入替换值。",
     sqlVariableSyntax_shell: "Shell 风格占位符",
     sqlVariableSyntax_shellDescription: "为 Shell 风格占位符提示输入替换值。",
+    sqlVariableSyntax_bracketedShell: "方括号 Shell 占位符",
+    sqlVariableSyntax_bracketedShellDescription: "为方括号 Shell 占位符提示输入替换值，替换时移除方括号。",
     sqlVariableSyntax_mybatis: "MyBatis 风格占位符",
     sqlVariableSyntax_mybatisDescription: "为 MyBatis 风格占位符提示输入替换值。",
     sqlVariableSyntax_sqlserver: "SQL Server 风格占位符",

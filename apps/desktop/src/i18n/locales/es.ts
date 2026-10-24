@@ -9048,6 +9048,8 @@ export default withEnglishFallback({
     sqlVariableSyntax_namedDescription: "Solicita un valor para sustituir los marcadores con nombre.",
     sqlVariableSyntax_shell: "Marcador estilo shell",
     sqlVariableSyntax_shellDescription: "Solicita un valor para sustituir los marcadores de estilo shell.",
+    sqlVariableSyntax_bracketedShell: "Marcador de estilo shell entre corchetes",
+    sqlVariableSyntax_bracketedShellDescription: "Solicita un valor para sustituir los marcadores de estilo shell entre corchetes; los corchetes se eliminan al sustituir.",
     sqlVariableSyntax_mybatis: "Marcador estilo MyBatis",
     sqlVariableSyntax_mybatisDescription: "Solicita un valor para sustituir los marcadores de estilo MyBatis.",
     sqlVariableSyntax_sqlserver: "Marcador estilo SQL Server",

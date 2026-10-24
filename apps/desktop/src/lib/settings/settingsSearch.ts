@@ -148,6 +148,9 @@ export const SETTINGS_SEARCH_DEFINITIONS: readonly SettingsSearchDefinition[] = 
   { id: "editor-execute-mode", category: "editor", titleKey: "settings.executeMode", targetId: "editor", keywordKeys: ["settings.executeModeAll", "settings.executeModeCurrent"] },
   { id: "editor-default-transaction-mode", category: "editor", titleKey: "settings.defaultTransactionMode", descriptionKey: "settings.defaultTransactionModeDescription", targetId: "editor", keywordKeys: ["settings.defaultTransactionModeAuto", "settings.defaultTransactionModeManual"] },
   { id: "editor-execute-all-on-blank-line", category: "editor", titleKey: "settings.executeAllOnBlankLine", descriptionKey: "settings.executeAllOnBlankLineDescription", targetId: "editor" },
+  // 全局超时入口（#13233）：标题/描述复用连接对话框已有的 connection.* 文案，避免 14 个 locale 各补一份同义 key。
+  { id: "editor-global-connect-timeout", category: "editor", titleKey: "connection.connectTimeout", descriptionKey: "connection.globalConnectTimeoutHint", targetId: "editor" },
+  { id: "editor-global-query-timeout", category: "editor", titleKey: "connection.queryTimeout", descriptionKey: "connection.globalQueryTimeoutHint", targetId: "editor" },
   { id: "editor-execution-target", category: "editor", titleKey: "settings.showExecutionTargetPicker", descriptionKey: "settings.showExecutionTargetPickerDescription", targetId: "editor" },
   { id: "editor-run-buttons", category: "editor", titleKey: "settings.showStatementRunButtons", descriptionKey: "settings.showStatementRunButtonsDescription", targetId: "editor" },
   { id: "editor-locate-cursor-on-gutter-execute", category: "editor", titleKey: "settings.locateCursorOnGutterExecute", descriptionKey: "settings.locateCursorOnGutterExecuteDescription", targetId: "editor" },
