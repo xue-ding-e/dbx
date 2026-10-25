@@ -9152,6 +9152,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "File Parquet สำหรับ DuckDB",
     parquetOnlyDuckdb: "การนำเข้า Parquet รองรับเฉพาะการเชื่อมต่อ DuckDB",
+    formatNb3: "ไฟล์สำรอง Navicat",
+    formatNb3Description: "กู้คืนไฟล์ .nb3 ลงในฐานข้อมูลนี้",
     previewRows: "ตัวอย่าง Rows",
     delimiter: "ตัวคั่น",
     decimalSeparator: "ตัวคั่นทศนิยม",

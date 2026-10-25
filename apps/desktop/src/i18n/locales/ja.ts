@@ -7343,6 +7343,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "DuckDB 用の Parquet ファイル",
     parquetOnlyDuckdb: "Parquet のインポートは DuckDB 接続でのみサポートされています",
+    formatNb3: "Navicat バックアップ",
+    formatNb3Description: ".nb3 アーカイブをこのデータベースに復元します",
     previewRows: "Preview rows",
     delimiter: "Delimiter",
     encoding: "文字コード",

@@ -6462,6 +6462,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "DuckDB 的 Parquet 檔案",
     parquetOnlyDuckdb: "Parquet 匯入僅支援 DuckDB 連線",
+    formatNb3: "Navicat 備份",
+    formatNb3Description: "將 .nb3 封存檔還原到此資料庫",
     previewRows: "預覽列數",
     delimiter: "分隔符",
     encoding: "檔案編碼",

@@ -7335,6 +7335,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "Arquivos Parquet para DuckDB",
     parquetOnlyDuckdb: "A importação de Parquet é compatível apenas com conexões DuckDB",
+    formatNb3: "Backup do Navicat",
+    formatNb3Description: "Restaura um arquivo .nb3 neste banco de dados",
     previewRows: "Preview rows",
     delimiter: "Delimiter",
     encoding: "Codificação",

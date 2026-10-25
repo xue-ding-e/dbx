@@ -7214,6 +7214,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "File Parquet untuk DuckDB",
     parquetOnlyDuckdb: "Impor Parquet hanya didukung untuk koneksi DuckDB",
+    formatNb3: "Cadangan Navicat",
+    formatNb3Description: "Pulihkan arsip .nb3 ke database ini",
     previewRows: "Pratinjau baris",
     delimiter: "Pemisah",
     decimalSeparator: "Pemisah desimal",

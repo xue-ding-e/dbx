@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, FileCode, FileJson, FileSpreadsheet, FileText, FileUp, Loader2, Maximize2, Minimize2, Plus, RefreshCw, Square, Trash2, Upload, X } from "@lucide/vue";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, DatabaseBackup, FileCode, FileJson, FileSpreadsheet, FileText, FileUp, Loader2, Maximize2, Minimize2, Plus, RefreshCw, Square, Trash2, Upload, X } from "@lucide/vue";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { ensureReadOnlyWriteAccess } from "@/lib/database/readOnlyWriteAccess";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -78,6 +78,7 @@ const props = defineProps<{
 
 type ImportTargetMode = "existing" | "create";
 type ImportSource = string | File;
+type SourceFormatCard = { value: api.TableImportSourceFormat | typeof NAVICAT_BACKUP_FORMAT; icon: any; labelKey: string; descriptionKey: string };
 
 export interface GeneratedColumnItem {
   id: string;
@@ -104,6 +105,9 @@ interface BatchImportTask {
 }
 
 const SKIP_VALUE = "__skip__";
+const NAVICAT_BACKUP_FORMAT = "nb3";
+const NAVICAT_BACKUP_FILTER = { name: "Navicat backup", extensions: [NAVICAT_BACKUP_FORMAT] };
+const NAVICAT_BACKUP_DATABASE_TYPES = new Set<DatabaseType>(["mysql", "postgres"]);
 const TARGET_COLUMNS_TIMEOUT_MS = 15000;
 const TARGET_COLUMNS_TIMEOUT = Symbol("target-columns-timeout");
 
@@ -152,6 +156,7 @@ const progress = ref<api.TableImportProgress | null>(null);
 const errorMessage = ref("");
 const wizardStep = ref<TableImportWizardStep>("source");
 const fileInput = ref<HTMLInputElement | null>(null);
+const navicatBackupInput = ref<HTMLInputElement | null>(null);
 const delimiter = ref(",");
 const decimalSeparator = ref<"." | ",">(".");
 const textEncoding = ref<api.TableImportTextEncoding>("auto");
@@ -198,7 +203,11 @@ const selectedConnection = computed(() => (props.prefillConnectionId ? store.get
 const structureDatabaseType = computed(() => tableStructureDatabaseTypeForConnection(selectedConnection.value));
 const supportsDuckDbParquetImport = computed(() => structureDatabaseType.value === "duckdb");
 const availableFormatOptions = computed(() => formatOptions.filter((format) => format.value !== "parquet" || supportsDuckDbParquetImport.value));
-const importFileExtensions = computed(() => ["csv", "tsv", "txt", "json", "xlsx", "xlsm", "xls", "sql", ...(supportsDuckDbParquetImport.value ? ["parquet"] : [])]);
+// A Navicat `.nb3` archive restores a whole database, so it is only offered from the
+// database-level entry of the connection types the archive reader supports.
+const supportsNavicatBackupImport = computed(() => !props.prefillTable && !!selectedConnection.value && NAVICAT_BACKUP_DATABASE_TYPES.has(selectedConnection.value.db_type));
+const sourceFormatCards = computed<SourceFormatCard[]>(() => [...availableFormatOptions.value, ...(supportsNavicatBackupImport.value ? [{ value: NAVICAT_BACKUP_FORMAT, icon: DatabaseBackup, labelKey: "tableImport.formatNb3", descriptionKey: "tableImport.formatNb3Description" } as const] : [])]);
+const importFileExtensions = computed(() => ["csv", "tsv", "txt", "json", "xlsx", "xlsm", "xls", "sql", ...(supportsDuckDbParquetImport.value ? ["parquet"] : []), ...(supportsNavicatBackupImport.value ? [NAVICAT_BACKUP_FORMAT] : [])]);
 // Mirrors the conflict SQL dispatch in transfer.rs. Other dialects must keep
 // ordinary INSERT/error behavior instead of approximating an upsert.
 const IMPORT_CONFLICT_DATABASE_TYPES = new Set<DatabaseType>(["postgres", "kingbase", "opengauss", "sqlite", "cloudflare-d1", "duckdb", "mysql", "doris", "starrocks"]);
@@ -1017,12 +1026,11 @@ async function selectFile() {
       { name: "Excel", extensions: ["xlsx", "xlsm", "xls"] },
       { name: "SQL", extensions: ["sql"] },
       ...(supportsDuckDbParquetImport.value ? [{ name: "Parquet", extensions: ["parquet"] }] : []),
+      ...(supportsNavicatBackupImport.value ? [NAVICAT_BACKUP_FILTER] : []),
     ],
   });
   if (!selected) return;
-  const sources = Array.isArray(selected) ? selected : [selected];
-  if (targetMode.value === "create") await prepareBatchSources(sources);
-  else assignSelectedSource(sources[0]);
+  await applySelectedSources(Array.isArray(selected) ? selected : [selected]);
 }
 
 async function handleFileInputChange(event: Event) {
@@ -1030,8 +1038,65 @@ async function handleFileInputChange(event: Event) {
   const files = Array.from(input.files || []);
   input.value = "";
   if (!files.length || running.value) return;
-  if (targetMode.value === "create") await prepareBatchSources(files);
-  else assignSelectedSource(files[0]);
+  await applySelectedSources(files);
+}
+
+async function applySelectedSources(sources: ImportSource[]) {
+  // A Navicat archive restores a whole database, so only a single-file selection may
+  // take that path; a mixed batch must stay in the table-import flow for the other files.
+  const navicatBackup = supportsNavicatBackupImport.value && sources.length === 1 ? sources.find((source) => sourceName(source).toLowerCase().endsWith(`.${NAVICAT_BACKUP_FORMAT}`)) : undefined;
+  if (navicatBackup) await openNavicatBackupRestore(navicatBackup);
+  else if (targetMode.value === "create") await prepareBatchSources(sources);
+  else assignSelectedSource(sources[0]!);
+}
+
+function selectFormatCard(format: SourceFormatCard["value"]) {
+  if (format === NAVICAT_BACKUP_FORMAT) void selectNavicatBackupFile();
+  else sourceFormat.value = format;
+}
+
+async function selectNavicatBackupFile() {
+  if (!isTauriRuntime()) {
+    navicatBackupInput.value?.click();
+    return;
+  }
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selected = await open({ multiple: false, filters: [NAVICAT_BACKUP_FILTER] });
+  if (typeof selected === "string") await openNavicatBackupRestore(selected);
+}
+
+async function handleNavicatBackupInputChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (file && !running.value) await openNavicatBackupRestore(file);
+}
+
+/**
+ * Navicat archives hold whole databases (DDL, rows, routines, triggers), so they are
+ * restored by the SQL file executor, prefilled with this dialog's target database.
+ */
+async function openNavicatBackupRestore(source: ImportSource) {
+  const connectionId = props.prefillConnectionId;
+  if (!connectionId) return;
+  const target = { connectionId, database: props.prefillDatabase || "", ...(props.prefillSchema ? { schema: props.prefillSchema } : {}) };
+  if (typeof source === "string") {
+    store.sqlFileSource = { ...target, filePath: source };
+  } else {
+    // The web SQL file executor runs uploaded files, so upload the archive before handing it over.
+    loadingPreview.value = true;
+    errorMessage.value = "";
+    try {
+      const { previewSqlFile } = await import("@/lib/backend/http");
+      store.sqlFileSource = { ...target, preview: await previewSqlFile(source) };
+    } catch (e: any) {
+      errorMessage.value = String(e?.message || e);
+      return;
+    } finally {
+      loadingPreview.value = false;
+    }
+  }
+  open.value = false;
 }
 
 function updateMapping(sourceColumn: string, value: any) {
@@ -1631,6 +1696,7 @@ watch(rawProgressPercent, (percent) => {
       <div class="min-h-0 flex-1 space-y-4 overflow-y-auto py-2 pr-1">
         <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <input ref="fileInput" type="file" :accept="importFileExtensions.map((extension) => `.${extension}`).join(',')" :multiple="targetMode === 'create'" class="hidden" @change="handleFileInputChange" />
+          <input v-if="supportsNavicatBackupImport" ref="navicatBackupInput" data-testid="table-import-nb3-input" type="file" :accept="`.${NAVICAT_BACKUP_FORMAT}`" class="hidden" @change="handleNavicatBackupInputChange" />
           <div class="flex h-10 min-w-0 items-center gap-2 rounded-md border bg-muted/20 px-3">
             <span class="shrink-0 text-xs text-muted-foreground">{{ t("tableImport.target") }}</span>
             <span class="min-w-0 truncate text-sm font-medium">
@@ -1710,11 +1776,20 @@ watch(rawProgressPercent, (percent) => {
             data-testid="table-import-format-options"
             class="grid grid-cols-2 gap-2 sm:grid-cols-3"
             :class="{
-              'lg:grid-cols-6': availableFormatOptions.length === 6,
-              'lg:grid-cols-7': availableFormatOptions.length === 7,
+              'lg:grid-cols-6': sourceFormatCards.length === 6,
+              'lg:grid-cols-7': sourceFormatCards.length === 7,
             }"
           >
-            <button v-for="format in availableFormatOptions" :key="format.value" type="button" class="min-h-20 rounded-md border px-3 py-2 text-left" :class="sourceFormat === format.value ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'" @click="sourceFormat = format.value">
+            <button
+              v-for="format in sourceFormatCards"
+              :key="format.value"
+              type="button"
+              :data-format="format.value"
+              class="min-h-20 rounded-md border px-3 py-2 text-left"
+              :class="sourceFormat === format.value ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'"
+              :disabled="loadingPreview"
+              @click="selectFormatCard(format.value)"
+            >
               <component :is="format.icon" class="mb-2 h-4 w-4 text-muted-foreground" />
               <div class="text-xs font-medium">{{ t(format.labelKey) }}</div>
               <div class="mt-1 text-[11px] leading-snug text-muted-foreground">{{ t(format.descriptionKey) }}</div>

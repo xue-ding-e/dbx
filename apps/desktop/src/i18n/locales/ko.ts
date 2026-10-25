@@ -7366,6 +7366,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "DuckDB용 Parquet 파일",
     parquetOnlyDuckdb: "Parquet 가져오기는 DuckDB 연결에서만 지원됩니다",
+    formatNb3: "Navicat 백업",
+    formatNb3Description: ".nb3 아카이브를 이 데이터베이스로 복원합니다",
     previewRows: "미리보기 행",
     delimiter: "구분자",
     encoding: "인코딩",

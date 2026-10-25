@@ -6542,6 +6542,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "DuckDB üçün Parquet faylları",
     parquetOnlyDuckdb: "Parquet idxalı yalnız DuckDB bağlantıları üçün dəstəklənir",
+    formatNb3: "Navicat ehtiyat nüsxəsi",
+    formatNb3Description: ".nb3 arxivini bu verilənlər bazasına bərpa edin",
     previewRows: "Sətirlərin önbaxışı",
     delimiter: "Ayırıcı",
     encoding: "Kodlaşdırma",

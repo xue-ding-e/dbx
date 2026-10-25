@@ -8810,6 +8810,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "Файлы Parquet для DuckDB",
     parquetOnlyDuckdb: "Импорт Parquet поддерживается только для подключений DuckDB",
+    formatNb3: "Резервная копия Navicat",
+    formatNb3Description: "Восстановить архив .nb3 в эту базу данных",
     previewRows: "Строк предпросмотра",
     delimiter: "Разделитель",
     decimalSeparator: "Десятичный разделитель",

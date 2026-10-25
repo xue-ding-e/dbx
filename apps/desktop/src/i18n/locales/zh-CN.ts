@@ -8514,6 +8514,8 @@ export default withEnglishFallback({
     formatParquet: "Parquet",
     formatParquetDescription: "DuckDB 的 Parquet 文件",
     parquetOnlyDuckdb: "Parquet 导入仅支持 DuckDB 连接",
+    formatNb3: "Navicat 备份",
+    formatNb3Description: "将 .nb3 归档恢复到此数据库",
     previewRows: "预览行数",
     delimiter: "分隔符",
     decimalSeparator: "小数分隔符",
