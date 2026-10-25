@@ -190,8 +190,10 @@ pub fn streamable_http_router(
     allowed_hosts: Vec<String>,
     web_mode: bool,
 ) -> Result<Router, String> {
+    // HTTP is a remote tool boundary even on loopback or with a local backend.
+    // Keep local filesystem import and desktop-only tools confined to stdio.
     let principals =
-        PrincipalStates::new(DbxMcpServer::with_runtime_options(backend.clone(), McpScope::from_env(), web_mode));
+        PrincipalStates::new(DbxMcpServer::with_runtime_options(backend.clone(), McpScope::from_env(), true));
     build_streamable_http_router(
         backend,
         path,
@@ -259,7 +261,9 @@ fn build_streamable_http_router(
                 template: DbxMcpServer::with_shared_state(
                     server_backend.clone(),
                     scope.clone(),
-                    web_mode,
+                    // Tool exposure is independent of the hosting mode below:
+                    // standalone HTTP must retain its rmcp Host checks too.
+                    true,
                     plugin_tools_mode,
                     McpSessionStore::new(),
                     PendingSalesforceWrites::new(SALESFORCE_WRITE_CONFIRM_TTL),
@@ -335,7 +339,7 @@ pub async fn serve_streamable_http_on_listener(
 ) -> io::Result<()> {
     let session_manager = Arc::new(http_session_manager());
     let principals =
-        PrincipalStates::new(DbxMcpServer::with_runtime_options(backend.clone(), McpScope::from_env(), false));
+        PrincipalStates::new(DbxMcpServer::with_runtime_options(backend.clone(), McpScope::from_env(), true));
     let mcp_router = build_streamable_http_router(
         backend.clone(),
         &config.path,
@@ -598,7 +602,7 @@ mod tests {
         let address = listener.local_addr().unwrap();
         let cancellation = CancellationToken::new();
         let principals =
-            PrincipalStates::new(DbxMcpServer::with_runtime_options(backend.clone(), McpScope::from_env(), false));
+            PrincipalStates::new(DbxMcpServer::with_runtime_options(backend.clone(), McpScope::from_env(), true));
         let router = build_streamable_http_router(
             backend.clone(),
             "/mcp",
@@ -629,6 +633,52 @@ mod tests {
         let client = ().serve(transport).await.unwrap();
         let session_id = begin_active_transaction(&client).await;
         (client, session_id)
+    }
+
+    async fn assert_http_local_tools_unavailable(client: &rmcp::service::RunningService<rmcp::RoleClient, ()>) {
+        let tools = client.list_all_tools().await.expect("HTTP tools/list");
+        for name in ["dbx_import_connections", "dbx_open_table", "dbx_execute_and_show"] {
+            assert!(tools.iter().all(|tool| tool.name.as_ref() != name), "HTTP exposed local-only tool {name}");
+        }
+        // A hidden listing is insufficient: direct calls must be rejected by
+        // routing, not accepted and turned into a local file-read error.
+        let called = client
+            .call_tool(
+                CallToolRequestParams::new("dbx_import_connections").with_arguments(
+                    serde_json::from_value(json!({
+                        "file_path": "synthetic-must-not-read.json",
+                        "confirmed": false
+                    }))
+                    .unwrap(),
+                ),
+            )
+            .await;
+        assert!(called.is_err(), "HTTP accepted the local import route: {called:?}");
+    }
+
+    #[tokio::test]
+    async fn standalone_http_never_exposes_local_import_or_desktop_tools() {
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let auth = HttpAuth::new_with_hosts(Some("http-test-token".into()), [address.to_string()], [], false).unwrap();
+        let cancellation = CancellationToken::new();
+        let task = tokio::spawn(serve_streamable_http_on_listener(
+            Arc::new(HttpTestBackend::new()),
+            HttpRuntimeConfig::new(address, "/mcp".into(), auth, vec![address.to_string()]),
+            cancellation.clone(),
+            listener,
+        ));
+        let client = ()
+            .serve(StreamableHttpClientTransport::from_config(
+                StreamableHttpClientTransportConfig::with_uri(format!("http://{address}/mcp"))
+                    .auth_header("http-test-token"),
+            ))
+            .await
+            .unwrap();
+        assert_http_local_tools_unavailable(&client).await;
+        let _ = client.cancel().await;
+        cancellation.cancel();
+        task.await.unwrap().unwrap();
     }
 
     async fn begin_active_transaction(client: &rmcp::service::RunningService<rmcp::RoleClient, ()>) -> String {
@@ -843,6 +893,7 @@ mod tests {
         assert!(!modern_tools.is_empty());
 
         for (client, is_modern) in [(&legacy, false), (&modern, true)] {
+            assert_http_local_tools_unavailable(client).await;
             for (method, result) in [
                 ("tools/list", serde_json::to_value(client.list_tools(None).await.unwrap()).unwrap()),
                 ("resources/list", serde_json::to_value(client.list_resources(None).await.unwrap()).unwrap()),
