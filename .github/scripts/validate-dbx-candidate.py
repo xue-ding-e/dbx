@@ -406,7 +406,9 @@ def validate_result(content, count):
 
 def main():
     global root, output, deadline, command_records, cancellation
-    require(len(sys.argv) == 3 and re.fullmatch(r"[a-f0-9]{40}", sys.argv[1]), "Exact validation SHA and output directory required")
+    require(len(sys.argv) in (3, 4) and re.fullmatch(r"[a-f0-9]{40}", sys.argv[1]), "Exact validation SHA and output directory required")
+    preflight_only = len(sys.argv) == 4
+    require(not preflight_only or sys.argv[3] == "--preflight", "Unknown validation mode")
     root = Path(__file__).resolve().parents[2]
     output = Path(sys.argv[2]).resolve()
     require(not output.is_relative_to(root), "Logs/profiles/targets must be outside source checkout")
@@ -469,6 +471,9 @@ with tempfile.TemporaryDirectory(dir=os.environ["HOME"]) as directory:
 """
     checked(network_fixture(["python3", "-c", probe, str(os.geteuid())]),
             "network-isolation", 30, isolated_env(profile_base / "probe"))
+    if preflight_only:
+        (output / "preflight-only.json").write_text(json.dumps({"scope": "source/resource/isolated fixture qualification only; NOT test acceptance", "validation_sha": sys.argv[1]}))
+        return
     build_env = os.environ.copy()
     build_env.update(CARGO_BUILD_JOBS="1", CARGO_INCREMENTAL="0", CARGO_PROFILE_DEV_DEBUG="0",
                      CARGO_PROFILE_TEST_DEBUG="0", RUST_MIN_STACK="8388608",

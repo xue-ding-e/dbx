@@ -44,10 +44,15 @@ jobs:
           spec.loader.exec_module(driver)
           driver.admit(os.environ['RUNNER_TEMP'])
           PY
-      - name: Read-only native tool and library qualification
-        timeout-minutes: 1
+      - name: Qualify unprivileged fixture before dependency installation
+        timeout-minutes: 2
+        run: python3 .github/scripts/validate-dbx-candidate.py "$EXPECTED_SHA" "$RUNNER_TEMP/dbx-preflight-logs" --preflight
+      - name: Install minimal official native compile prerequisites
+        timeout-minutes: 5
+        # Only this disposable hosted VM; never namespace/security policy edits.
         run: |
-          command -v unshare ip setpriv pkg-config
+          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends build-essential cmake clang libssl-dev libdbus-1-dev pkg-config
           pkg-config --exists openssl dbus-1
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: actions/setup-node@v7
@@ -64,6 +69,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dbx-targeted-validation-${{ github.run_id }}
-          path: ${{ runner.temp }}/dbx-validation-logs/
+          path: |
+            ${{ runner.temp }}/dbx-validation-logs/
+            ${{ runner.temp }}/dbx-preflight-logs/
           if-no-files-found: warn
           retention-days: 7
