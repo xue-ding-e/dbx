@@ -12611,7 +12611,7 @@ fn oracle_list_objects_sql_for_owner(owner: &str, type_owner: &str) -> String {
         "SELECT o.object_name, CASE o.object_type WHEN 'PACKAGE BODY' THEN 'PACKAGE_BODY' WHEN 'TYPE BODY' THEN 'TYPE_BODY' ELSE o.object_type END AS object_type, o.owner, \
          i.table_owner AS parent_schema, i.table_name AS parent_name \
          FROM all_objects o LEFT JOIN all_indexes i ON o.object_type = 'INDEX' AND i.owner = o.owner AND i.index_name = o.object_name \
-         WHERE ((o.owner = {owner} AND o.object_type IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX')) \
+         WHERE ((o.owner = {owner} AND o.object_type IN ('TABLE', 'VIEW', 'PROCEDURE', 'FUNCTION', 'TRIGGER', 'SEQUENCE', 'PACKAGE', 'PACKAGE BODY', 'INDEX')) \
             OR (o.owner = {type_owner} AND o.object_type IN ('TYPE', 'TYPE BODY'))) \
          AND (o.object_type <> 'INDEX' OR i.generated = 'N' OR i.generated IS NULL) \
          ORDER BY CASE o.object_type WHEN 'TABLE' THEN 0 WHEN 'VIEW' THEN 1 WHEN 'PROCEDURE' THEN 2 WHEN 'FUNCTION' THEN 3 WHEN 'SEQUENCE' THEN 4 WHEN 'PACKAGE' THEN 5 WHEN 'PACKAGE BODY' THEN 6 ELSE 7 END, o.object_name, o.object_type"
@@ -13850,6 +13850,37 @@ mod object_source_tests {
         assert!(sql.contains("owner = 'HR'"));
         assert!(sql.contains("'INDEX'"));
         assert!(sql.contains("i.table_owner AS parent_schema, i.table_name AS parent_name"));
+    }
+
+    #[test]
+    fn oracle_object_list_returns_triggers_only_from_the_selected_owner() {
+        // Execute the dictionary query against fixture rows so a missing object
+        // kind or a widened owner predicate cannot silently empty the transfer list.
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE all_objects (owner TEXT, object_name TEXT, object_type TEXT);
+             CREATE TABLE all_indexes (owner TEXT, index_name TEXT, table_owner TEXT, table_name TEXT, generated TEXT);
+             INSERT INTO all_objects VALUES
+               ('APP', 'QR_CODE_MAIL_TEMPLATE', 'TABLE'),
+               ('APP', 'SEQ_QR_CODE_MAIL_TEMPLATE', 'SEQUENCE'),
+               ('APP', 'TRIGGER_QR_CODE_MAIL_TEMPLATE', 'TRIGGER'),
+               ('OTHER', 'TRIGGER_QR_CODE_MAIL_TEMPLATE', 'TRIGGER');",
+        )
+        .unwrap();
+
+        for owner in ["APP", "OTHER"] {
+            let sql = format!(
+                "SELECT object_name, owner FROM ({}) WHERE object_type = 'TRIGGER'",
+                oracle_list_objects_sql(owner)
+            );
+            let mut statement = conn.prepare(&sql).unwrap();
+            let triggers = statement
+                .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(triggers, vec![("TRIGGER_QR_CODE_MAIL_TEMPLATE".to_string(), owner.to_string())]);
+        }
     }
 
     #[test]
