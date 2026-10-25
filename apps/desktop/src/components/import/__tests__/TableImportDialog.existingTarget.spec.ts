@@ -537,7 +537,7 @@ describe("TableImportDialog existing targets", () => {
         index_type: "UNIQUE KEY",
       },
     ]);
-    mocks.previewTableImportFile.mockResolvedValueOnce({
+    mocks.previewTableImportFile.mockResolvedValue({
       fileName: "multi.xlsx",
       filePath: "/tmp/multi.xlsx",
       fileType: "excel",
@@ -551,6 +551,8 @@ describe("TableImportDialog existing targets", () => {
     i18n.global.locale.value = "en";
     await mountDialog({ connectionId: "doris-1", database: "analytics" });
     await selectWorkbook();
+    await vi.waitFor(() => expect(mocks.previewTableImportFile.mock.calls.at(-1)?.[1]).toMatchObject({ parseOptions: { sheetName: "Data" } }));
+    await flushAsyncUpdates();
     buttonContaining("Existing table")?.click();
     await flushAsyncUpdates();
     await selectExistingTarget("existing_target");
@@ -598,6 +600,8 @@ describe("TableImportDialog existing targets", () => {
     i18n.global.locale.value = "en";
     await mountDialog({ connectionId: "doris-1", database: "analytics" });
     await selectWorkbook();
+    await vi.waitFor(() => expect(mocks.previewTableImportFile.mock.calls.at(-1)?.[1]).toMatchObject({ parseOptions: { sheetName: "Data" } }));
+    await flushAsyncUpdates();
     buttonContaining("Existing table")?.click();
     await flushAsyncUpdates();
     await selectExistingTarget("existing_target");
