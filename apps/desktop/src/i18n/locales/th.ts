@@ -11506,6 +11506,8 @@ export default withEnglishFallback({
     linuxFloatingFrame: "เอฟเฟกต์ความโปร่งใสของหน้าต่าง",
     linuxFloatingFrameDescription: "เปิดใช้ขอบโปร่งใสโดยอัตโนมัติบนเดสก์ท็อปที่รองรับ หากหน้าต่างกะพริบสามารถปิดได้ มีผลหลังนำไปใช้และรีสตาร์ท DBX การตั้งค่าตัวแปรสภาพแวดล้อมมีลำดับความสำคัญ",
     shortcutExecuteAllSql: "เรียกใช้ SQL ทั้งหมด",
+    showConnectionGroupPath: "แสดงพาธกลุ่มแบบเต็มของคอนเนกชันสำหรับคิวรี",
+    showConnectionGroupPathDescription: "เมื่อเปิดใช้ ตัวเลือกคอนเนกชันที่มุมขวาบนของหน้าคิวรีจะแสดงพาธกลุ่มแบบเต็มก่อนชื่อคอนเนกชัน; เมื่อปิดใช้จะแสดงเฉพาะชื่อคอนเนกชันเท่านั้น",
     deepLinkConnectionConfirmMode: "วิธียืนยันเมื่อเปิดการเชื่อมต่อผ่านลิงก์",
     deepLinkConnectionConfirmModeDescription: "เลือกว่าลิงก์การเชื่อมต่อใดจะบันทึกโดยตรงโดยไม่ต้องรอการยืนยันในป๊อปอัป",
     deepLinkConnectionConfirmModeAlways: "ต้องยืนยันทั้งหมด",
