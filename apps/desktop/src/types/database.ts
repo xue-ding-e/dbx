@@ -2121,6 +2121,7 @@ export type TreeNodeType =
   | "oracle-db-link"
   | "group-jobs"
   | "group-packages"
+  | "group-package-bodies"
   | "group-partitions"
   | "group-extensions"
   | "group-event-triggers"
