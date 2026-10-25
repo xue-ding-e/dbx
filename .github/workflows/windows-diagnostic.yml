@@ -44,11 +44,11 @@ jobs:
           spec.loader.exec_module(driver)
           driver.admit(os.environ['RUNNER_TEMP'])
           PY
-      - name: Install only native build prerequisites; no source/mirror/security rewrites
-        timeout-minutes: 5
+      - name: Read-only native tool and library qualification
+        timeout-minutes: 1
         run: |
-          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends libssl-dev libdbus-1-dev pkg-config
+          command -v unshare ip setpriv pkg-config
+          pkg-config --exists openssl dbus-1
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: actions/setup-node@v7
         with:

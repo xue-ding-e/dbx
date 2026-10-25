@@ -437,7 +437,38 @@ def main():
     profile_base = output.parent / (output.name + "-synthetic-profiles")
     profile_base.mkdir(mode=0o700)
     # Probe the exact test isolation boundary before expensive compilation.
-    checked(network_fixture(["python3", "-c", "import os,pathlib,socket; assert os.geteuid() != 0; assert {name for _,name in socket.if_nameindex()} == {'lo'}; status=pathlib.Path('/proc/self/status').read_text(); assert 'CapEff:\t0000000000000000' in status; assert 'NoNewPrivs:\t1' in status"]), "network-isolation", 30, isolated_env(profile_base / "probe"))
+    probe = r"""
+import os, pathlib, socket, sqlite3, sys, tempfile
+if os.geteuid() != int(sys.argv[1]) or os.geteuid() == 0:
+    raise RuntimeError("Fixture UID mapping changed")
+if {name for _, name in socket.if_nameindex()} != {"lo"}:
+    raise RuntimeError("Fixture network is not loopback-only")
+status = pathlib.Path("/proc/self/status").read_text()
+if "CapEff:\t0000000000000000" not in status or "NoNewPrivs:\t1" not in status:
+    raise RuntimeError("Fixture privilege boundary is missing")
+for family, address in [(socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")]:
+    with socket.socket(family) as listener, socket.socket(family) as client:
+        listener.settimeout(2)
+        client.settimeout(2)
+        listener.bind((address, 0))
+        listener.listen(1)
+        client.connect(listener.getsockname())
+        peer, _ = listener.accept()
+        with peer:
+            peer.settimeout(2)
+            client.sendall(b"synthetic-loopback")
+            if peer.recv(64) != b"synthetic-loopback":
+                raise RuntimeError("Fixture loopback transport failed")
+with tempfile.TemporaryDirectory(dir=os.environ["HOME"]) as directory:
+    with sqlite3.connect(str(pathlib.Path(directory) / "synthetic.sqlite")) as db:
+        db.execute("create table synthetic(value integer)")
+        db.execute("insert into synthetic values (1)")
+        db.rollback()
+        if db.execute("select count(*) from synthetic").fetchone() != (0,):
+            raise RuntimeError("Fixture SQLite rollback failed")
+"""
+    checked(network_fixture(["python3", "-c", probe, str(os.geteuid())]),
+            "network-isolation", 30, isolated_env(profile_base / "probe"))
     build_env = os.environ.copy()
     build_env.update(CARGO_BUILD_JOBS="1", CARGO_INCREMENTAL="0", CARGO_PROFILE_DEV_DEBUG="0",
                      CARGO_PROFILE_TEST_DEBUG="0", RUST_MIN_STACK="8388608",
