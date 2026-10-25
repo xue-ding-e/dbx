@@ -1,56 +1,76 @@
-name: Plugin development host
+# Validation-branch overlay; never merge this over the product workflow.
+name: DBX bounded candidate validation
 on:
-  pull_request:
-    paths:
-      - '.gitattributes'
-      - 'plugins/sdk/cli/**'
-      - 'plugins/sdk/dev-host/**'
-      - 'packages/plugin-cli/**'
-      - 'scripts/verify-plugin-cli-package.mjs'
-      - '.github/workflows/plugin-dev-host.yml'
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed validation commit SHA
+        required: true
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: dbx-manual-validation-exclusive
+  cancel-in-progress: false
 jobs:
-  checks:
+  validate:
+    if: github.repository == 'xue-ding-e/dbx'
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      VALIDATION_LOGS: ${{ runner.temp }}/dbx-validation-logs
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
         with:
-          node-version: '22'
-      - run: npm ci --prefix plugins/sdk/dev-host
-      - run: npm run lint --prefix plugins/sdk/dev-host
-      - run: npm run fmt:check --prefix plugins/sdk/dev-host
-  test:
-    needs: checks
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15, windows-2022]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: false
-      - run: npm ci --prefix plugins/sdk/dev-host
-      - run: npm test --prefix plugins/sdk/dev-host
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+      - name: Pin workflow and source; static guard tests and fail-closed admission
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, re, subprocess
+          sha = os.environ['EXPECTED_SHA']
+          if not re.fullmatch('[0-9a-f]{40}', sha) or sha != os.environ['GITHUB_SHA']:
+              raise SystemExit('Require exact dispatched workflow/source SHA')
+          if subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip() != sha:
+              raise SystemExit('Wrong checkout')
+          PY
+          python3 .github/scripts/test-validate-dbx-candidate.py
+          python3 - <<'PY'
+          import importlib.util, os
+          spec = importlib.util.spec_from_file_location('driver', '.github/scripts/validate-dbx-candidate.py')
+          driver = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(driver)
+          driver.admit(os.environ['RUNNER_TEMP'])
+          PY
+      - name: Qualify unprivileged fixture before dependency installation
+        timeout-minutes: 2
+        run: python3 .github/scripts/validate-dbx-candidate.py "$EXPECTED_SHA" "$RUNNER_TEMP/dbx-preflight-logs" --preflight
+      - name: Install minimal official native compile prerequisites
         timeout-minutes: 5
-      - uses: taiki-e/install-action@a3324fb0eb94b8230ec968c3389c1b7929fc2f3b
+        # Only this disposable hosted VM; never namespace/security policy edits.
+        run: |
+          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends build-essential cmake clang libssl-dev libdbus-1-dev pkg-config
+          pkg-config --exists openssl dbus-1
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: actions/setup-node@v7
         with:
-          tool: cargo-nextest@0.9.137
-      - run: cargo nextest run --locked --manifest-path plugins/sdk/cli/Cargo.toml --no-fail-fast
-      - run: cargo test --doc --locked --manifest-path plugins/sdk/cli/Cargo.toml
-      - run: npm test --prefix packages/plugin-cli
-      - run: node scripts/verify-plugin-cli-package.mjs
-        env:
-          DBX_PLUGIN_CLI_VERIFY_NATIVE: '1'
+          node-version: 22.23.3
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.7
+      - name: Serial compile and isolated synthetic regressions
+        timeout-minutes: 77
+        run: python3 .github/scripts/validate-dbx-candidate.py "$EXPECTED_SHA" "$VALIDATION_LOGS"
+      - name: Upload bounded logs only, never synthetic profiles or build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbx-targeted-validation-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/dbx-validation-logs/
+            ${{ runner.temp }}/dbx-preflight-logs/
+          if-no-files-found: warn
+          retention-days: 7

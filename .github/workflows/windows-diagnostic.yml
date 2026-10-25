@@ -1,76 +1,58 @@
-# Validation-branch overlay; never merge this over the product workflow.
-name: DBX bounded candidate validation
+name: Windows Diagnostic Build
+
 on:
   workflow_dispatch:
     inputs:
-      expected_sha:
-        description: Exact independently reviewed validation commit SHA
+      target_ref:
+        description: "Branch, tag, or SHA to build"
         required: true
+        default: "codex/windows-startup-diagnostics"
+
 permissions:
   contents: read
-concurrency:
-  group: dbx-manual-validation-exclusive
-  cancel-in-progress: false
+
 jobs:
-  validate:
-    if: github.repository == 'xue-ding-e/dbx'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    env:
-      EXPECTED_SHA: ${{ inputs.expected_sha }}
-      VALIDATION_LOGS: ${{ runner.temp }}/dbx-validation-logs
+  build-windows-portable:
+    runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.expected_sha }}
-          persist-credentials: false
-      - name: Pin workflow and source; static guard tests and fail-closed admission
-        timeout-minutes: 2
-        shell: bash
+          ref: ${{ inputs.target_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build Windows executable
+        env:
+          CXXFLAGS: /std:c++17 /EHsc
+        run: pnpm tauri build --target x86_64-pc-windows-msvc --no-bundle --ci
+
+      - name: Package diagnostic portable ZIP
+        shell: pwsh
         run: |
-          python3 - <<'PY'
-          import os, re, subprocess
-          sha = os.environ['EXPECTED_SHA']
-          if not re.fullmatch('[0-9a-f]{40}', sha) or sha != os.environ['GITHUB_SHA']:
-              raise SystemExit('Require exact dispatched workflow/source SHA')
-          if subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip() != sha:
-              raise SystemExit('Wrong checkout')
-          PY
-          python3 .github/scripts/test-validate-dbx-candidate.py
-          python3 - <<'PY'
-          import importlib.util, os
-          spec = importlib.util.spec_from_file_location('driver', '.github/scripts/validate-dbx-candidate.py')
-          driver = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(driver)
-          driver.admit(os.environ['RUNNER_TEMP'])
-          PY
-      - name: Qualify unprivileged fixture before dependency installation
-        timeout-minutes: 2
-        run: python3 .github/scripts/validate-dbx-candidate.py "$EXPECTED_SHA" "$RUNNER_TEMP/dbx-preflight-logs" --preflight
-      - name: Install minimal official native compile prerequisites
-        timeout-minutes: 5
-        # Only this disposable hosted VM; never namespace/security policy edits.
-        run: |
-          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo -n apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends build-essential cmake clang libssl-dev libdbus-1-dev pkg-config
-          pkg-config --exists openssl dbus-1
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22.23.3
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.34.7
-      - name: Serial compile and isolated synthetic regressions
-        timeout-minutes: 77
-        run: python3 .github/scripts/validate-dbx-candidate.py "$EXPECTED_SHA" "$VALIDATION_LOGS"
-      - name: Upload bounded logs only, never synthetic profiles or build output
-        if: always()
+          $portableDir = "diagnostic-portable\DBX-diagnostic-x64"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item "target\x86_64-pc-windows-msvc\release\dbx.exe" (Join-Path $portableDir "DBX.exe") -Force
+          Copy-Item "LICENSE" (Join-Path $portableDir "LICENSE") -Force
+          Copy-Item "README.md" (Join-Path $portableDir "README.md") -Force
+          Set-Content -Path (Join-Path $portableDir "portable.dbx") -Value "" -NoNewline
+          Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath "DBX-diagnostic-x64-portable.zip" -Force
+
+      - name: Upload diagnostic artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dbx-targeted-validation-${{ github.run_id }}
-          path: |
-            ${{ runner.temp }}/dbx-validation-logs/
-            ${{ runner.temp }}/dbx-preflight-logs/
-          if-no-files-found: warn
-          retention-days: 7
+          name: DBX-diagnostic-x64-portable
+          path: DBX-diagnostic-x64-portable.zip

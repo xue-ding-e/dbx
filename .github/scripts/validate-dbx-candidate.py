@@ -427,7 +427,7 @@ def main():
     require(checked(["git", "rev-parse", "HEAD"], "source-sha", 15).strip() == sys.argv[1], "Wrong validation checkout")
     require(not checked(["git", "status", "--porcelain"], "source-clean", 15).strip(), "Dirty validation source")
     changed = checked(["git", "diff", "--name-only", PRODUCT_SHA, "HEAD"], "overlay-scope", 15).splitlines()
-    allowed = {".github/workflows/windows-diagnostic.yml", ".github/workflows/windows-service-smoke.yml",
+    allowed = {".github/workflows/plugin-dev-host.yml", ".github/workflows/windows-service-smoke.yml",
                ".github/scripts/validate-dbx-candidate.py", ".github/scripts/test-validate-dbx-candidate.py"}
     require(set(changed) <= allowed, "Validation overlay changed product source")
     (output / "selector-manifest.json").write_text(json.dumps({"product_sha": PRODUCT_SHA, "validation_sha": sys.argv[1],
