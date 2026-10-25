@@ -1,28 +1,7 @@
 name: Windows CLI and MCP smoke
 
+# Validation overlay only: product branch keeps its original push/PR triggers.
 on:
-  push:
-    paths:
-      - '.github/workflows/windows-service-smoke.yml'
-      - 'scripts/verify-remote-mcp-artifact*'
-      - 'scripts/remote-mcp-requirements.txt'
-      - 'tools/keyring-fixture/**'
-      - 'crates/dbx-cli/**'
-      - 'crates/dbx-mcp/**'
-      - 'crates/dbx-core/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-  pull_request:
-    paths:
-      - '.github/workflows/windows-service-smoke.yml'
-      - 'scripts/verify-remote-mcp-artifact*'
-      - 'scripts/remote-mcp-requirements.txt'
-      - 'tools/keyring-fixture/**'
-      - 'crates/dbx-cli/**'
-      - 'crates/dbx-mcp/**'
-      - 'crates/dbx-core/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
   workflow_dispatch:
 
 # No publishing, mirror synchronization, secrets, or cross-run artifact access.
