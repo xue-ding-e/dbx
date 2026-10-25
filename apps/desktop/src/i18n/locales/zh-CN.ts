@@ -1067,6 +1067,7 @@ export default withEnglishFallback({
     importNavicat: "导入 Navicat NCX",
     importDbeaver: "导入 DBeaver",
     importDatagrip: "导入 DataGrip",
+    importRdm: "导入 RedisDesktopManager",
     export: "导出连接",
     collapseAll: "一键折叠",
     collapse: "收起侧边栏",

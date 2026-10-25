@@ -1061,6 +1061,7 @@ export default withEnglishFallback({
     importNavicat: "นำเข้า Navicat NCX",
     importDbeaver: "นำเข้า DBeaver",
     importDatagrip: "นำเข้า DataGrip",
+    importRdm: "นำเข้า RedisDesktopManager",
     export: "ส่งออกการเชื่อมต่อ",
     collapseAll: "ยุบทั้งหมด",
     collapse: "ยุบแถบด้านข้าง",

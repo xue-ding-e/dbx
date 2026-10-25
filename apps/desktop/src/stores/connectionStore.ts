@@ -333,7 +333,7 @@ function isFlatMqConnection(config: ConnectionConfig | undefined): boolean {
   return kind === "kafka" || kind === "rocketmq" || kind === "rabbitmq";
 }
 
-type ImportSource = "dbx" | "navicat" | "dbeaver" | "datagrip";
+type ImportSource = "dbx" | "navicat" | "dbeaver" | "datagrip" | "rdm";
 
 interface LocateTableTarget {
   catalog?: string;
@@ -11061,7 +11061,7 @@ export const useConnectionStore = defineStore("connection", () => {
       const { readFile } = await import("@tauri-apps/plugin-fs");
       const { decodeImportFileText } = await import("@/lib/common/decodeText");
       const path = await open({
-        filters: source === "navicat" ? [{ name: "Navicat Connection Export", extensions: ["ncx", "xml"] }] : [{ name: "DBX JSON", extensions: ["json"] }],
+        filters: source === "navicat" ? [{ name: "Navicat Connection Export", extensions: ["ncx", "xml"] }] : [{ name: source === "rdm" ? "RedisDesktopManager JSON" : "DBX JSON", extensions: ["json"] }],
         multiple: false,
       });
       if (!path) return null;
@@ -11089,6 +11089,7 @@ export const useConnectionStore = defineStore("connection", () => {
       });
     }
 
+    if (source === "rdm") return { content: JSON.stringify({ format: "rdm-import", content }), encrypted: false };
     if (content.trimStart().startsWith("<")) {
       return { content, encrypted: false };
     }
@@ -11105,6 +11106,12 @@ export const useConnectionStore = defineStore("connection", () => {
     }
 
     if (!passphrase) {
+      const payload: unknown = JSON.parse(content);
+      if (payload && typeof payload === "object" && "format" in payload && payload.format === "rdm-import") {
+        if (!("content" in payload) || typeof payload.content !== "string") throw new Error("RedisDesktopManager: invalid import payload.");
+        const { parseRedisDesktopManagerImport } = await import("@/lib/imports/redisDesktopManagerImport");
+        return parseRedisDesktopManagerImport(payload.content);
+      }
       const { isDbeaverImportPayload, parseDbeaverImport } = await import("@/lib/imports/dbeaverImport");
       const { isDataGripImportPayload, parseDataGripImport } = await import("@/lib/imports/datagripImport");
       if (isDataGripImportPayload(content)) {

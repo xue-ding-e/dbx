@@ -971,6 +971,7 @@ export default withEnglishFallback({
     importNavicat: "Navicat NCXをインポート",
     importDbeaver: "DBeaverをインポート",
     importDatagrip: "DataGripをインポート",
+    importRdm: "RedisDesktopManager をインポート",
     export: "接続をエクスポート",
     collapseAll: "すべて折りたたむ",
     collapse: "サイドバーを折りたたむ",

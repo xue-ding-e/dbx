@@ -977,6 +977,7 @@ export default withEnglishFallback({
     importNavicat: "Navicat NCX 가져오기",
     importDbeaver: "DBeaver 가져오기",
     importDatagrip: "DataGrip 가져오기",
+    importRdm: "RedisDesktopManager 가져오기",
     export: "연결 내보내기",
     collapseAll: "모두 접기",
     collapse: "사이드바 접기",

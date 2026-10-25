@@ -475,6 +475,7 @@ export default withEnglishFallback({
     importNavicat: "Navicat NCX İçe Aktar",
     importDbeaver: "DBeaver İçe Aktar",
     importDatagrip: "DataGrip İçe Aktar",
+    importRdm: "RedisDesktopManager içe aktar",
     export: "Bağlantıları Dışa Aktar",
     collapseAll: "Tümünü daralt",
     collapse: "Kenar çubuğunu daralt",

@@ -680,6 +680,7 @@ export default withEnglishFallback({
     importNavicat: "Impor Navicat NCX",
     importDbeaver: "Impor DBeaver",
     importDatagrip: "Impor DataGrip",
+    importRdm: "Impor RedisDesktopManager",
     export: "Ekspor Koneksi",
     collapseAll: "Ciutkan semua",
     collapse: "Ciutkan bilah sisi",

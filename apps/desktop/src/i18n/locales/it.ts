@@ -970,6 +970,7 @@ export default withEnglishFallback({
     importNavicat: "Importa Navicat NCX",
     importDbeaver: "Importa DBeaver",
     importDatagrip: "Importa DataGrip",
+    importRdm: "Importa RedisDesktopManager",
     export: "Esporta Connessioni",
     collapseAll: "Riduci tutto",
     collapse: "Riduci barra laterale",
