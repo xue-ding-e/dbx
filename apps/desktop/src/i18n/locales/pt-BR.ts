@@ -8740,6 +8740,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Escolha como as abas de dados são usadas ao abrir uma tabela.",
     openDataTabsNextToActive: "Abrir novas abas de dados ao lado da aba ativa",
     openDataTabsNextToActiveDescription: "Coloca as novas abas de dados de tabelas logo após a aba ativa.",
+    openTablesInDetachedWindow: "Abrir tabelas em janela separada",
+    openTablesInDetachedWindowDescription: "Abrir os dados da tabela em sua própria janela em vez de uma aba.",
     dataTabReuseAlwaysNew: "Sempre abrir uma nova aba",
     dataTabReuseAlwaysNewDescription: "Cria uma nova aba de dados todas as vezes, mesmo que a tabela já esteja aberta.",
     dataTabReuseSameTable: "Reutilizar apenas a mesma tabela",

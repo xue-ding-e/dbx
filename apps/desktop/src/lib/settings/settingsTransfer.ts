@@ -210,6 +210,7 @@ const SETTINGS_TRANSFER_CATEGORY_KEYS: Record<SettingsTransferCategoryId, readon
     "deepLinkConnectionConfirmMode",
     "dataTabReuseMode",
     "openDataTabsNextToActive",
+    "openTablesInDetachedWindow",
     "clickTableNavigationTarget",
     "objectBrowserAutoOpenDetailPanel",
     "sidebarObjectInfoMode",

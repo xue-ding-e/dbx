@@ -10123,6 +10123,8 @@ export default {
     reuseDataTabDescription: "Choose how opening a table uses data tabs.",
     openDataTabsNextToActive: "Open new data tabs next to the active tab",
     openDataTabsNextToActiveDescription: "Place newly created table data tabs immediately after the active tab.",
+    openTablesInDetachedWindow: "Open tables in a detached window",
+    openTablesInDetachedWindowDescription: "Open table data directly in its own window instead of a main-window tab.",
     dataTabReuseAlwaysNew: "Always open a new tab",
     dataTabReuseAlwaysNewDescription: "Create a new data tab every time, even when the table is already open.",
     dataTabReuseSameTable: "Reuse the same table",

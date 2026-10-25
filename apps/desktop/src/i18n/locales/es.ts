@@ -8962,6 +8962,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Elige cómo se usan las pestañas de datos al abrir una tabla.",
     openDataTabsNextToActive: "Abrir nuevas pestañas de datos junto a la activa",
     openDataTabsNextToActiveDescription: "Coloca las nuevas pestañas de datos de tablas justo después de la pestaña activa.",
+    openTablesInDetachedWindow: "Abrir tablas en una ventana independiente",
+    openTablesInDetachedWindowDescription: "Abrir los datos de la tabla en su propia ventana en lugar de una pestaña.",
     dataTabReuseAlwaysNew: "Abrir siempre una pestaña nueva",
     dataTabReuseAlwaysNewDescription: "Crea una pestaña de datos nueva cada vez, aunque la tabla ya esté abierta.",
     dataTabReuseSameTable: "Reutilizar solo la misma tabla",

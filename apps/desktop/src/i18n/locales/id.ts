@@ -8686,6 +8686,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Pilih bagaimana membuka tabel menggunakan tab data.",
     openDataTabsNextToActive: "Buka tab data baru di sebelah tab aktif",
     openDataTabsNextToActiveDescription: "Tempatkan tab data tabel yang baru dibuat tepat setelah tab aktif.",
+    openTablesInDetachedWindow: "Buka tabel di jendela terpisah",
+    openTablesInDetachedWindowDescription: "Membuka data tabel di jendelanya sendiri, bukan tab jendela utama.",
     dataTabReuseAlwaysNew: "Selalu buka tab baru",
     dataTabReuseAlwaysNewDescription: "Buat tab data baru setiap kali, bahkan jika tabel tersebut sudah terbuka.",
     dataTabReuseSameTable: "Gunakan kembali tabel yang sama",

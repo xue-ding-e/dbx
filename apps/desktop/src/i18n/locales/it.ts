@@ -8741,6 +8741,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Scegli come usare le schede dati quando apri una tabella.",
     openDataTabsNextToActive: "Apri le nuove schede dati accanto a quella attiva",
     openDataTabsNextToActiveDescription: "Posiziona le nuove schede dati delle tabelle subito dopo la scheda attiva.",
+    openTablesInDetachedWindow: "Apri le tabelle in una finestra dedicata",
+    openTablesInDetachedWindowDescription: "Apre i dati della tabella in una finestra dedicata invece di una scheda.",
     dataTabReuseAlwaysNew: "Apri sempre una nuova scheda",
     dataTabReuseAlwaysNewDescription: "Crea ogni volta una nuova scheda dati, anche se la tabella è già aperta.",
     dataTabReuseSameTable: "Riusa solo la stessa tabella",

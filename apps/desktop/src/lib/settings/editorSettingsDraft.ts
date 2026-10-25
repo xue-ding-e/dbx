@@ -129,6 +129,7 @@ export const EDITOR_SETTINGS_DRAFT_KEYS = [
   "deepLinkConnectionConfirmMode",
   "dataTabReuseMode",
   "openDataTabsNextToActive",
+  "openTablesInDetachedWindow",
   "prefillNewQueryWithSelect",
   "openQueryOnConnectionOpen",
   "generateSqlIncludeDatabaseName",

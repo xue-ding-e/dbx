@@ -7827,6 +7827,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Bir tablo açıldığında veri sekmelerinin nasıl kullanılacağını seçin.",
     openDataTabsNextToActive: "Yeni veri sekmelerini etkin sekmenin yanında aç",
     openDataTabsNextToActiveDescription: "Yeni oluşturulan tablo veri sekmelerini doğrudan etkin sekmenin ardına yerleştir.",
+    openTablesInDetachedWindow: "Tabloları ayrı pencerede aç",
+    openTablesInDetachedWindowDescription: "Tablo verilerini ana pencere sekmesi yerine kendi penceresinde açar.",
     dataTabReuseAlwaysNew: "Her zaman yeni sekme aç",
     dataTabReuseAlwaysNewDescription: "Tablo zaten açık olsa bile her seferinde yeni bir veri sekmesi oluştur.",
     dataTabReuseSameTable: "Aynı tabloyu yeniden kullan",

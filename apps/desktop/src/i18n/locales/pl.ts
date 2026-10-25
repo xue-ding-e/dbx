@@ -8758,6 +8758,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Wybierz sposób otwierania tabel w kartach danych.",
     openDataTabsNextToActive: "Otwieraj nowe karty danych obok aktywnej karty",
     openDataTabsNextToActiveDescription: "Umieszczaj nowo utworzone karty danych tabeli bezpośrednio za aktualnie aktywną kartą.",
+    openTablesInDetachedWindow: "Otwieraj tabele w osobnym oknie",
+    openTablesInDetachedWindowDescription: "Otwiera dane tabeli w osobnym oknie zamiast karty w oknie głównym.",
     dataTabReuseAlwaysNew: "Zawsze otwieraj nową kartę",
     dataTabReuseAlwaysNewDescription: "Twórz nową kartę danych za każdym razem, nawet jeśli tabela jest już otwarta.",
     dataTabReuseSameTable: "Używaj ponownie tej samej tabeli",

@@ -7884,6 +7884,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "選擇開啟資料表時如何使用資料分頁。",
     openDataTabsNextToActive: "在目前分頁旁開啟新的資料分頁",
     openDataTabsNextToActiveDescription: "將新建的資料表資料分頁放在目前分頁之後。",
+    openTablesInDetachedWindow: "開啟表時使用獨立視窗",
+    openTablesInDetachedWindowDescription: "直接在獨立視窗中開啟表資料，而不是主視窗分頁。",
     dataTabReuseAlwaysNew: "一律開啟新分頁",
     dataTabReuseAlwaysNewDescription: "每次開啟資料表都建立新分頁，即使該資料表已經開啟。",
     dataTabReuseSameTable: "僅重複使用同一資料表",

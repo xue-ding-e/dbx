@@ -10307,6 +10307,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Выберите, как открытие таблицы использует вкладки данных.",
     openDataTabsNextToActive: "Открывать новые вкладки данных рядом с активной",
     openDataTabsNextToActiveDescription: "Размещать новые вкладки данных таблиц сразу после активной вкладки.",
+    openTablesInDetachedWindow: "Открывать таблицы в отдельном окне",
+    openTablesInDetachedWindowDescription: "Открывать данные таблицы в отдельном окне вместо вкладки главного окна.",
     dataTabReuseAlwaysNew: "Всегда открывать новую вкладку",
     dataTabReuseAlwaysNewDescription: "Каждый раз создавать новую вкладку данных, даже если таблица уже открыта.",
     dataTabReuseSameTable: "Переиспользовать вкладку той же таблицы",

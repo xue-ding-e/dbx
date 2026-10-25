@@ -7919,6 +7919,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "Cədvəl açılarkən verilənlər vərəqlərindən necə istifadə olunacağını seçin.",
     openDataTabsNextToActive: "Yeni verilənlər vərəqlərini aktiv vərəqin yanında aç",
     openDataTabsNextToActiveDescription: "Yeni yaradılmış cədvəl verilənləri vərəqlərini aktiv vərəqdən dərhal sonra yerləşdir.",
+    openTablesInDetachedWindow: "Cədvəlləri ayrı pəncərədə aç",
+    openTablesInDetachedWindowDescription: "Cədvəl məlumatını əsas pəncərə sekmesi yerinə öz pəncərəsində açır.",
     dataTabReuseAlwaysNew: "Həmişə yeni vərəq aç",
     dataTabReuseAlwaysNewDescription: "Cədvəl artıq açıq olsa belə, hər dəfə yeni verilənlər vərəqi yarat.",
     dataTabReuseSameTable: "Eyni cədvəldən təkrar istifadə et",

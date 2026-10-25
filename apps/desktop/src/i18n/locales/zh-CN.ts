@@ -10090,6 +10090,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "选择打开表时如何使用数据标签页。",
     openDataTabsNextToActive: "在当前标签页旁打开新数据标签页",
     openDataTabsNextToActiveDescription: "将新建的表数据标签页放在当前标签页之后。",
+    openTablesInDetachedWindow: "打开表时使用独立窗口",
+    openTablesInDetachedWindowDescription: "直接在独立窗口中打开表数据，而不是主窗口标签页。",
     dataTabReuseAlwaysNew: "始终新建标签页",
     dataTabReuseAlwaysNewDescription: "每次打开表都新建标签页，即使该表已经打开。",
     dataTabReuseSameTable: "仅复用同一张表",

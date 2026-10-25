@@ -8862,6 +8862,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "테이블을 열 때 데이터 탭을 사용하는 방식을 선택합니다.",
     openDataTabsNextToActive: "새 데이터 탭을 활성 탭 옆에 열기",
     openDataTabsNextToActiveDescription: "새로 만든 테이블 데이터 탭을 활성 탭 바로 뒤에 배치합니다.",
+    openTablesInDetachedWindow: "테이블을 독립 창으로 열기",
+    openTablesInDetachedWindowDescription: "테이블 데이터를 메인 창 탭 대신 독립 창에서 엽니다.",
     dataTabReuseAlwaysNew: "항상 새 탭 열기",
     dataTabReuseAlwaysNewDescription: "테이블이 이미 열려 있어도 매번 새 데이터 탭을 만듭니다.",
     dataTabReuseSameTable: "같은 테이블만 재사용",

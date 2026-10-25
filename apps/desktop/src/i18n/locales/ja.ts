@@ -8744,6 +8744,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "テーブルを開くときのデータタブの使い方を選択します。",
     openDataTabsNextToActive: "新しいデータタブをアクティブタブの隣に開く",
     openDataTabsNextToActiveDescription: "新しく作成したテーブルのデータタブをアクティブタブの直後に配置します。",
+    openTablesInDetachedWindow: "テーブルを独立ウィンドウで開く",
+    openTablesInDetachedWindowDescription: "テーブルデータをメインウィンドウのタブではなく独立ウィンドウで開きます。",
     dataTabReuseAlwaysNew: "常に新しいタブを開く",
     dataTabReuseAlwaysNewDescription: "同じテーブルが開いていても、毎回新しいデータタブを作成します。",
     dataTabReuseSameTable: "同じテーブルだけ再利用",

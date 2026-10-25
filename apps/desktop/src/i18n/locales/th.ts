@@ -10708,6 +10708,8 @@ export default withEnglishFallback({
     reuseDataTabDescription: "เลือกวิธีที่การเปิดตารางใช้แท็บข้อมูล",
     openDataTabsNextToActive: "เปิดแท็บข้อมูลใหม่ถัดจากแท็บที่ใช้งาน",
     openDataTabsNextToActiveDescription: "วางแท็บข้อมูลตารางที่สร้างใหม่ทันทีหลังแท็บที่ใช้งาน",
+    openTablesInDetachedWindow: "เปิดตารางในหน้าต่างแยก",
+    openTablesInDetachedWindowDescription: "เปิดข้อมูลตารางในหน้าต่างของตัวเองแทนแท็บหน้าต่างหลัก",
     dataTabReuseAlwaysNew: "เปิดแท็บใหม่เสมอ",
     dataTabReuseAlwaysNewDescription: "สร้างแท็บข้อมูลใหม่ทุกครั้ง แม้ตารางจะเปิดอยู่แล้ว",
     dataTabReuseSameTable: "ใช้ตารางเดิมซ้ำ",
