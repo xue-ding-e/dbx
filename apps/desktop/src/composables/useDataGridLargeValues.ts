@@ -56,6 +56,7 @@ export interface UseDataGridLargeValuesOptions {
   showTranspose: Ref<boolean>;
   displayRowCount: ComputedRef<number>;
   gridScrollerElement: () => HTMLElement | null;
+  getScrollTop?: () => number;
   displayItemAt: (displayIndex: number) => LargeValueRowItem | undefined;
   getRowItem: (rowId: number) => LargeValueRowItem | undefined;
   tableColumnForGridColumn: (columnIndex: number) => ColumnInfo | undefined;
@@ -293,7 +294,8 @@ export function useDataGridLargeValues(options: UseDataGridLargeValuesOptions) {
     )
       return;
 
-    const range = tableDataVisiblePreviewRowRange(scroller.scrollTop, scroller.clientHeight, CANVAS_DATA_GRID_ROW_HEIGHT, options.displayRowCount.value);
+    const scrollTop = options.getScrollTop?.() ?? scroller.scrollTop;
+    const range = tableDataVisiblePreviewRowRange(scrollTop, scroller.clientHeight, CANVAS_DATA_GRID_ROW_HEIGHT, options.displayRowCount.value);
     if (!range) return;
     const cache = visibleLargeValuePreviewCache(sourceResult);
     const activeSourceRows = new Set<number>();
