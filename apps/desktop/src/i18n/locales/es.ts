@@ -7983,6 +7983,7 @@ export default withEnglishFallback({
     recentConfigs: "Configs recientes",
     selectRecentConfig: "Seleccionar config reciente",
     ignoreComments: "Ignorar diferencias de comentarios",
+    ignoreSchemaName: "Ignorar diferencias de nombres de esquema",
     ignoreForeignKeyChecks: "Ignorar la comprobación de claves foráneas",
     ignoreForeignKeyChecksHint: "Envuelve el script con SET FOREIGN_KEY_CHECKS = 0 / = 1 para poder eliminar y recrear tablas en cualquier orden",
     continueOnError: "Continuar en caso de error",

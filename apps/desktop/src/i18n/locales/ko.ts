@@ -7890,6 +7890,7 @@ export default withEnglishFallback({
     recentConfigs: "최근 설정",
     selectRecentConfig: "최근 설정 선택",
     ignoreComments: "주석 차이 무시",
+    ignoreSchemaName: "스키마 이름 차이 무시",
     ignoreForeignKeyChecks: "외래 키 검사 무시",
     ignoreForeignKeyChecksHint: "스크립트 앞뒤에 SET FOREIGN_KEY_CHECKS = 0 / = 1을 추가해 테이블을 임의 순서로 삭제하고 다시 만들 수 있게 합니다",
     continueOnError: "오류 발생 시 계속",

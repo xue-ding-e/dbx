@@ -7037,6 +7037,7 @@ export default withEnglishFallback({
     recentConfigs: "Son konfiqurasiyalar",
     selectRecentConfig: "Son konfiqurasiyanı seç",
     ignoreComments: "Şərh fərqlərini nəzərə alma",
+    ignoreSchemaName: "Sxem adı fərqlərini nəzərə alma",
     ignoreForeignKeyChecks: "Xarici açar yoxlamalarını nəzərə alma",
     ignoreForeignKeyChecksHint: "Cədvəllərin istənilən sıra ilə silinib yenidən yaradılması üçün skripti SET FOREIGN_KEY_CHECKS = 0 / = 1 ilə əhatə edir",
     compare: "Müqayisə et",

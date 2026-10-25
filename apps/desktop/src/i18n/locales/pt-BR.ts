@@ -7761,6 +7761,7 @@ export default withEnglishFallback({
     selectDatabase: "Selecionar banco de dados",
     selectSchema: "Selecionar schema",
     ignoreComments: "Ignorar diferenças de comentários",
+    ignoreSchemaName: "Ignorar diferenças de nome de esquema",
     ignoreForeignKeyChecks: "Ignorar verificações de chave estrangeira",
     ignoreForeignKeyChecksHint: "Envolve o script com SET FOREIGN_KEY_CHECKS = 0 / = 1 para permitir remover e recriar tabelas em qualquer ordem",
     continueOnError: "Continuar em caso de erro",

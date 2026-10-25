@@ -9083,6 +9083,7 @@ export default withEnglishFallback({
     recentConfigs: "最近配置",
     selectRecentConfig: "选择最近配置",
     ignoreComments: "忽略注释差异",
+    ignoreSchemaName: "忽略模式名差异",
     ignoreForeignKeyChecks: "忽略外键检查",
     ignoreForeignKeyChecksHint: "在脚本首尾加上 SET FOREIGN_KEY_CHECKS = 0 / = 1，允许以任意顺序删除和重建表",
     continueOnError: "遇错继续",

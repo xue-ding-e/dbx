@@ -6906,6 +6906,7 @@ export default withEnglishFallback({
     selectDatabase: "選擇資料庫",
     selectSchema: "選擇 Schema",
     ignoreComments: "忽略註解差異",
+    ignoreSchemaName: "忽略模式名差異",
     ignoreForeignKeyChecks: "忽略外鍵檢查",
     ignoreForeignKeyChecksHint: "在指令碼開頭與結尾加上 SET FOREIGN_KEY_CHECKS = 0 / = 1，允許以任意順序刪除與重建資料表",
     continueOnError: "遇錯繼續",

@@ -7798,6 +7798,7 @@ export default withEnglishFallback({
     recentConfigs: "Ostatnie konfiguracje",
     selectRecentConfig: "Wybierz ostatnią konfigurację",
     ignoreComments: "Ignoruj różnice w komentarzach",
+    ignoreSchemaName: "Ignoruj różnice w nazwach schematów",
     ignoreForeignKeyChecks: "Pomiń sprawdzanie kluczy obcych",
     ignoreForeignKeyChecksHint: "Otacza skrypt poleceniami SET FOREIGN_KEY_CHECKS = 0 i SET FOREIGN_KEY_CHECKS = 1, aby można było usuwać i ponownie tworzyć tabele w dowolnej kolejności",
     compare: "Porównaj",

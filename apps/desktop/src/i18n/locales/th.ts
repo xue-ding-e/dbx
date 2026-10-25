@@ -9721,6 +9721,7 @@ export default withEnglishFallback({
     recentConfigs: "การตั้งค่าล่าสุด",
     selectRecentConfig: "เลือกการตั้งค่าล่าสุด",
     ignoreComments: "ละเว้นความแตกต่างของคอมเมนต์",
+    ignoreSchemaName: "ละเว้นความแตกต่างของชื่อสกีมา",
     ignoreForeignKeyChecks: "ละเว้นการตรวจสอบ foreign key",
     ignoreForeignKeyChecksHint: "ครอบ script ด้วย SET FOREIGN_KEY_CHECKS = 0 / = 1 เพื่อให้ลบและสร้างตารางใหม่ได้ทุกลำดับ",
     continueOnError: "ดำเนินการต่อเมื่อเกิดข้อผิดพลาด",
