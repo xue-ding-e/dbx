@@ -558,6 +558,8 @@ pub struct LocalBackend {
     data_dir: std::path::PathBuf,
     transaction_owners: Arc<TransactionOwnerRegistry>,
     transaction_owner_config: TransactionOwnerConfig,
+    // Order this backend's profile commits and runtime cache publication together.
+    connection_mutations: Arc<Mutex<()>>,
 }
 
 #[derive(Debug, Default)]
@@ -786,12 +788,69 @@ fn plugin_lacks_mcp_surface(err: &str) -> bool {
 const PLUGIN_TOOLS_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
 
 impl LocalBackend {
+    async fn finish_new_connection(
+        state: &AppState,
+        data_dir: &Path,
+        result: Result<ConnectionConfig, String>,
+    ) -> Result<ConnectionConfig, String> {
+        match &result {
+            Ok(config) => {
+                state.configs.write().await.insert(config.id.clone(), config.clone());
+            }
+            Err(error) if error == dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED => {
+                // The new row exists despite failed hydration. Notify desktop so
+                // it can reload; return the explicit committed outcome, never retry.
+            }
+            Err(_) => return result,
+        }
+        Self::notify_connections_changed_at(data_dir).await;
+        result
+    }
+
+    async fn finish_updated_connection(
+        state: &AppState,
+        owners: &TransactionOwnerRegistry,
+        data_dir: &Path,
+        connection_id: &str,
+        result: Result<ConnectionConfig, String>,
+    ) -> Result<ConnectionConfig, String> {
+        if let Err(error) = &result {
+            if error != dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED {
+                return Err(error.clone());
+            }
+        }
+        // A read-only/credential change must not leave a pinned session using old permissions.
+        // This also runs if persistence committed but later hydration failed.
+        owners.invalidate_connection(connection_id);
+        state.session_credentials.clear_connection(connection_id);
+        state.remove_connection_pools_detached(connection_id).await;
+        state.reset_connection_transport(connection_id).await;
+        state.write_unlock_windows.lock_connection(connection_id).await;
+        state.nacos_registry.drop_connection(connection_id).await;
+        #[cfg(feature = "mq-admin")]
+        state.mq_registry.drop_connection(connection_id).await;
+        match &result {
+            Ok(config) => {
+                state.configs.write().await.insert(config.id.clone(), config.clone());
+            }
+            Err(_) => {
+                state.configs.write().await.remove(connection_id);
+            }
+        }
+        Self::notify_connections_changed_at(data_dir).await;
+        result
+    }
+
     async fn notify_connections_changed(&self) {
+        Self::notify_connections_changed_at(&self.data_dir).await;
+    }
+
+    async fn notify_connections_changed_at(data_dir: &Path) {
         // Persistence has already succeeded. A closed or unresponsive desktop
         // must not turn the mutation into an error (or block headless MCP).
         let _ = tokio::time::timeout(
             std::time::Duration::from_secs(2),
-            self.bridge_request("/reload-connections", json!({})),
+            local_bridge_request(data_dir, "/reload-connections", json!({})),
         )
         .await;
     }
@@ -840,6 +899,7 @@ impl LocalBackend {
             data_dir,
             transaction_owners: Arc::new(TransactionOwnerRegistry::default()),
             transaction_owner_config: TransactionOwnerConfig::from_env(),
+            connection_mutations: Arc::new(Mutex::new(())),
         }
     }
 
@@ -933,6 +993,7 @@ impl LocalBackend {
             data_dir,
             transaction_owners: Arc::new(TransactionOwnerRegistry::default()),
             transaction_owner_config: TransactionOwnerConfig::from_env(),
+            connection_mutations: Arc::new(Mutex::new(())),
         })
     }
 
@@ -1237,6 +1298,8 @@ impl DbxBackend for LocalBackend {
     }
 
     async fn load_connections(&self) -> Result<Vec<ConnectionConfig>, String> {
+        // A list also publishes a cache snapshot; order it with this backend's writes.
+        let _mutation = self.connection_mutations.lock().await;
         let configs = self.state.storage.load_connections().await?;
         // Connections created/modified/deleted in the DBX desktop UI after this process started
         // only update the shared SQLite storage; the AppState.configs in-memory cache is not kept
@@ -1459,6 +1522,7 @@ impl DbxBackend for LocalBackend {
         if !dry_run && self.load_mcp_global_policy().await?.read_only {
             return Err("MCP_READ_ONLY: Global MCP read-only mode blocks connection imports.".into());
         }
+        let _mutation = self.connection_mutations.lock().await;
         let report = self.state.storage.import_connections_for_mcp(bundle, dry_run).await?;
         if !dry_run && report.imported_count > 0 {
             for config in self.state.storage.load_connections().await? {
@@ -1470,26 +1534,34 @@ impl DbxBackend for LocalBackend {
     }
 
     async fn add_connection_for_mcp(&self, config: ConnectionConfig) -> Result<ConnectionConfig, String> {
-        let config = self.state.storage.add_connection_for_mcp(config).await?;
-        self.state.configs.write().await.insert(config.id.clone(), config.clone());
-        self.notify_connections_changed().await;
-        Ok(config)
+        let state = self.state.clone();
+        let data_dir = self.data_dir.clone();
+        let commit_guard = crate::http_mutations::current_commit_guard();
+        let mutations = self.connection_mutations.clone();
+        crate::http_mutations::complete_local_mutation(async move {
+            let _mutation = mutations.lock().await;
+            let config = state.storage.add_connection_for_mcp_with_commit_guard(config, commit_guard).await?;
+            state.configs.write().await.insert(config.id.clone(), config.clone());
+            Self::notify_connections_changed_at(&data_dir).await;
+            Ok(config)
+        })
+        .await
     }
 
     async fn update_connection_for_mcp(&self, connection_id: &str, patch: Value) -> Result<ConnectionConfig, String> {
-        let config = self.state.storage.update_connection_for_mcp(connection_id, patch).await?;
-        // A read-only/credential change must not leave a pinned session using old permissions.
-        self.transaction_owners.invalidate_connection(connection_id);
-        self.state.session_credentials.clear_connection(connection_id);
-        self.state.remove_connection_pools_detached(connection_id).await;
-        self.state.reset_connection_transport(connection_id).await;
-        self.state.write_unlock_windows.lock(connection_id).await;
-        self.state.nacos_registry.drop_connection(connection_id).await;
-        #[cfg(feature = "mq-admin")]
-        self.state.mq_registry.drop_connection(connection_id).await;
-        self.state.configs.write().await.insert(config.id.clone(), config.clone());
-        self.notify_connections_changed().await;
-        Ok(config)
+        let state = self.state.clone();
+        let owners = self.transaction_owners.clone();
+        let data_dir = self.data_dir.clone();
+        let connection_id = connection_id.to_owned();
+        let commit_guard = crate::http_mutations::current_commit_guard();
+        let mutations = self.connection_mutations.clone();
+        crate::http_mutations::complete_local_mutation(async move {
+            let _mutation = mutations.lock().await;
+            let result =
+                state.storage.update_connection_for_mcp_with_commit_guard(&connection_id, patch, commit_guard).await;
+            Self::finish_updated_connection(&state, &owners, &data_dir, &connection_id, result).await
+        })
+        .await
     }
 
     async fn duplicate_connection_for_mcp(
@@ -1498,21 +1570,49 @@ impl DbxBackend for LocalBackend {
         copy_id: &str,
         copy_name: &str,
     ) -> Result<ConnectionConfig, String> {
-        let config = self.state.storage.duplicate_connection_for_mcp(source_id, copy_id, copy_name).await?;
-        self.state.configs.write().await.insert(config.id.clone(), config.clone());
-        self.notify_connections_changed().await;
-        Ok(config)
+        let state = self.state.clone();
+        let data_dir = self.data_dir.clone();
+        let (source_id, copy_id, copy_name) = (source_id.to_owned(), copy_id.to_owned(), copy_name.to_owned());
+        let commit_guard = crate::http_mutations::current_commit_guard();
+        let mutations = self.connection_mutations.clone();
+        crate::http_mutations::complete_local_mutation(async move {
+            let _mutation = mutations.lock().await;
+            let result = state
+                .storage
+                .duplicate_connection_for_mcp_with_commit_guard(&source_id, &copy_id, &copy_name, commit_guard)
+                .await;
+            Self::finish_new_connection(&state, &data_dir, result).await
+        })
+        .await
     }
 
     async fn remove_connection_for_mcp(&self, connection_id: &str) -> Result<bool, String> {
-        let removed = self.state.storage.remove_connection_for_mcp(connection_id).await?;
-        if removed {
-            self.state.configs.write().await.remove(connection_id);
-            self.transaction_owners.invalidate_connection(connection_id);
-            self.state.remove_connection_pools_detached(connection_id).await;
-            self.notify_connections_changed().await;
-        }
-        Ok(removed)
+        let state = self.state.clone();
+        let owners = self.transaction_owners.clone();
+        let data_dir = self.data_dir.clone();
+        let connection_id = connection_id.to_owned();
+        let commit_guard = crate::http_mutations::current_commit_guard();
+        let mutations = self.connection_mutations.clone();
+        crate::http_mutations::complete_local_mutation(async move {
+            let _mutation = mutations.lock().await;
+            let removed =
+                state.storage.remove_connection_for_mcp_with_commit_guard(&connection_id, commit_guard).await?;
+            if removed {
+                owners.invalidate_connection(&connection_id);
+                state.session_credentials.clear_connection(&connection_id);
+                state.remove_connection_pools_detached(&connection_id).await;
+                // Keep the old config until transport teardown has read its layer count.
+                state.reset_connection_transport(&connection_id).await;
+                state.write_unlock_windows.lock_connection(&connection_id).await;
+                state.nacos_registry.drop_connection(&connection_id).await;
+                #[cfg(feature = "mq-admin")]
+                state.mq_registry.drop_connection(&connection_id).await;
+                state.configs.write().await.remove(&connection_id);
+                Self::notify_connections_changed_at(&data_dir).await;
+            }
+            Ok(removed)
+        })
+        .await
     }
 
     async fn list_tables(
@@ -1654,20 +1754,24 @@ impl DbxBackend for LocalBackend {
     }
 
     async fn bridge_request(&self, path: &str, body: Value) -> Result<(), String> {
-        let port = tokio::fs::read_to_string(self.data_dir.join("mcp-bridge-port"))
-            .await
-            .map_err(|_| "DBX is not running. Please start DBX first.".to_string())?;
-        let response = reqwest::Client::new()
-            .post(format!("http://127.0.0.1:{}{}", port.trim(), path))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|_| "DBX is not running. Please start DBX first.".to_string())?;
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(response.text().await.unwrap_or_else(|_| "DBX bridge request failed.".to_string()))
-        }
+        local_bridge_request(&self.data_dir, path, body).await
+    }
+}
+
+async fn local_bridge_request(data_dir: &Path, path: &str, body: Value) -> Result<(), String> {
+    let port = tokio::fs::read_to_string(data_dir.join("mcp-bridge-port"))
+        .await
+        .map_err(|_| "DBX is not running. Please start DBX first.".to_string())?;
+    let response = reqwest::Client::new()
+        .post(format!("http://127.0.0.1:{}{}", port.trim(), path))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|_| "DBX is not running. Please start DBX first.".to_string())?;
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(response.text().await.unwrap_or_else(|_| "DBX bridge request failed.".to_string()))
     }
 }
 
@@ -3247,6 +3351,246 @@ mod tests {
         assert!(backend.update_connection_for_mcp("source", json!({"read_only": false})).await.is_err());
         assert!(received.try_recv().is_err());
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn http_update_finishes_committed_cache_refresh_after_request_cancellation() {
+        use crate::{
+            http_auth::HttpRequestDeadline, http_mutations::RequestMutationContext, http_principals::PrincipalStates,
+            server::PluginToolsMode, DbxMcpServer, McpScope, UnavailableBackend,
+        };
+        use dbx_core::{
+            models::connection::{ProxyTunnelConfig, ProxyType, TransportLayerConfig},
+            session_credentials::with_credential_owner,
+        };
+        use tokio::sync::Semaphore;
+        use tokio_util::sync::CancellationToken;
+
+        let data_dir = tempfile::tempdir().unwrap();
+        let backend = Arc::new(connection_mutation_backend(data_dir.path()).await);
+        let mut source = mutation_test_connection();
+        source.transport_layers = vec![TransportLayerConfig::Proxy(ProxyTunnelConfig {
+            profile_id: String::new(),
+            id: "proxy-fixture".into(),
+            name: String::new(),
+            enabled: true,
+            proxy_type: ProxyType::Socks5,
+            host: "127.0.0.1".into(),
+            port: 65000,
+            username: String::new(),
+            password: String::new(),
+            test_target: None,
+        })];
+        backend.add_connection_for_mcp(source.clone()).await.unwrap();
+        // This only binds the forwarder's loopback listener. No client connects
+        // to it, so no proxy, database, or external endpoint is contacted.
+        let (_, tunnel_port) = backend.state.connection_host_port("source", &source).await.unwrap();
+        assert_eq!(backend.state.proxy_tunnels.local_port("source:transport:0").await, Some(tunnel_port));
+        backend.state.session_credentials.set("fixture-owner", "source", "session-fixture").unwrap();
+        with_credential_owner(Some("fixture-owner".into()), backend.state.write_unlock_windows.unlock("source", 60))
+            .await
+            .unwrap();
+        // A shared profile change invalidates every owner's old unlock,
+        // including the desktop window, without touching unrelated connections.
+        backend.state.write_unlock_windows.unlock("source", 60).await.unwrap();
+        let principals = PrincipalStates::new(DbxMcpServer::with_plugin_tools_mode(
+            Arc::new(UnavailableBackend::new("lifecycle-only fixture")),
+            McpScope::default(),
+            true,
+            PluginToolsMode::Flat,
+        ));
+        let budget = Arc::new(Semaphore::new(1));
+        let context = RequestMutationContext::new(
+            HttpRequestDeadline {
+                principal: "owner".into(),
+                deadline: tokio::time::Instant::now() + Duration::from_secs(30),
+                _permit: Arc::new(budget.clone().acquire_owned().await.unwrap()),
+                policy_cancellation: CancellationToken::new(),
+            },
+            Arc::new(principals.acquire("owner").unwrap()),
+            CancellationToken::new(),
+        );
+        // Hold only the runtime cache. SQLite can commit, but transport reset
+        // and the later unlock/cache cleanup cannot pass this read/write gate.
+        let cache = backend.state.configs.write().await;
+        let request = tokio::spawn({
+            let backend = backend.clone();
+            context.scope(async move {
+                with_credential_owner(
+                    Some("fixture-owner".into()),
+                    backend.update_connection_for_mcp("source", json!({"read_only": true})),
+                )
+                .await
+            })
+        });
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if backend.state.storage.load_connections().await.unwrap()[0].read_only {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("storage committed while runtime cache is locked");
+        assert!(!cache["source"].read_only);
+        assert_eq!(backend.state.proxy_tunnels.local_port("source:transport:0").await, Some(tunnel_port));
+        request.abort();
+        assert!(request.await.unwrap_err().is_cancelled());
+        assert_eq!(budget.available_permits(), 0, "committed cleanup still owns HTTP capacity");
+        let shutdown = tokio::spawn({
+            let principals = principals.clone();
+            async move { principals.shutdown().await }
+        });
+        assert!(!shutdown.is_finished());
+        drop(cache);
+        tokio::time::timeout(Duration::from_secs(5), shutdown).await.unwrap().unwrap();
+        assert!(backend.state.configs.read().await["source"].read_only);
+        assert!(!backend.state.session_credentials.has("fixture-owner", "source"));
+        assert!(backend.state.proxy_tunnels.local_port("source:transport:0").await.is_none());
+        assert_eq!(
+            with_credential_owner(
+                Some("fixture-owner".into()),
+                backend.state.write_unlock_windows.remaining_ms("source"),
+            )
+            .await,
+            0,
+        );
+        assert_eq!(backend.state.write_unlock_windows.remaining_ms("source").await, 0);
+        assert_eq!(budget.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn committed_copy_reload_failure_notifies_desktop_but_rejected_copy_does_not() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let backend = connection_mutation_backend(data_dir.path()).await;
+        let (sent, mut received) = tokio::sync::mpsc::unbounded_channel();
+        let app = axum::Router::new().route(
+            "/reload-connections",
+            axum::routing::post(move || {
+                let sent = sent.clone();
+                async move {
+                    sent.send(()).unwrap();
+                    axum::http::StatusCode::OK
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        tokio::fs::write(data_dir.path().join("mcp-bridge-port"), listener.local_addr().unwrap().port().to_string())
+            .await
+            .unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let rejected =
+            LocalBackend::finish_new_connection(&backend.state, data_dir.path(), Err("MCP_REQUEST_CANCELLED".into()))
+                .await;
+        assert_eq!(rejected.unwrap_err(), "MCP_REQUEST_CANCELLED");
+        assert!(received.try_recv().is_err());
+        let committed = LocalBackend::finish_new_connection(
+            &backend.state,
+            data_dir.path(),
+            Err(dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED.into()),
+        )
+        .await;
+        assert_eq!(committed.unwrap_err(), dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED);
+        assert_eq!(received.try_recv().unwrap(), ());
+        assert!(backend.state.configs.read().await.is_empty(), "no unhydrated config can be cached");
+        server.abort();
+        let _ = server.await;
+    }
+
+    #[tokio::test]
+    async fn committed_reload_failure_evicts_old_runtime_state_but_precommit_failure_does_not() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let backend = connection_mutation_backend(data_dir.path()).await;
+        backend.add_connection_for_mcp(mutation_test_connection()).await.unwrap();
+        backend.state.session_credentials.set("owner", "source", "synthetic").unwrap();
+        backend.state.write_unlock_windows.unlock("source", 60).await.unwrap();
+        let rejected = LocalBackend::finish_updated_connection(
+            &backend.state,
+            &backend.transaction_owners,
+            data_dir.path(),
+            "source",
+            Err("MCP_REQUEST_CANCELLED".into()),
+        )
+        .await;
+        assert!(rejected.is_err());
+        assert!(backend.state.configs.read().await.contains_key("source"));
+        assert!(backend.state.session_credentials.has("owner", "source"));
+        let committed = LocalBackend::finish_updated_connection(
+            &backend.state,
+            &backend.transaction_owners,
+            data_dir.path(),
+            "source",
+            Err(dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED.into()),
+        )
+        .await;
+        assert_eq!(committed.unwrap_err(), dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED);
+        assert!(!backend.state.configs.read().await.contains_key("source"));
+        assert!(!backend.state.session_credentials.has("owner", "source"));
+        assert_eq!(backend.state.write_unlock_windows.remaining_ms("source").await, 0);
+    }
+
+    #[tokio::test]
+    async fn overlapping_profile_updates_publish_cache_in_commit_order() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let backend = Arc::new(connection_mutation_backend(data_dir.path()).await);
+        backend.add_connection_for_mcp(mutation_test_connection()).await.unwrap();
+        let cache = backend.state.configs.write().await;
+        let first = tokio::spawn({
+            let backend = backend.clone();
+            async move { backend.update_connection_for_mcp("source", json!({"name": "First"})).await }
+        });
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while backend.state.storage.load_connections().await.unwrap()[0].name != "First" {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(backend.connection_mutations.try_lock().is_err());
+        let listing = tokio::spawn({
+            let backend = backend.clone();
+            async move { backend.load_connections().await }
+        });
+        let second = tokio::spawn({
+            let backend = backend.clone();
+            async move { backend.update_connection_for_mcp("source", json!({"name": "Second"})).await }
+        });
+        tokio::task::yield_now().await;
+        assert_eq!(backend.state.storage.load_connections().await.unwrap()[0].name, "First");
+        assert!(!listing.is_finished());
+        drop(cache);
+        tokio::time::timeout(Duration::from_secs(5), listing).await.unwrap().unwrap().unwrap();
+        tokio::time::timeout(Duration::from_secs(5), first).await.unwrap().unwrap().unwrap();
+        tokio::time::timeout(Duration::from_secs(5), second).await.unwrap().unwrap().unwrap();
+        assert_eq!(backend.state.configs.read().await["source"].name, "Second");
+        assert_eq!(backend.state.storage.load_connections().await.unwrap()[0].name, "Second");
+    }
+
+    #[tokio::test]
+    async fn removed_profile_clears_all_owner_credentials_and_unlocks() {
+        use dbx_core::session_credentials::with_credential_owner;
+        let data_dir = tempfile::tempdir().unwrap();
+        let backend = connection_mutation_backend(data_dir.path()).await;
+        backend.add_connection_for_mcp(mutation_test_connection()).await.unwrap();
+        for owner in ["owner-a", "owner-b"] {
+            backend.state.session_credentials.set(owner, "source", "synthetic").unwrap();
+            with_credential_owner(Some(owner.into()), backend.state.write_unlock_windows.unlock("source", 60))
+                .await
+                .unwrap();
+        }
+        backend.state.write_unlock_windows.unlock("unrelated", 60).await.unwrap();
+        assert!(backend.remove_connection_for_mcp("source").await.unwrap());
+        for owner in ["owner-a", "owner-b"] {
+            assert!(!backend.state.session_credentials.has(owner, "source"));
+            assert_eq!(
+                with_credential_owner(Some(owner.into()), backend.state.write_unlock_windows.remaining_ms("source"))
+                    .await,
+                0
+            );
+        }
+        assert!(backend.state.write_unlock_windows.remaining_ms("unrelated").await > 0);
+        assert!(!backend.state.configs.read().await.contains_key("source"));
     }
 
     #[tokio::test]

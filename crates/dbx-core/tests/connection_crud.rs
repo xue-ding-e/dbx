@@ -265,3 +265,114 @@ fn details_do_not_expose_secrets_or_urls() {
         assert!(!output.contains(secret));
     }
 }
+
+#[tokio::test]
+async fn rejected_commit_admission_rolls_back_every_connection_mutation_and_its_secret_rows() {
+    use dbx_core::persistence::storage::McpConnectionCommitGuard;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    fn snapshot(storage: &Storage) -> serde_json::Value {
+        let conn = rusqlite::Connection::open(storage.data_dir().join("dbx.db")).unwrap();
+        let mut configs = conn.prepare("SELECT id, config_json FROM connections ORDER BY id").unwrap();
+        let configs = configs
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let mut secrets = conn
+            .prepare(
+                "SELECT connection_id, key, secret, secret_enc FROM connection_secrets ORDER BY connection_id, key",
+            )
+            .unwrap();
+        let secrets = secrets
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let mut state = conn.prepare("SELECT key, value_json FROM app_state ORDER BY key").unwrap();
+        let state = state
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        json!({"connections": configs, "secrets": secrets, "app_state": state})
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let storage = test_storage::open(&directory.path().join("dbx.db")).await.unwrap();
+    storage.save_mcp_global_policy(&McpGlobalPolicy { read_only: false, ..Default::default() }).await.unwrap();
+    storage.add_connection_for_mcp(config("first", "First")).await.unwrap();
+    let before = snapshot(&storage);
+    for operation in ["add", "update", "duplicate", "remove"] {
+        let checks = Arc::new(AtomicUsize::new(0));
+        let guard: McpConnectionCommitGuard = Arc::new({
+            let checks = checks.clone();
+            move || {
+                // Existing isolated key: preparation and blocking-task entry
+                // pass; cancellation is observed at the actual pre-commit gate.
+                if checks.fetch_add(1, Ordering::SeqCst) == 2 {
+                    Err("MCP_REQUEST_CANCELLED: synthetic pre-commit cancellation".into())
+                } else {
+                    Ok(())
+                }
+            }
+        });
+        let error = match operation {
+            "add" => storage
+                .add_connection_for_mcp_with_commit_guard(config("second", "Second"), Some(guard))
+                .await
+                .unwrap_err(),
+            "update" => storage
+                .update_connection_for_mcp_with_commit_guard(
+                    "first",
+                    json!({"name": "Changed", "password": "replacement-fixture"}),
+                    Some(guard),
+                )
+                .await
+                .unwrap_err(),
+            "duplicate" => storage
+                .duplicate_connection_for_mcp_with_commit_guard("first", "copy", "Copy", Some(guard))
+                .await
+                .unwrap_err(),
+            _ => storage.remove_connection_for_mcp_with_commit_guard("first", Some(guard)).await.unwrap_err(),
+        };
+        assert!(error.contains("MCP_REQUEST_CANCELLED"), "{operation}: {error}");
+        assert_eq!(checks.load(Ordering::SeqCst), 3, "{operation}: commit gate must run");
+        assert_eq!(snapshot(&storage), before, "{operation}: no row or ciphertext change may survive rollback");
+    }
+}
+
+#[tokio::test]
+async fn postcommit_hydration_failure_reports_persistence_without_claiming_rollback() {
+    use dbx_core::persistence::storage::MCP_CONNECTION_COMMITTED_RELOAD_FAILED;
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("dbx.db");
+    let storage = test_storage::open(&path).await.unwrap();
+    storage.save_mcp_global_policy(&McpGlobalPolicy { read_only: false, ..Default::default() }).await.unwrap();
+    storage.add_connection_for_mcp(config("first", "First")).await.unwrap();
+    storage.add_connection_for_mcp(config("other", "Other")).await.unwrap();
+    // Corrupt only an unrelated synthetic ciphertext. The target transaction
+    // can commit, while the subsequent all-profile hydration must fail.
+    let conn = rusqlite::Connection::open(&path).unwrap();
+    conn.execute("UPDATE connection_secrets SET secret_enc = 'invalid-fixture-envelope' WHERE connection_id = 'other' AND key = 'password'", []).unwrap();
+    let error = storage.update_connection_for_mcp("first", json!({"name": "Committed"})).await.unwrap_err();
+    assert_eq!(error, MCP_CONNECTION_COMMITTED_RELOAD_FAILED);
+    let saved: String =
+        conn.query_row("SELECT config_json FROM connections WHERE id = 'first'", [], |row| row.get(0)).unwrap();
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&saved).unwrap()["name"], "Committed");
+    let error = storage.duplicate_connection_for_mcp("first", "copy", "Copy").await.unwrap_err();
+    assert_eq!(error, MCP_CONNECTION_COMMITTED_RELOAD_FAILED);
+    let copied: i64 =
+        conn.query_row("SELECT COUNT(*) FROM connections WHERE id = 'copy'", [], |row| row.get(0)).unwrap();
+    assert_eq!(copied, 1);
+}

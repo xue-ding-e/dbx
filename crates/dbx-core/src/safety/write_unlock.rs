@@ -54,6 +54,11 @@ impl WriteUnlockWindows {
         self.inner.write().await.remove(&WriteUnlockKey::current(connection_id));
     }
 
+    /// Deleting a shared connection invalidates every owner's temporary unlock.
+    pub async fn lock_connection(&self, connection_id: &str) {
+        self.inner.write().await.retain(|key, _| key.connection_id != connection_id);
+    }
+
     pub async fn remaining_ms(&self, connection_id: &str) -> u64 {
         let key = WriteUnlockKey::current(connection_id);
         let expires_at = self.inner.read().await.get(&key).copied();

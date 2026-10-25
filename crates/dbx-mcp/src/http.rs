@@ -46,14 +46,16 @@ impl BoundedHttpService {
         if lease.deadline <= tokio::time::Instant::now() || lease.policy_cancellation.is_cancelled() {
             return Err(rmcp::ErrorData::internal_error("Authenticated HTTP request expired", None));
         }
-        let principal = self.principals.acquire(&lease.principal)?;
+        let principal = Arc::new(self.principals.acquire(&lease.principal)?);
+        let mutations =
+            crate::http_mutations::RequestMutationContext::new(lease.clone(), principal.clone(), cancellation.clone());
         tokio::select! {
             biased;
             _ = principal.cancellation.cancelled() => Err(rmcp::ErrorData::internal_error("Authenticated principal state closed", None)),
             _ = lease.policy_cancellation.cancelled() => Err(rmcp::ErrorData::internal_error("Authenticated HTTP policy changed", None)),
             _ = cancellation.cancelled() => Err(rmcp::ErrorData::internal_error("MCP request cancelled", None)),
             _ = tokio::time::sleep_until(lease.deadline) => Err(rmcp::ErrorData::internal_error("Authenticated HTTP request deadline expired", None)),
-            result = dispatch(principal.server.clone(), context) => result,
+            result = mutations.scope(dispatch(principal.server.clone(), context)) => result,
         }
     }
 

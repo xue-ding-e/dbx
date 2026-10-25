@@ -231,6 +231,24 @@ pub fn maybe_import_user_data_db(
     Ok(DataDbImportResult::Imported)
 }
 
+/// Optional synchronous admission check for cancellable MCP profile writes.
+/// The final successful check immediately before SQLite commit accepts that
+/// commit; cancellation afterwards cannot retract it. Callbacks must not block
+/// or re-enter storage. A rejected check drops the transaction and rolls it back.
+pub type McpConnectionCommitGuard = Arc<dyn Fn() -> Result<(), String> + Send + Sync>;
+
+/// Persistence succeeded but hydration failed. Callers must invalidate old runtime
+/// state rather than treating this as a rolled-back write or automatically retrying.
+pub const MCP_CONNECTION_COMMITTED_RELOAD_FAILED: &str =
+    "MCP_CONNECTION_COMMITTED_RELOAD_FAILED: saved change committed; reload saved state before retrying";
+
+fn check_mcp_connection_admission(guard: Option<&McpConnectionCommitGuard>) -> Result<(), String> {
+    match guard {
+        Some(check) => check(),
+        None => Ok(()),
+    }
+}
+
 #[derive(Clone)]
 pub struct Storage {
     db: SqliteHandle,
@@ -1604,6 +1622,14 @@ impl Storage {
     }
 
     async fn secret_codec_for_write(&self, needs_key: bool) -> Result<SecretCodec, String> {
+        self.secret_codec_for_write_with_admission(needs_key, None).await
+    }
+
+    async fn secret_codec_for_write_with_admission(
+        &self,
+        needs_key: bool,
+        commit_guard: Option<&McpConnectionCommitGuard>,
+    ) -> Result<SecretCodec, String> {
         match self.secret_codec(false) {
             Ok(codec) => Ok(codec),
             Err(error)
@@ -1631,6 +1657,11 @@ impl Storage {
                 if has_ciphertext {
                     return Err("ENCRYPTED_DATA_KEY_MISSING".to_string());
                 }
+                // Key provisioning is outside SQLite. Recheck after the async
+                // ciphertext probe and before provisioning; an already created
+                // key is retained if a later transaction is cancelled. Deleting
+                // it could break a concurrent operation that now uses that key.
+                check_mcp_connection_admission(commit_guard)?;
                 self.secret_codec(true)
             }
             Err(error) => Err(error),
@@ -7284,16 +7315,29 @@ impl Storage {
     }
 
     pub async fn add_connection_for_mcp(&self, config: ConnectionConfig) -> Result<ConnectionConfig, String> {
+        self.add_connection_for_mcp_with_commit_guard(config, None).await
+    }
+
+    pub async fn add_connection_for_mcp_with_commit_guard(
+        &self,
+        config: ConnectionConfig,
+        commit_guard: Option<McpConnectionCommitGuard>,
+    ) -> Result<ConnectionConfig, String> {
+        check_mcp_connection_admission(commit_guard.as_ref())?;
         let config = config.canonicalized();
         super::connection_management::validate_connection_patch(
             &serde_json::json!({"name": config.name, "host": config.host}),
         )?;
-        let codec = self.secret_codec_for_write(connection_config_has_inline_secrets(&config)).await?;
+        let codec = self
+            .secret_codec_for_write_with_admission(connection_config_has_inline_secrets(&config), commit_guard.as_ref())
+            .await?;
         self.with_conn(move |conn| {
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
             ensure_mcp_connection_change_allowed_in_tx(&tx, None)?;
             ensure_unique_connection_name_in_tx(&tx, &config.name, None)?;
             persist_connection_in_tx(&tx, &codec, &config)?;
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             tx.commit().map_err(|e| e.to_string())?;
             Ok(config)
         })
@@ -7307,14 +7351,25 @@ impl Storage {
         connection_id: &str,
         patch: serde_json::Value,
     ) -> Result<ConnectionConfig, String> {
+        self.update_connection_for_mcp_with_commit_guard(connection_id, patch, None).await
+    }
+
+    pub async fn update_connection_for_mcp_with_commit_guard(
+        &self,
+        connection_id: &str,
+        patch: serde_json::Value,
+        commit_guard: Option<McpConnectionCommitGuard>,
+    ) -> Result<ConnectionConfig, String> {
+        check_mcp_connection_admission(commit_guard.as_ref())?;
         super::connection_management::validate_connection_patch(&patch)?;
         let needs_key =
             patch.get("password").and_then(serde_json::Value::as_str).is_some_and(|value| !value.is_empty())
                 && patch.get("save_password").and_then(serde_json::Value::as_bool) != Some(false);
-        let codec = self.secret_codec_for_write(needs_key).await?;
+        let codec = self.secret_codec_for_write_with_admission(needs_key, commit_guard.as_ref()).await?;
         let id = connection_id.to_string();
         let updated_id = id.clone();
         self.with_conn(move |conn| {
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             let tx =
                 conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|error| error.to_string())?;
             ensure_mcp_connection_change_allowed_in_tx(&tx, Some(&id))?;
@@ -7349,14 +7404,16 @@ impl Storage {
             let json = serde_json::to_string(&config).map_err(|error| error.to_string())?;
             tx.execute("UPDATE connections SET config_json = ?1 WHERE id = ?2", params![json, id])
                 .map_err(|error| error.to_string())?;
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             tx.commit().map_err(|error| error.to_string())
         })
         .await?;
         self.load_connections()
-            .await?
+            .await
+            .map_err(|_| MCP_CONNECTION_COMMITTED_RELOAD_FAILED.to_string())?
             .into_iter()
             .find(|connection| connection.id == updated_id)
-            .ok_or_else(|| "CONNECTION_NOT_FOUND: updated connection could not be reloaded".to_string())
+            .ok_or_else(|| MCP_CONNECTION_COMMITTED_RELOAD_FAILED.to_string())
     }
 
     pub async fn duplicate_connection_for_mcp(
@@ -7365,12 +7422,24 @@ impl Storage {
         copy_id: &str,
         copy_name: &str,
     ) -> Result<ConnectionConfig, String> {
+        self.duplicate_connection_for_mcp_with_commit_guard(source_id, copy_id, copy_name, None).await
+    }
+
+    pub async fn duplicate_connection_for_mcp_with_commit_guard(
+        &self,
+        source_id: &str,
+        copy_id: &str,
+        copy_name: &str,
+        commit_guard: Option<McpConnectionCommitGuard>,
+    ) -> Result<ConnectionConfig, String> {
+        check_mcp_connection_admission(commit_guard.as_ref())?;
         let source_id = source_id.to_string();
         let copy_id = copy_id.to_string();
         let copied_id = copy_id.clone();
         let copy_name = copy_name.to_string();
         let codec = self.secret_codec(false)?;
         self.with_conn(move |conn| {
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             let tx =
                 conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|error| error.to_string())?;
             ensure_mcp_connection_change_allowed_in_tx(&tx, Some(&source_id))?;
@@ -7421,20 +7490,32 @@ impl Storage {
                 .map_err(|error| error.to_string())?;
             }
             copy_sidebar_layout_entry_in_tx(&tx, &source_id, &copy.id)?;
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             tx.commit().map_err(|error| error.to_string())?;
             Ok(copy)
         })
         .await?;
         self.load_connections()
-            .await?
+            .await
+            .map_err(|_| MCP_CONNECTION_COMMITTED_RELOAD_FAILED.to_string())?
             .into_iter()
             .find(|connection| connection.id == copied_id)
-            .ok_or_else(|| "CONNECTION_SAVE_ERROR: copied connection could not be reloaded".to_string())
+            .ok_or_else(|| MCP_CONNECTION_COMMITTED_RELOAD_FAILED.to_string())
     }
 
     pub async fn remove_connection_for_mcp(&self, connection_id: &str) -> Result<bool, String> {
+        self.remove_connection_for_mcp_with_commit_guard(connection_id, None).await
+    }
+
+    pub async fn remove_connection_for_mcp_with_commit_guard(
+        &self,
+        connection_id: &str,
+        commit_guard: Option<McpConnectionCommitGuard>,
+    ) -> Result<bool, String> {
+        check_mcp_connection_admission(commit_guard.as_ref())?;
         let connection_id = connection_id.to_string();
         self.with_conn(move |conn| {
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
             ensure_mcp_connection_change_allowed_in_tx(&tx, Some(&connection_id))?;
             let removed =
@@ -7445,6 +7526,7 @@ impl Storage {
                 let mqtt_history_key = format!("{MQTT_MESSAGE_HISTORY_STATE_KEY_PREFIX}{connection_id}");
                 tx.execute("DELETE FROM state_store WHERE key = ?1", [mqtt_history_key]).map_err(|e| e.to_string())?;
             }
+            check_mcp_connection_admission(commit_guard.as_ref())?;
             tx.commit().map_err(|e| e.to_string())?;
             Ok(removed)
         })
