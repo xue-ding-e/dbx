@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.expected_sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Pin workflow and source; static guard tests and fail-closed admission
         timeout-minutes: 2
