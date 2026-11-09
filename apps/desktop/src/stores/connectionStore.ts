@@ -5886,6 +5886,9 @@ export const useConnectionStore = defineStore("connection", () => {
     }
     const expectedConfigFingerprint = connectionConfigFingerprint(config);
     if (getBlockingDisconnectInFlight(connectionId)) await waitForBlockingDisconnectInFlight(connectionId);
+    // A user close can finish while loading config or waiting for an older disconnect.
+    // Recheck before joining or starting connection work, while no local attempt exists to cancel.
+    if (options.skipIfClosedByUser && isConnectionClosedByUser(connectionId)) throw new Error(CONNECTION_CLOSED_BY_USER_MESSAGE);
     if (passwordChangeReconnectRequired.has(connectionId)) throw new Error(i18n.global.t("userAdmin.passwordChangedReconnect"));
     const existingConnect = connectInFlight.get(connectionId);
     if (existingConnect) {
