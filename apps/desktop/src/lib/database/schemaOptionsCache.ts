@@ -11,6 +11,8 @@ import { ref } from "vue";
  */
 export const schemaOptionsByKey = ref<Record<string, string[]>>({});
 export const loadingSchemaOptionsByKey = ref<Record<string, boolean>>({});
+// Pending work has the same shared scope as its result and loading state.
+export const schemaOptionsRequestsByKey = new Map<string, Promise<void>>();
 
 /**
  * Drops the cached schema lists for a connection, or for a single database of it.
@@ -19,7 +21,12 @@ export const loadingSchemaOptionsByKey = ref<Record<string, boolean>>({});
  */
 export function invalidateSchemaOptionsCache(connectionId: string, database?: string): void {
   const prefix = database === undefined ? `${connectionId}:` : `${connectionId}:${database}:`;
-  for (const key of Object.keys(schemaOptionsByKey.value)) {
-    if (key.startsWith(prefix)) delete schemaOptionsByKey.value[key];
+  const keys = [...new Set([...Object.keys(schemaOptionsByKey.value), ...schemaOptionsRequestsByKey.keys(), ...Object.keys(loadingSchemaOptionsByKey.value)])].filter((key) => key.startsWith(prefix));
+
+  // Revoke every old owner before reactive deletions can start replacement requests.
+  for (const key of keys) schemaOptionsRequestsByKey.delete(key);
+  for (const key of keys) {
+    delete schemaOptionsByKey.value[key];
+    if (!schemaOptionsRequestsByKey.has(key)) delete loadingSchemaOptionsByKey.value[key];
   }
 }
